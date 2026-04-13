@@ -55,6 +55,11 @@ pub mod type_name;
 pub mod prelude {
     pub use crate::code_block::{CodeBlock, CodeBlockBuilder};
     pub use crate::lang::CodeLang;
+    pub use crate::spec::field_spec::FieldSpec;
     pub use crate::spec::file_spec::FileSpec;
+    pub use crate::spec::fun_spec::{FunSpec, TypeParamSpec};
+    pub use crate::spec::modifiers::{DeclarationContext, Modifiers, TypeKind, Visibility};
+    pub use crate::spec::parameter_spec::ParameterSpec;
+    pub use crate::spec::type_spec::TypeSpec;
     pub use crate::type_name::TypeName;
 }

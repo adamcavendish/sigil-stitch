@@ -1,5 +1,6 @@
 use crate::import::{ImportEntry, ImportGroup};
 use crate::lang::CodeLang;
+use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 
 /// Rust language implementation.
 #[derive(Debug, Clone)]
@@ -154,6 +155,60 @@ impl CodeLang for RustLang {
         } else {
             name.to_string()
         }
+    }
+
+    fn render_visibility(&self, vis: Visibility, _ctx: DeclarationContext) -> &str {
+        match vis {
+            Visibility::Inherited => "",
+            Visibility::Public => "pub ",
+            Visibility::PublicCrate => "pub(crate) ",
+            Visibility::PublicSuper => "pub(super) ",
+            // Rust has no private/protected keyword; absence of pub = private.
+            Visibility::Private | Visibility::Protected => "",
+        }
+    }
+
+    fn function_keyword(&self, _ctx: DeclarationContext) -> &str {
+        "fn"
+    }
+
+    fn return_type_separator(&self) -> &str {
+        " -> "
+    }
+
+    fn type_keyword(&self, kind: TypeKind) -> &str {
+        match kind {
+            TypeKind::Struct | TypeKind::Class => "struct",
+            TypeKind::Trait | TypeKind::Interface => "trait",
+            TypeKind::Enum => "enum",
+        }
+    }
+
+    fn field_terminator(&self) -> &str {
+        ","
+    }
+
+    fn methods_inside_type_body(&self, kind: TypeKind) -> bool {
+        match kind {
+            TypeKind::Trait | TypeKind::Interface => true,
+            TypeKind::Struct | TypeKind::Class | TypeKind::Enum => false,
+        }
+    }
+
+    fn generic_constraint_keyword(&self) -> &str {
+        ": "
+    }
+
+    fn generic_constraint_separator(&self) -> &str {
+        " + "
+    }
+
+    fn super_type_keyword(&self) -> &str {
+        ""
+    }
+
+    fn implements_keyword(&self) -> &str {
+        ""
     }
 }
 

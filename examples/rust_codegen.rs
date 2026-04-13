@@ -1,10 +1,15 @@
-//! Generate a Rust file with grouped imports and control flow.
+//! Generate a Rust file using structural specs.
 //!
 //! Run with: `cargo run --example rust_codegen`
 
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::rust_lang::RustLang;
+use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
+use sigil_stitch::spec::fun_spec::FunSpec;
+use sigil_stitch::spec::modifiers::{TypeKind, Visibility};
+use sigil_stitch::spec::parameter_spec::ParameterSpec;
+use sigil_stitch::spec::type_spec::TypeSpec;
 use sigil_stitch::type_name::TypeName;
 
 fn main() {
@@ -13,44 +18,48 @@ fn main() {
     let serialize = TypeName::<RustLang>::importable("serde", "Serialize");
     let deserialize = TypeName::<RustLang>::importable("serde", "Deserialize");
 
-    // Build a struct with derive.
-    let mut s = CodeBlock::<RustLang>::builder();
-    s.add("#[derive(%T, %T)]", (serialize, deserialize));
-    s.add_line();
-    s.add("pub struct Config {", ());
-    s.add_line();
-    s.add("%>", ());
-    s.add_statement("pub name: String", ());
-    s.add_statement("pub values: %T<String, i64>", (hashmap,));
-    s.add("%<", ());
-    s.add("}", ());
-    s.add_line();
-    let struct_block = s.build().unwrap();
+    // Build a struct using TypeSpec.
+    let mut tb = TypeSpec::<RustLang>::builder("Config", TypeKind::Struct);
+    tb.visibility(Visibility::Public);
 
-    // Build a function.
-    let mut f = CodeBlock::<RustLang>::builder();
-    f.add("impl Config {", ());
-    f.add_line();
-    f.add("%>", ());
-    f.add("pub fn new(name: &str) -> Self {", ());
-    f.add_line();
-    f.add("%>", ());
-    f.add_statement("Self { name: name.to_string(), values: HashMap::new() }", ());
-    f.add("%<", ());
-    f.add("}", ());
-    f.add_line();
-    f.add("%<", ());
-    f.add("}", ());
-    f.add_line();
-    let impl_block = f.build().unwrap();
+    // Derive annotation.
+    let derive = CodeBlock::<RustLang>::of(
+        "#[derive(%T, %T)]",
+        (serialize, deserialize),
+    )
+    .unwrap();
+    tb.annotation(derive);
 
-    // Build the file.
+    // Fields.
+    let mut fb1 = FieldSpec::builder("name", TypeName::primitive("String"));
+    fb1.visibility(Visibility::Public);
+    tb.add_field(fb1.build());
+
+    let mut fb2 = FieldSpec::builder(
+        "values",
+        TypeName::generic(hashmap, vec![TypeName::primitive("String"), TypeName::primitive("i64")]),
+    );
+    fb2.visibility(Visibility::Public);
+    tb.add_field(fb2.build());
+
+    // Constructor method.
+    let body = CodeBlock::<RustLang>::of(
+        "Self { name: name.to_string(), values: HashMap::new() }",
+        (),
+    )
+    .unwrap();
+    let mut mfb = FunSpec::<RustLang>::builder("new");
+    mfb.visibility(Visibility::Public);
+    mfb.add_param(ParameterSpec::new("name", TypeName::primitive("&str")));
+    mfb.returns(TypeName::primitive("Self"));
+    mfb.body(body);
+    tb.add_method(mfb.build());
+
+    // Build and render.
     let mut file = FileSpec::builder_with("config.rs", RustLang::new());
-    file.add_code(struct_block);
-    file.add_code(impl_block);
+    file.add_type(tb.build());
     let spec = file.build();
 
-    // Render at 100 columns.
     let output = spec.render(100).unwrap();
     println!("{output}");
 }

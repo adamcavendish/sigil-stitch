@@ -318,6 +318,13 @@ impl<L: CodeLang> IntoArgs<L> for CodeBlock<L> {
     }
 }
 
+/// Pre-built args vector (used by specs that dynamically build format strings).
+impl<L: CodeLang> IntoArgs<L> for Vec<Arg<L>> {
+    fn into_args(self) -> Vec<Arg<L>> {
+        self
+    }
+}
+
 /// A wrapper to explicitly mark a string as a Name arg (for %N).
 pub struct NameArg(pub String);
 

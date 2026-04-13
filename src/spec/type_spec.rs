@@ -1,0 +1,435 @@
+//! Type specification for structs, classes, interfaces, traits, enums.
+
+use crate::code_block::{Arg, CodeBlock, CodeBlockBuilder};
+use crate::lang::CodeLang;
+use crate::spec::field_spec::FieldSpec;
+use crate::spec::fun_spec::{render_type_params, FunSpec, TypeParamSpec};
+use crate::spec::modifiers::{DeclarationContext, Modifiers, TypeKind, Visibility};
+use crate::type_name::TypeName;
+
+/// A type declaration (struct, class, interface, trait, enum).
+#[derive(Debug, Clone)]
+pub struct TypeSpec<L: CodeLang> {
+    pub(crate) name: String,
+    pub(crate) kind: TypeKind,
+    pub(crate) modifiers: Modifiers,
+    pub(crate) doc: Vec<String>,
+    pub(crate) fields: Vec<FieldSpec<L>>,
+    pub(crate) methods: Vec<FunSpec<L>>,
+    pub(crate) type_params: Vec<TypeParamSpec<L>>,
+    pub(crate) super_types: Vec<TypeName<L>>,
+    pub(crate) impl_types: Vec<TypeName<L>>,
+    pub(crate) annotations: Vec<CodeBlock<L>>,
+    pub(crate) extra_members: Vec<CodeBlock<L>>,
+}
+
+impl<L: CodeLang> TypeSpec<L> {
+    pub fn builder(name: &str, kind: TypeKind) -> TypeSpecBuilder<L> {
+        TypeSpecBuilder {
+            name: name.to_string(),
+            kind,
+            modifiers: Modifiers::default(),
+            doc: Vec::new(),
+            fields: Vec::new(),
+            methods: Vec::new(),
+            type_params: Vec::new(),
+            super_types: Vec::new(),
+            impl_types: Vec::new(),
+            annotations: Vec::new(),
+            extra_members: Vec::new(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn kind(&self) -> TypeKind {
+        self.kind
+    }
+
+    /// Emit this type as one or more CodeBlocks.
+    ///
+    /// Returns a `Vec` because Rust struct + impl = two separate blocks,
+    /// while TypeScript class = one block.
+    pub fn emit(&self, lang: &L) -> Vec<CodeBlock<L>> {
+        if lang.methods_inside_type_body(self.kind) {
+            vec![self.emit_inline(lang)]
+        } else {
+            self.emit_split(lang)
+        }
+    }
+
+    /// Emit as a single block with methods inside the body (TypeScript class/interface, Rust trait).
+    fn emit_inline(&self, lang: &L) -> CodeBlock<L> {
+        let mut cb = CodeBlock::<L>::builder();
+
+        self.emit_preamble(&mut cb, lang);
+        self.emit_header(&mut cb, lang);
+
+        // Body.
+        cb.add("%>", ());
+        for (i, field) in self.fields.iter().enumerate() {
+            if i > 0 {
+                // No extra blank line between fields.
+            }
+            cb.add_code(field.emit(lang, DeclarationContext::Member));
+        }
+        if !self.fields.is_empty() && !self.methods.is_empty() {
+            cb.add_line();
+        }
+        for (i, method) in self.methods.iter().enumerate() {
+            if i > 0 {
+                cb.add_line();
+            }
+            cb.add_code(method.emit(lang, DeclarationContext::Member));
+        }
+        for extra in &self.extra_members {
+            cb.add_code(extra.clone());
+        }
+        cb.add("%<", ());
+        cb.add("}", ());
+        cb.add_line();
+
+        cb.build().unwrap()
+    }
+
+    /// Emit as separate struct + impl blocks (Rust struct/enum).
+    fn emit_split(&self, lang: &L) -> Vec<CodeBlock<L>> {
+        let mut blocks = Vec::new();
+
+        // Block 1: struct/enum definition.
+        let mut cb = CodeBlock::<L>::builder();
+        self.emit_preamble(&mut cb, lang);
+        self.emit_header(&mut cb, lang);
+
+        cb.add("%>", ());
+        for field in &self.fields {
+            cb.add_code(field.emit(lang, DeclarationContext::Member));
+        }
+        for extra in &self.extra_members {
+            cb.add_code(extra.clone());
+        }
+        cb.add("%<", ());
+        cb.add("}", ());
+        cb.add_line();
+        blocks.push(cb.build().unwrap());
+
+        // Block 2: impl block (only if methods are non-empty).
+        if !self.methods.is_empty() {
+            let mut impl_cb = CodeBlock::<L>::builder();
+            let mut impl_fmt = String::from("impl");
+            let mut impl_args: Vec<Arg<L>> = Vec::new();
+
+            // Type params on impl.
+            let tp_str = render_type_params(&self.type_params, lang, &mut impl_args);
+            impl_fmt.push_str(&tp_str);
+            impl_fmt.push(' ');
+            impl_fmt.push_str(&self.name);
+            // Repeat bare type param names.
+            if !self.type_params.is_empty() {
+                impl_fmt.push('<');
+                for (i, tp) in self.type_params.iter().enumerate() {
+                    if i > 0 {
+                        impl_fmt.push_str(", ");
+                    }
+                    impl_fmt.push_str(&tp.name);
+                }
+                impl_fmt.push('>');
+            }
+            impl_fmt.push_str(" {");
+            impl_cb.add(&impl_fmt, impl_args);
+            impl_cb.add_line();
+
+            impl_cb.add("%>", ());
+            for (i, method) in self.methods.iter().enumerate() {
+                if i > 0 {
+                    impl_cb.add_line();
+                }
+                impl_cb.add_code(method.emit(lang, DeclarationContext::Member));
+            }
+            impl_cb.add("%<", ());
+            impl_cb.add("}", ());
+            impl_cb.add_line();
+
+            blocks.push(impl_cb.build().unwrap());
+        }
+
+        blocks
+    }
+
+    /// Emit annotations and doc comment.
+    fn emit_preamble(&self, cb: &mut CodeBlockBuilder<L>, lang: &L) {
+        for ann in &self.annotations {
+            cb.add_code(ann.clone());
+            cb.add_line();
+        }
+        if !self.doc.is_empty() {
+            let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
+            let doc_str = lang.render_doc_comment(&doc_lines);
+            cb.add("%L", doc_str);
+            cb.add_line();
+        }
+    }
+
+    /// Emit the type header line: `{vis}{keyword} {name}<params>{extends}{implements} {`.
+    fn emit_header(&self, cb: &mut CodeBlockBuilder<L>, lang: &L) {
+        let vis = lang.render_visibility(self.modifiers.visibility, DeclarationContext::TopLevel);
+        let kw = lang.type_keyword(self.kind);
+
+        let mut fmt = String::new();
+        let mut args: Vec<Arg<L>> = Vec::new();
+
+        fmt.push_str(vis);
+        if self.modifiers.is_abstract {
+            fmt.push_str("abstract ");
+        }
+        fmt.push_str(kw);
+        fmt.push(' ');
+        fmt.push_str(&self.name);
+
+        // Type parameters.
+        let tp_str = render_type_params(&self.type_params, lang, &mut args);
+        fmt.push_str(&tp_str);
+
+        // Super types (extends).
+        if !self.super_types.is_empty() {
+            let super_kw = lang.super_type_keyword();
+            if !super_kw.is_empty() {
+                fmt.push_str(super_kw);
+                for (i, st) in self.super_types.iter().enumerate() {
+                    if i > 0 {
+                        fmt.push_str(", ");
+                    }
+                    fmt.push_str("%T");
+                    args.push(Arg::TypeName(st.clone()));
+                }
+            }
+        }
+
+        // Implements.
+        if !self.impl_types.is_empty() {
+            let impl_kw = lang.implements_keyword();
+            if !impl_kw.is_empty() {
+                fmt.push_str(impl_kw);
+                for (i, it) in self.impl_types.iter().enumerate() {
+                    if i > 0 {
+                        fmt.push_str(", ");
+                    }
+                    fmt.push_str("%T");
+                    args.push(Arg::TypeName(it.clone()));
+                }
+            }
+        }
+
+        fmt.push_str(" {");
+        cb.add(&fmt, args);
+        cb.add_line();
+    }
+}
+
+/// Builder for [`TypeSpec`].
+#[derive(Debug)]
+pub struct TypeSpecBuilder<L: CodeLang> {
+    name: String,
+    kind: TypeKind,
+    modifiers: Modifiers,
+    doc: Vec<String>,
+    fields: Vec<FieldSpec<L>>,
+    methods: Vec<FunSpec<L>>,
+    type_params: Vec<TypeParamSpec<L>>,
+    super_types: Vec<TypeName<L>>,
+    impl_types: Vec<TypeName<L>>,
+    annotations: Vec<CodeBlock<L>>,
+    extra_members: Vec<CodeBlock<L>>,
+}
+
+impl<L: CodeLang> TypeSpecBuilder<L> {
+    pub fn visibility(&mut self, vis: Visibility) -> &mut Self {
+        self.modifiers.visibility = vis;
+        self
+    }
+
+    pub fn is_abstract(&mut self) -> &mut Self {
+        self.modifiers.is_abstract = true;
+        self
+    }
+
+    pub fn doc(&mut self, line: &str) -> &mut Self {
+        self.doc.push(line.to_string());
+        self
+    }
+
+    pub fn add_field(&mut self, field: FieldSpec<L>) -> &mut Self {
+        self.fields.push(field);
+        self
+    }
+
+    pub fn add_method(&mut self, method: FunSpec<L>) -> &mut Self {
+        self.methods.push(method);
+        self
+    }
+
+    pub fn add_type_param(&mut self, tp: TypeParamSpec<L>) -> &mut Self {
+        self.type_params.push(tp);
+        self
+    }
+
+    pub fn extends(&mut self, super_type: TypeName<L>) -> &mut Self {
+        self.super_types.push(super_type);
+        self
+    }
+
+    pub fn implements(&mut self, iface: TypeName<L>) -> &mut Self {
+        self.impl_types.push(iface);
+        self
+    }
+
+    pub fn annotation(&mut self, ann: CodeBlock<L>) -> &mut Self {
+        self.annotations.push(ann);
+        self
+    }
+
+    pub fn extra_member(&mut self, block: CodeBlock<L>) -> &mut Self {
+        self.extra_members.push(block);
+        self
+    }
+
+    pub fn build(self) -> TypeSpec<L> {
+        TypeSpec {
+            name: self.name,
+            kind: self.kind,
+            modifiers: self.modifiers,
+            doc: self.doc,
+            fields: self.fields,
+            methods: self.methods,
+            type_params: self.type_params,
+            super_types: self.super_types,
+            impl_types: self.impl_types,
+            annotations: self.annotations,
+            extra_members: self.extra_members,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lang::rust_lang::RustLang;
+    use crate::lang::typescript::TypeScript;
+    use crate::spec::parameter_spec::ParameterSpec;
+
+    fn render_blocks_ts(blocks: &[CodeBlock<TypeScript>]) -> String {
+        let lang = TypeScript::new();
+        let imports = crate::import::ImportGroup::new();
+        let mut output = String::new();
+        for (i, block) in blocks.iter().enumerate() {
+            if i > 0 {
+                output.push('\n');
+            }
+            let mut renderer = crate::code_renderer::CodeRenderer::new(&lang, &imports, 80);
+            output.push_str(&renderer.render(block));
+        }
+        output
+    }
+
+    fn render_blocks_rs(blocks: &[CodeBlock<RustLang>]) -> String {
+        let lang = RustLang::new();
+        let imports = crate::import::ImportGroup::new();
+        let mut output = String::new();
+        for (i, block) in blocks.iter().enumerate() {
+            if i > 0 {
+                output.push('\n');
+            }
+            let mut renderer = crate::code_renderer::CodeRenderer::new(&lang, &imports, 80);
+            output.push_str(&renderer.render(block));
+        }
+        output
+    }
+
+    #[test]
+    fn test_ts_class() {
+        let mut tb = TypeSpec::<TypeScript>::builder("UserService", TypeKind::Class);
+        tb.visibility(Visibility::Public);
+        let mut field_b = FieldSpec::builder("name", TypeName::primitive("string"));
+        field_b.visibility(Visibility::Private);
+        tb.add_field(field_b.build());
+        let body = CodeBlock::<TypeScript>::of("return this.name", ()).unwrap();
+        let mut fb = FunSpec::builder("getName");
+        fb.returns(TypeName::primitive("string"));
+        fb.body(body);
+        tb.add_method(fb.build());
+        let ts = tb.build();
+
+        let blocks = ts.emit(&TypeScript::new());
+        let output = render_blocks_ts(&blocks);
+        assert!(output.contains("export class UserService {"));
+        assert!(output.contains("private name: string;"));
+        assert!(output.contains("getName(): string {"));
+        assert!(output.contains("return this.name"));
+    }
+
+    #[test]
+    fn test_ts_interface() {
+        let mut tb = TypeSpec::<TypeScript>::builder("Repository", TypeKind::Interface);
+        tb.visibility(Visibility::Public);
+        tb.add_method({
+            let mut fb = FunSpec::builder("findById");
+            fb.add_param(ParameterSpec::new("id", TypeName::primitive("string")));
+            fb.returns(TypeName::generic(
+                TypeName::primitive("Promise"),
+                vec![TypeName::primitive("Entity")],
+            ));
+            fb.build()
+        });
+        let ts = tb.build();
+
+        let blocks = ts.emit(&TypeScript::new());
+        let output = render_blocks_ts(&blocks);
+        assert!(output.contains("export interface Repository {"));
+        assert!(output.contains("findById(id: string): Promise<Entity>;"));
+    }
+
+    #[test]
+    fn test_rust_struct_with_impl() {
+        let mut tb = TypeSpec::<RustLang>::builder("Config", TypeKind::Struct);
+        tb.visibility(Visibility::Public);
+        tb.add_field({
+            let mut fb = FieldSpec::builder("name", TypeName::primitive("String"));
+            fb.visibility(Visibility::Public);
+            fb.build()
+        });
+        let body = CodeBlock::<RustLang>::of(
+            "Self { name: name.to_string() }",
+            (),
+        ).unwrap();
+        let mut fb = FunSpec::<RustLang>::builder("new");
+        fb.visibility(Visibility::Public);
+        fb.add_param(ParameterSpec::new("name", TypeName::primitive("&str")));
+        fb.returns(TypeName::primitive("Self"));
+        fb.body(body);
+        tb.add_method(fb.build());
+        let ts = tb.build();
+
+        let blocks = ts.emit(&RustLang::new());
+        let output = render_blocks_rs(&blocks);
+        // Should have separate struct and impl blocks.
+        assert!(output.contains("pub struct Config {"));
+        assert!(output.contains("pub name: String,"));
+        assert!(output.contains("impl Config {"));
+        assert!(output.contains("pub fn new(name: &str) -> Self {"));
+    }
+
+    #[test]
+    fn test_ts_class_extends_implements() {
+        let mut tb = TypeSpec::<TypeScript>::builder("AdminService", TypeKind::Class);
+        tb.visibility(Visibility::Public);
+        tb.extends(TypeName::primitive("BaseService"));
+        tb.implements(TypeName::primitive("Serializable"));
+        let ts = tb.build();
+
+        let blocks = ts.emit(&TypeScript::new());
+        let output = render_blocks_ts(&blocks);
+        assert!(output.contains("export class AdminService extends BaseService implements Serializable {"));
+    }
+}

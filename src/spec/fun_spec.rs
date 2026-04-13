@@ -1,0 +1,378 @@
+//! Function/method specification.
+
+use crate::code_block::{Arg, CodeBlock};
+use crate::lang::CodeLang;
+use crate::spec::modifiers::{DeclarationContext, Modifiers, Visibility};
+use crate::spec::parameter_spec::ParameterSpec;
+use crate::type_name::TypeName;
+
+/// A generic type parameter with optional bounds.
+#[derive(Debug, Clone)]
+pub struct TypeParamSpec<L: CodeLang> {
+    pub(crate) name: String,
+    pub(crate) bounds: Vec<TypeName<L>>,
+}
+
+impl<L: CodeLang> TypeParamSpec<L> {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            bounds: Vec::new(),
+        }
+    }
+
+    pub fn with_bound(mut self, bound: TypeName<L>) -> Self {
+        self.bounds.push(bound);
+        self
+    }
+}
+
+/// Render type parameters into `<T: Bound, U>` form, appending to a format string and args vec.
+/// Returns the format string fragment (empty string if no type params).
+pub fn render_type_params<L: CodeLang>(
+    params: &[TypeParamSpec<L>],
+    lang: &L,
+    args: &mut Vec<Arg<L>>,
+) -> String {
+    if params.is_empty() {
+        return String::new();
+    }
+
+    let constraint_kw = lang.generic_constraint_keyword();
+    let constraint_sep = lang.generic_constraint_separator();
+
+    let mut fmt = String::from("<");
+    for (i, tp) in params.iter().enumerate() {
+        if i > 0 {
+            fmt.push_str(", ");
+        }
+        fmt.push_str(&tp.name);
+        if !tp.bounds.is_empty() {
+            fmt.push_str(constraint_kw);
+            for (j, bound) in tp.bounds.iter().enumerate() {
+                if j > 0 {
+                    fmt.push_str(constraint_sep);
+                }
+                fmt.push_str("%T");
+                args.push(Arg::TypeName(bound.clone()));
+            }
+        }
+    }
+    fmt.push('>');
+    fmt
+}
+
+/// A function or method specification.
+#[derive(Debug, Clone)]
+pub struct FunSpec<L: CodeLang> {
+    pub(crate) name: String,
+    pub(crate) params: Vec<ParameterSpec<L>>,
+    pub(crate) return_type: Option<TypeName<L>>,
+    pub(crate) body: Option<CodeBlock<L>>,
+    pub(crate) modifiers: Modifiers,
+    pub(crate) doc: Vec<String>,
+    pub(crate) type_params: Vec<TypeParamSpec<L>>,
+    pub(crate) annotations: Vec<CodeBlock<L>>,
+    /// Receiver parameter (e.g., Go: `func (s *Server) Handle()`). Reserved for future use.
+    #[allow(dead_code)]
+    pub(crate) receiver: Option<ParameterSpec<L>>,
+}
+
+impl<L: CodeLang> FunSpec<L> {
+    pub fn builder(name: &str) -> FunSpecBuilder<L> {
+        FunSpecBuilder {
+            name: name.to_string(),
+            params: Vec::new(),
+            return_type: None,
+            body: None,
+            modifiers: Modifiers::default(),
+            doc: Vec::new(),
+            type_params: Vec::new(),
+            annotations: Vec::new(),
+            receiver: None,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Emit this function as a CodeBlock.
+    pub fn emit(&self, lang: &L, ctx: DeclarationContext) -> CodeBlock<L> {
+        let mut cb = CodeBlock::<L>::builder();
+
+        // Annotations.
+        for ann in &self.annotations {
+            cb.add_code(ann.clone());
+            cb.add_line();
+        }
+
+        // Doc comment.
+        if !self.doc.is_empty() {
+            let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
+            let doc_str = lang.render_doc_comment(&doc_lines);
+            cb.add("%L", doc_str);
+            cb.add_line();
+        }
+
+        // Build signature.
+        let vis = lang.render_visibility(self.modifiers.visibility, ctx);
+        let fn_kw = lang.function_keyword(ctx);
+
+        let mut sig = String::new();
+        let mut sig_args: Vec<Arg<L>> = Vec::new();
+
+        sig.push_str(vis);
+        if self.modifiers.is_abstract {
+            sig.push_str("abstract ");
+        }
+        if self.modifiers.is_static {
+            sig.push_str("static ");
+        }
+        if self.modifiers.is_override {
+            sig.push_str("override ");
+        }
+        if self.modifiers.is_async {
+            sig.push_str(lang.async_keyword());
+        }
+        if !fn_kw.is_empty() {
+            sig.push_str(fn_kw);
+            sig.push(' ');
+        }
+        sig.push_str(&self.name);
+
+        // Type parameters.
+        let tp_str = render_type_params(&self.type_params, lang, &mut sig_args);
+        sig.push_str(&tp_str);
+
+        // Parameters — build as a sub-block for %W support.
+        sig.push('(');
+        sig.push_str("%L");
+        let params_block = self.build_params_block(lang);
+        sig_args.push(Arg::Code(params_block));
+        sig.push(')');
+
+        // Return type.
+        if let Some(ret) = &self.return_type {
+            sig.push_str(lang.return_type_separator());
+            sig.push_str("%T");
+            sig_args.push(Arg::TypeName(ret.clone()));
+        }
+
+        // Body or abstract.
+        if let Some(body) = &self.body {
+            sig.push_str(" {");
+            cb.add(&sig, sig_args);
+            cb.add_line();
+            cb.add("%>", ());
+            cb.add_code(body.clone());
+            cb.add_line();
+            cb.add("%<", ());
+            cb.add("}", ());
+            cb.add_line();
+        } else {
+            if lang.uses_semicolons() {
+                sig.push(';');
+            }
+            cb.add(&sig, sig_args);
+            cb.add_line();
+        }
+
+        cb.build().unwrap()
+    }
+
+    fn build_params_block(&self, lang: &L) -> CodeBlock<L> {
+        let mut pb = CodeBlock::<L>::builder();
+        for (i, param) in self.params.iter().enumerate() {
+            if i > 0 {
+                pb.add(",%W", ());
+            }
+            param.emit_into(&mut pb, lang);
+        }
+        pb.build().unwrap()
+    }
+}
+
+/// Builder for [`FunSpec`].
+#[derive(Debug)]
+pub struct FunSpecBuilder<L: CodeLang> {
+    name: String,
+    params: Vec<ParameterSpec<L>>,
+    return_type: Option<TypeName<L>>,
+    body: Option<CodeBlock<L>>,
+    modifiers: Modifiers,
+    doc: Vec<String>,
+    type_params: Vec<TypeParamSpec<L>>,
+    annotations: Vec<CodeBlock<L>>,
+    receiver: Option<ParameterSpec<L>>,
+}
+
+impl<L: CodeLang> FunSpecBuilder<L> {
+    pub fn add_param(&mut self, param: ParameterSpec<L>) -> &mut Self {
+        self.params.push(param);
+        self
+    }
+
+    pub fn returns(&mut self, ret: TypeName<L>) -> &mut Self {
+        self.return_type = Some(ret);
+        self
+    }
+
+    pub fn body(&mut self, body: CodeBlock<L>) -> &mut Self {
+        self.body = Some(body);
+        self
+    }
+
+    pub fn visibility(&mut self, vis: Visibility) -> &mut Self {
+        self.modifiers.visibility = vis;
+        self
+    }
+
+    pub fn is_async(&mut self) -> &mut Self {
+        self.modifiers.is_async = true;
+        self
+    }
+
+    pub fn is_static(&mut self) -> &mut Self {
+        self.modifiers.is_static = true;
+        self
+    }
+
+    pub fn is_abstract(&mut self) -> &mut Self {
+        self.modifiers.is_abstract = true;
+        self
+    }
+
+    pub fn is_override(&mut self) -> &mut Self {
+        self.modifiers.is_override = true;
+        self
+    }
+
+    pub fn doc(&mut self, line: &str) -> &mut Self {
+        self.doc.push(line.to_string());
+        self
+    }
+
+    pub fn add_type_param(&mut self, tp: TypeParamSpec<L>) -> &mut Self {
+        self.type_params.push(tp);
+        self
+    }
+
+    pub fn annotation(&mut self, ann: CodeBlock<L>) -> &mut Self {
+        self.annotations.push(ann);
+        self
+    }
+
+    pub fn receiver(&mut self, recv: ParameterSpec<L>) -> &mut Self {
+        self.receiver = Some(recv);
+        self
+    }
+
+    pub fn build(self) -> FunSpec<L> {
+        FunSpec {
+            name: self.name,
+            params: self.params,
+            return_type: self.return_type,
+            body: self.body,
+            modifiers: self.modifiers,
+            doc: self.doc,
+            type_params: self.type_params,
+            annotations: self.annotations,
+            receiver: self.receiver,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lang::rust_lang::RustLang;
+    use crate::lang::typescript::TypeScript;
+
+    fn emit_fun_ts(spec: &FunSpec<TypeScript>, ctx: DeclarationContext) -> String {
+        let lang = TypeScript::new();
+        let block = spec.emit(&lang, ctx);
+        let imports = crate::import::ImportGroup::new();
+        let mut renderer = crate::code_renderer::CodeRenderer::new(&lang, &imports, 80);
+        renderer.render(&block)
+    }
+
+    fn emit_fun_rs(spec: &FunSpec<RustLang>, ctx: DeclarationContext) -> String {
+        let lang = RustLang::new();
+        let block = spec.emit(&lang, ctx);
+        let imports = crate::import::ImportGroup::new();
+        let mut renderer = crate::code_renderer::CodeRenderer::new(&lang, &imports, 80);
+        renderer.render(&block)
+    }
+
+    #[test]
+    fn test_ts_simple_function() {
+        let mut fb = FunSpec::<TypeScript>::builder("greet");
+        fb.add_param(ParameterSpec::new("name", TypeName::primitive("string")));
+        fb.returns(TypeName::primitive("void"));
+        let body = CodeBlock::<TypeScript>::of("console.log(name)", ()).unwrap();
+        fb.body(body);
+        let fun = fb.build();
+        let output = emit_fun_ts(&fun, DeclarationContext::TopLevel);
+        assert!(output.contains("function greet(name: string): void {"));
+        assert!(output.contains("console.log(name)"));
+        assert!(output.contains("}"));
+    }
+
+    #[test]
+    fn test_ts_async_method() {
+        let mut fb = FunSpec::<TypeScript>::builder("getUser");
+        fb.add_param(ParameterSpec::new("id", TypeName::primitive("string")));
+        fb.returns(TypeName::generic(
+            TypeName::primitive("Promise"),
+            vec![TypeName::primitive("User")],
+        ));
+        fb.is_async();
+        fb.visibility(Visibility::Public);
+        let body = CodeBlock::<TypeScript>::of("return db.find(id)", ()).unwrap();
+        fb.body(body);
+        let fun = fb.build();
+        let output = emit_fun_ts(&fun, DeclarationContext::Member);
+        assert!(output.contains("public async getUser(id: string): Promise<User> {"));
+    }
+
+    #[test]
+    fn test_ts_abstract_method() {
+        let mut fb = FunSpec::<TypeScript>::builder("validate");
+        fb.is_abstract();
+        fb.returns(TypeName::primitive("boolean"));
+        let fun = fb.build();
+        let output = emit_fun_ts(&fun, DeclarationContext::Member);
+        assert!(output.contains("abstract validate(): boolean;"));
+    }
+
+    #[test]
+    fn test_rust_simple_function() {
+        let mut fb = FunSpec::<RustLang>::builder("add");
+        fb.visibility(Visibility::Public);
+        fb.add_param(ParameterSpec::new("a", TypeName::primitive("i32")));
+        fb.add_param(ParameterSpec::new("b", TypeName::primitive("i32")));
+        fb.returns(TypeName::primitive("i32"));
+        let body = CodeBlock::<RustLang>::of("a + b", ()).unwrap();
+        fb.body(body);
+        let fun = fb.build();
+        let output = emit_fun_rs(&fun, DeclarationContext::TopLevel);
+        assert!(output.contains("pub fn add(a: i32, b: i32) -> i32 {"));
+        assert!(output.contains("a + b"));
+    }
+
+    #[test]
+    fn test_fun_with_type_params() {
+        let tp = TypeParamSpec::<TypeScript>::new("T")
+            .with_bound(TypeName::primitive("Serializable"));
+        let mut fb = FunSpec::<TypeScript>::builder("serialize");
+        fb.add_type_param(tp);
+        fb.add_param(ParameterSpec::new("value", TypeName::primitive("T")));
+        fb.returns(TypeName::primitive("string"));
+        let body = CodeBlock::<TypeScript>::of("return JSON.stringify(value)", ()).unwrap();
+        fb.body(body);
+        let fun = fb.build();
+        let output = emit_fun_ts(&fun, DeclarationContext::TopLevel);
+        assert!(output.contains("function serialize<T extends Serializable>(value: T): string {"));
+    }
+}

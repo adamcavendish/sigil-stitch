@@ -13,7 +13,7 @@ use crate::import::ImportGroup;
 /// render_string_literal) take `&self`. Methods that are truly invariant
 /// per language (file_extension, reserved_words) also take `&self` for
 /// consistency and future flexibility.
-pub trait CodeLang: Sized + 'static {
+pub trait CodeLang: Sized + Clone + 'static {
     /// File extension for this language (e.g., "ts", "go", "rs").
     fn file_extension(&self) -> &str;
 
@@ -47,5 +47,52 @@ pub trait CodeLang: Sized + 'static {
         } else {
             name.to_string()
         }
+    }
+
+    // --- Phase 2: structural spec support ---
+
+    /// Render a visibility modifier for the given declaration context.
+    fn render_visibility(
+        &self,
+        vis: crate::spec::modifiers::Visibility,
+        ctx: crate::spec::modifiers::DeclarationContext,
+    ) -> &str;
+
+    /// The keyword used to declare a function (e.g., "fn", "function").
+    fn function_keyword(&self, ctx: crate::spec::modifiers::DeclarationContext) -> &str;
+
+    /// Separator between a function and its return type (e.g., " -> ", ": ").
+    fn return_type_separator(&self) -> &str;
+
+    /// The keyword for a type declaration (e.g., "struct", "class").
+    fn type_keyword(&self, kind: crate::spec::modifiers::TypeKind) -> &str;
+
+    /// Terminator after a field declaration (e.g., "," for Rust, ";" for TS).
+    fn field_terminator(&self) -> &str;
+
+    /// Whether methods are declared inside the type body (true for TS class, Rust trait)
+    /// vs in a separate impl block (Rust struct/enum).
+    fn methods_inside_type_body(&self, kind: crate::spec::modifiers::TypeKind) -> bool;
+
+    /// Keyword introducing a generic constraint (e.g., ": " for Rust, " extends " for TS).
+    fn generic_constraint_keyword(&self) -> &str;
+
+    /// Separator between multiple generic bounds (e.g., " + " for Rust, " & " for TS).
+    fn generic_constraint_separator(&self) -> &str;
+
+    /// Keyword for super type / base class (e.g., "" for Rust, " extends " for TS).
+    fn super_type_keyword(&self) -> &str;
+
+    /// Keyword for interface implementation (e.g., "" for Rust, " implements " for TS).
+    fn implements_keyword(&self) -> &str;
+
+    /// Separator between name and type annotation (e.g., ": ").
+    fn type_annotation_separator(&self) -> &str {
+        ": "
+    }
+
+    /// The async keyword with trailing space (e.g., "async ").
+    fn async_keyword(&self) -> &str {
+        "async "
     }
 }

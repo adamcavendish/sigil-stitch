@@ -1,5 +1,6 @@
 use crate::import::{ImportEntry, ImportGroup};
 use crate::lang::CodeLang;
+use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 
 /// TypeScript language implementation.
 #[derive(Debug, Clone)]
@@ -142,6 +143,64 @@ impl CodeLang for TypeScript {
 
     fn uses_semicolons(&self) -> bool {
         true
+    }
+
+    fn render_visibility(&self, vis: Visibility, ctx: DeclarationContext) -> &str {
+        match ctx {
+            DeclarationContext::TopLevel => match vis {
+                Visibility::Public => "export ",
+                _ => "",
+            },
+            DeclarationContext::Member => match vis {
+                Visibility::Public => "public ",
+                Visibility::Private => "private ",
+                Visibility::Protected => "protected ",
+                _ => "",
+            },
+        }
+    }
+
+    fn function_keyword(&self, ctx: DeclarationContext) -> &str {
+        match ctx {
+            DeclarationContext::TopLevel => "function",
+            DeclarationContext::Member => "",
+        }
+    }
+
+    fn return_type_separator(&self) -> &str {
+        ": "
+    }
+
+    fn type_keyword(&self, kind: TypeKind) -> &str {
+        match kind {
+            TypeKind::Class | TypeKind::Struct => "class",
+            TypeKind::Interface | TypeKind::Trait => "interface",
+            TypeKind::Enum => "enum",
+        }
+    }
+
+    fn field_terminator(&self) -> &str {
+        ";"
+    }
+
+    fn methods_inside_type_body(&self, _kind: TypeKind) -> bool {
+        true
+    }
+
+    fn generic_constraint_keyword(&self) -> &str {
+        " extends "
+    }
+
+    fn generic_constraint_separator(&self) -> &str {
+        " & "
+    }
+
+    fn super_type_keyword(&self) -> &str {
+        " extends "
+    }
+
+    fn implements_keyword(&self) -> &str {
+        " implements "
     }
 }
 

@@ -3,6 +3,9 @@ use crate::code_renderer::CodeRenderer;
 use crate::import::ImportGroup;
 use crate::import_collector;
 use crate::lang::CodeLang;
+use crate::spec::fun_spec::FunSpec;
+use crate::spec::modifiers::DeclarationContext;
+use crate::spec::type_spec::TypeSpec;
 
 /// A member of a file.
 #[derive(Debug, Clone)]
@@ -11,6 +14,10 @@ pub enum FileMember<L: CodeLang> {
     Code(CodeBlock<L>),
     /// Raw content string (escape hatch, no import tracking).
     RawContent(String),
+    /// A type declaration (struct, class, interface, trait, enum).
+    Type(TypeSpec<L>),
+    /// A top-level function.
+    Fun(FunSpec<L>),
 }
 
 /// A complete source file with automatic import management.
@@ -60,6 +67,25 @@ impl<L: CodeLang> FileSpec<L> {
     ///
     /// `width` controls the target line width for pretty-printing.
     pub fn render(&self, width: usize) -> Result<String, String> {
+        // Phase 0: Materialize specs into CodeBlocks.
+        enum Materialized<L: CodeLang> {
+            Blocks(Vec<CodeBlock<L>>),
+            Raw(String),
+        }
+
+        let materialized: Vec<Materialized<L>> = self
+            .members
+            .iter()
+            .map(|m| match m {
+                FileMember::Code(b) => Materialized::Blocks(vec![b.clone()]),
+                FileMember::RawContent(s) => Materialized::Raw(s.clone()),
+                FileMember::Type(spec) => Materialized::Blocks(spec.emit(&self.lang)),
+                FileMember::Fun(spec) => {
+                    Materialized::Blocks(vec![spec.emit(&self.lang, DeclarationContext::TopLevel)])
+                }
+            })
+            .collect();
+
         // Pass 1: Collect imports from all CodeBlock members.
         let mut import_refs = Vec::new();
 
@@ -67,9 +93,11 @@ impl<L: CodeLang> FileSpec<L> {
             import_refs.extend(import_collector::collect_imports(header));
         }
 
-        for member in &self.members {
-            if let FileMember::Code(block) = member {
-                import_refs.extend(import_collector::collect_imports(block));
+        for mat in &materialized {
+            if let Materialized::Blocks(blocks) = mat {
+                for block in blocks {
+                    import_refs.extend(import_collector::collect_imports(block));
+                }
             }
         }
 
@@ -99,21 +127,26 @@ impl<L: CodeLang> FileSpec<L> {
             }
         }
 
-        // Render members.
-        for (i, member) in self.members.iter().enumerate() {
+        // Render materialized members.
+        for (i, mat) in materialized.iter().enumerate() {
             if i > 0 {
                 output.push('\n');
             }
-            match member {
-                FileMember::Code(block) => {
-                    let mut renderer = CodeRenderer::new(&self.lang, &imports, width);
-                    let member_output = renderer.render(block);
-                    output.push_str(&member_output);
-                    if !member_output.ends_with('\n') {
-                        output.push('\n');
+            match mat {
+                Materialized::Blocks(blocks) => {
+                    for (j, block) in blocks.iter().enumerate() {
+                        if j > 0 {
+                            output.push('\n');
+                        }
+                        let mut renderer = CodeRenderer::new(&self.lang, &imports, width);
+                        let member_output = renderer.render(block);
+                        output.push_str(&member_output);
+                        if !member_output.ends_with('\n') {
+                            output.push('\n');
+                        }
                     }
                 }
-                FileMember::RawContent(content) => {
+                Materialized::Raw(content) => {
                     output.push_str(content);
                     if !content.ends_with('\n') {
                         output.push('\n');
@@ -157,6 +190,18 @@ impl<L: CodeLang> FileSpecBuilder<L> {
     /// Add a generic member.
     pub fn add_member(&mut self, member: FileMember<L>) -> &mut Self {
         self.members.push(member);
+        self
+    }
+
+    /// Add a type declaration (struct, class, interface, trait, enum).
+    pub fn add_type(&mut self, spec: TypeSpec<L>) -> &mut Self {
+        self.members.push(FileMember::Type(spec));
+        self
+    }
+
+    /// Add a top-level function.
+    pub fn add_function(&mut self, spec: FunSpec<L>) -> &mut Self {
+        self.members.push(FileMember::Fun(spec));
         self
     }
 
