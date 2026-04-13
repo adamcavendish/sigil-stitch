@@ -1,0 +1,9 @@
+[package]
+name = "sigil-stitch"
+version = "0.1.0"
+edition = "2024"
+description = "Type-safe, import-aware, width-aware code generation for multiple languages"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+pretty = "0.12"

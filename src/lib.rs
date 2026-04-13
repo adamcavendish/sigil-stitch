@@ -1,0 +1,60 @@
+//! # Sigil-Stitch
+//!
+//! Type-safe, import-aware, width-aware code generation for multiple languages.
+//!
+//! Sigil-Stitch combines JavaPoet's builder + CodeBlock model with Wadler-Lindig
+//! pretty printing and multi-language support. Reference types with `%T` in format
+//! strings, and the library tracks every import for you, resolves naming conflicts,
+//! and emits width-aware formatted output.
+//!
+//! ## Format Specifiers
+//!
+//! | Specifier | Name | Argument Type | Purpose |
+//! |-----------|------|---------------|---------|
+//! | `%T` | Type | `TypeName<L>` | Emit type reference, track import |
+//! | `%N` | Name | `&str` or `Nameable` | Emit identifier name |
+//! | `%S` | String | `&str` | Emit escaped string literal |
+//! | `%L` | Literal | `&str`, number, `CodeBlock<L>` | Emit raw value or nested block |
+//! | `%W` | Wrap | (none) | Soft line break point |
+//! | `%>` | Indent | (none) | Increase indent level |
+//! | `%<` | Dedent | (none) | Decrease indent level |
+//! | `%[` | Statement begin | (none) | Start of statement |
+//! | `%]` | Statement end | (none) | End of statement (appends `;` if needed) |
+//!
+//! ## Quick Example
+//!
+//! ```rust
+//! use sigil_stitch::prelude::*;
+//! use sigil_stitch::lang::typescript::TypeScript;
+//!
+//! let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+//!
+//! let mut cb = CodeBlock::<TypeScript>::builder();
+//! cb.add_statement("const user = await getUser(%S)", ("id",));
+//! cb.add_statement("return user as %T", (user_type.clone(),));
+//! let body = cb.build().unwrap();
+//!
+//! let mut fb = FileSpec::<TypeScript>::builder("user.ts");
+//! fb.add_code(body);
+//! let file = fb.build();
+//!
+//! let output = file.render(80).unwrap();
+//! assert!(output.contains("import type { User } from './models'"));
+//! ```
+
+pub mod code_block;
+pub mod code_renderer;
+pub mod import;
+pub mod import_collector;
+pub mod lang;
+pub mod name_allocator;
+pub mod spec;
+pub mod type_name;
+
+/// Common re-exports for convenient usage.
+pub mod prelude {
+    pub use crate::code_block::{CodeBlock, CodeBlockBuilder};
+    pub use crate::lang::CodeLang;
+    pub use crate::spec::file_spec::FileSpec;
+    pub use crate::type_name::TypeName;
+}
