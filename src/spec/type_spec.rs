@@ -3,7 +3,7 @@
 use crate::code_block::{Arg, CodeBlock, CodeBlockBuilder};
 use crate::lang::CodeLang;
 use crate::spec::field_spec::FieldSpec;
-use crate::spec::fun_spec::{render_type_params, FunSpec, TypeParamSpec};
+use crate::spec::fun_spec::{FunSpec, TypeParamSpec, render_type_params};
 use crate::spec::modifiers::{DeclarationContext, Modifiers, TypeKind, Visibility};
 use crate::type_name::TypeName;
 
@@ -97,7 +97,8 @@ impl<L: CodeLang> TypeSpec<L> {
         cb.add("%<", ());
         let close = lang.block_close();
         if !close.is_empty() {
-            cb.add(close, ());
+            let term = lang.type_close_terminator();
+            cb.add(&format!("{close}{term}"), ());
             cb.add_line();
         }
 
@@ -123,7 +124,8 @@ impl<L: CodeLang> TypeSpec<L> {
         cb.add("%<", ());
         let close = lang.block_close();
         if !close.is_empty() {
-            cb.add(close, ());
+            let term = lang.type_close_terminator();
+            cb.add(&format!("{close}{term}"), ());
             cb.add_line();
         }
         blocks.push(cb.build().unwrap());
@@ -430,10 +432,7 @@ mod tests {
             fb.visibility(Visibility::Public);
             fb.build()
         });
-        let body = CodeBlock::<RustLang>::of(
-            "Self { name: name.to_string() }",
-            (),
-        ).unwrap();
+        let body = CodeBlock::<RustLang>::of("Self { name: name.to_string() }", ()).unwrap();
         let mut fb = FunSpec::<RustLang>::builder("new");
         fb.visibility(Visibility::Public);
         fb.add_param(ParameterSpec::new("name", TypeName::primitive("&str")));
@@ -461,6 +460,10 @@ mod tests {
 
         let blocks = ts.emit(&TypeScript::new());
         let output = render_blocks_ts(&blocks);
-        assert!(output.contains("export class AdminService extends BaseService implements Serializable {"));
+        assert!(
+            output.contains(
+                "export class AdminService extends BaseService implements Serializable {"
+            )
+        );
     }
 }

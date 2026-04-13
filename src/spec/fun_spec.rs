@@ -135,6 +135,16 @@ impl<L: CodeLang> FunSpec<L> {
         if self.modifiers.is_async {
             sig.push_str(lang.async_keyword());
         }
+
+        // Return type as prefix (C-style: `int add(...)`).
+        if lang.return_type_is_prefix()
+            && let Some(ret) = &self.return_type
+        {
+            sig.push_str("%T");
+            sig_args.push(Arg::TypeName(ret.clone()));
+            sig.push(' ');
+        }
+
         if !fn_kw.is_empty() {
             sig.push_str(fn_kw);
             sig.push(' ');
@@ -163,8 +173,10 @@ impl<L: CodeLang> FunSpec<L> {
         sig_args.push(Arg::Code(params_block));
         sig.push(')');
 
-        // Return type.
-        if let Some(ret) = &self.return_type {
+        // Return type as suffix (TS/Rust/Go-style: `fn add(...) -> int`).
+        if !lang.return_type_is_prefix()
+            && let Some(ret) = &self.return_type
+        {
             sig.push_str(lang.return_type_separator());
             sig.push_str("%T");
             sig_args.push(Arg::TypeName(ret.clone()));
@@ -407,8 +419,8 @@ mod tests {
 
     #[test]
     fn test_fun_with_type_params() {
-        let tp = TypeParamSpec::<TypeScript>::new("T")
-            .with_bound(TypeName::primitive("Serializable"));
+        let tp =
+            TypeParamSpec::<TypeScript>::new("T").with_bound(TypeName::primitive("Serializable"));
         let mut fb = FunSpec::<TypeScript>::builder("serialize");
         fb.add_type_param(tp);
         fb.add_param(ParameterSpec::new("value", TypeName::primitive("T")));

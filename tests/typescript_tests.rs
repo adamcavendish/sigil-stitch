@@ -55,7 +55,8 @@ fn test_conflicting_imports() {
 fn test_long_params() {
     let config_type = TypeName::<TypeScript>::importable_type("./config", "Configuration");
     let request_type = TypeName::<TypeScript>::importable_type("./http", "RequestInit");
-    let override_type = TypeName::<TypeScript>::importable_type("./runtime", "InitOverrideFunction");
+    let override_type =
+        TypeName::<TypeScript>::importable_type("./runtime", "InitOverrideFunction");
 
     let mut b = CodeBlock::<TypeScript>::builder();
     b.add("export async function createUser(%Wname: string,%Wage: number,%Wconfig: %T,%Wrequest: %T,%Woverride: %T%W): Promise<void> {", (config_type, request_type, override_type));

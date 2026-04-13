@@ -118,7 +118,15 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
 
         let expected_args = parsed
             .iter()
-            .filter(|p| matches!(p, FormatPart::Type | FormatPart::Name | FormatPart::StringLit | FormatPart::Literal_))
+            .filter(|p| {
+                matches!(
+                    p,
+                    FormatPart::Type
+                        | FormatPart::Name
+                        | FormatPart::StringLit
+                        | FormatPart::Literal_
+                )
+            })
             .count();
 
         assert_eq!(

@@ -125,10 +125,7 @@ pub fn validate_module_path(path: &str) -> Result<(), String> {
     for ch in path.chars() {
         match ch {
             '\n' | '\r' | '\'' | '"' | '`' | ';' | '{' | '}' | '(' | ')' => {
-                return Err(format!(
-                    "Module path contains invalid character: {:?}",
-                    ch
-                ));
+                return Err(format!("Module path contains invalid character: {:?}", ch));
             }
             _ => {}
         }

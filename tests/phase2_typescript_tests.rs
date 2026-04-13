@@ -125,8 +125,7 @@ fn test_ts_class_extends_implements() {
 
 #[test]
 fn test_ts_top_level_function() {
-    let tp = TypeParamSpec::<TypeScript>::new("T")
-        .with_bound(TypeName::primitive("Serializable"));
+    let tp = TypeParamSpec::<TypeScript>::new("T").with_bound(TypeName::primitive("Serializable"));
 
     let mut fb = FunSpec::<TypeScript>::builder("serialize");
     fb.visibility(Visibility::Public);

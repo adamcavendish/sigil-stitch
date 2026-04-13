@@ -57,8 +57,14 @@ fn test_import_grouping() {
     let user = TypeName::<RustLang>::importable("crate::models", "User");
 
     let mut b = CodeBlock::<RustLang>::builder();
-    b.add_statement("let _h: %T<String, String> = Default::default()", (hashmap,));
-    b.add_statement("let _b: %T<String, String> = Default::default()", (btreemap,));
+    b.add_statement(
+        "let _h: %T<String, String> = Default::default()",
+        (hashmap,),
+    );
+    b.add_statement(
+        "let _b: %T<String, String> = Default::default()",
+        (btreemap,),
+    );
     b.add_statement("let _a: %T<String> = Arc::new(\"x\".into())", (arc,));
     b.add_statement("let _s: %T = todo!()", (serialize,));
     b.add_statement("let _d: %T = todo!()", (deserialize,));

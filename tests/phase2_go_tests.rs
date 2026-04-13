@@ -52,13 +52,19 @@ fn test_go_struct_with_methods() {
 
     // Method 1: Start.
     let mut m1 = FunSpec::<GoLang>::builder("Start");
-    m1.receiver(ParameterSpec::new("s", TypeName::pointer(TypeName::primitive("Server"))));
+    m1.receiver(ParameterSpec::new(
+        "s",
+        TypeName::pointer(TypeName::primitive("Server")),
+    ));
     m1.returns(TypeName::primitive("error"));
     m1.body(CodeBlock::<GoLang>::of("return nil", ()).unwrap());
 
     // Method 2: ToJSON.
     let mut m2 = FunSpec::<GoLang>::builder("ToJSON");
-    m2.receiver(ParameterSpec::new("s", TypeName::pointer(TypeName::primitive("Server"))));
+    m2.receiver(ParameterSpec::new(
+        "s",
+        TypeName::pointer(TypeName::primitive("Server")),
+    ));
     m2.returns(TypeName::raw("([]byte, error)"));
     m2.body(CodeBlock::<GoLang>::of("return %T(s)", (json_marshal,)).unwrap());
 
@@ -103,8 +109,7 @@ fn test_go_interface() {
 
 #[test]
 fn test_go_generic_function() {
-    let tp = TypeParamSpec::<GoLang>::new("T")
-        .with_bound(TypeName::primitive("comparable"));
+    let tp = TypeParamSpec::<GoLang>::new("T").with_bound(TypeName::primitive("comparable"));
     let mut fb = FunSpec::<GoLang>::builder("Max");
     fb.add_type_param(tp);
     fb.add_param(ParameterSpec::new("a", TypeName::primitive("T")));

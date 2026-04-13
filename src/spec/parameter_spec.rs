@@ -41,17 +41,28 @@ impl<L: CodeLang> ParameterSpec<L> {
         let mut fmt = String::new();
         let mut args: Vec<Arg<L>> = Vec::new();
 
-        if self.is_variadic {
-            fmt.push_str("...");
-        }
-        fmt.push_str(&lang.escape_reserved(&self.name));
+        if lang.type_before_name() {
+            // C-style: type name
+            if !self.param_type.is_empty() {
+                fmt.push_str("%T");
+                args.push(Arg::TypeName(self.param_type.clone()));
+                fmt.push(' ');
+            }
+            fmt.push_str(&lang.escape_reserved(&self.name));
+        } else {
+            // TS/Rust/Go/Python-style: name sep type
+            if self.is_variadic {
+                fmt.push_str("...");
+            }
+            fmt.push_str(&lang.escape_reserved(&self.name));
 
-        // Skip type annotation when the type is empty (e.g., Python's bare `self`).
-        if !self.param_type.is_empty() {
-            let sep = lang.type_annotation_separator();
-            fmt.push_str(sep);
-            fmt.push_str("%T");
-            args.push(Arg::TypeName(self.param_type.clone()));
+            // Skip type annotation when the type is empty (e.g., Python's bare `self`).
+            if !self.param_type.is_empty() {
+                let sep = lang.type_annotation_separator();
+                fmt.push_str(sep);
+                fmt.push_str("%T");
+                args.push(Arg::TypeName(self.param_type.clone()));
+            }
         }
 
         if let Some(default) = &self.default_value {

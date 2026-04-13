@@ -169,7 +169,10 @@ impl<L: CodeLang> TypeName<L> {
                     is_type_only: *is_type_only,
                 });
             }
-            TypeName::Array(inner) | TypeName::Pointer(inner) | TypeName::Slice(inner) | TypeName::Optional(inner) => {
+            TypeName::Array(inner)
+            | TypeName::Pointer(inner)
+            | TypeName::Slice(inner)
+            | TypeName::Optional(inner) => {
                 inner.collect_imports(out);
             }
             TypeName::Generic { base, params } => {
@@ -209,11 +212,7 @@ impl<L: CodeLang> TypeName<L> {
         F: Fn(&str, &str) -> String,
     {
         match self {
-            TypeName::Importable {
-                module,
-                name,
-                ..
-            } => {
+            TypeName::Importable { module, name, .. } => {
                 let display = resolve(module, name);
                 RcDoc::text(display)
             }
@@ -221,9 +220,7 @@ impl<L: CodeLang> TypeName<L> {
             TypeName::Raw(s) => RcDoc::text(s.clone()),
             TypeName::Array(inner) => {
                 // Default: TypeScript-style T[]
-                inner
-                    .to_doc(resolve)
-                    .append(RcDoc::text("[]"))
+                inner.to_doc(resolve).append(RcDoc::text("[]"))
             }
             TypeName::Generic { base, params } => {
                 let base_doc = base.to_doc(resolve);
@@ -245,18 +242,12 @@ impl<L: CodeLang> TypeName<L> {
                 let sep = RcDoc::softline().append(RcDoc::text("& "));
                 RcDoc::intersperse(docs, sep).group()
             }
-            TypeName::Pointer(inner) => {
-                RcDoc::text("*").append(inner.to_doc(resolve))
-            }
-            TypeName::Slice(inner) => {
-                RcDoc::text("[]").append(inner.to_doc(resolve))
-            }
-            TypeName::Map { key, value } => {
-                RcDoc::text("map[")
-                    .append(key.to_doc(resolve))
-                    .append(RcDoc::text("]"))
-                    .append(value.to_doc(resolve))
-            }
+            TypeName::Pointer(inner) => RcDoc::text("*").append(inner.to_doc(resolve)),
+            TypeName::Slice(inner) => RcDoc::text("[]").append(inner.to_doc(resolve)),
+            TypeName::Map { key, value } => RcDoc::text("map[")
+                .append(key.to_doc(resolve))
+                .append(RcDoc::text("]"))
+                .append(value.to_doc(resolve)),
             TypeName::Optional(inner) => {
                 // Default: TypeScript-style T | null
                 let inner_doc = inner.to_doc(resolve);
@@ -313,11 +304,9 @@ impl<L: CodeLang> TypeName<L> {
                     .append(RcDoc::text(lang.generic_close().to_string()))
             }
             // For variants with recursive sub-types, thread lang through.
-            TypeName::Array(inner) => {
-                inner
-                    .to_doc_with_lang(resolve, lang)
-                    .append(RcDoc::text("[]"))
-            }
+            TypeName::Array(inner) => inner
+                .to_doc_with_lang(resolve, lang)
+                .append(RcDoc::text("[]")),
             TypeName::Union(members) => {
                 let docs: Vec<_> = members
                     .iter()
@@ -340,12 +329,10 @@ impl<L: CodeLang> TypeName<L> {
             TypeName::Slice(inner) => {
                 RcDoc::text("[]").append(inner.to_doc_with_lang(resolve, lang))
             }
-            TypeName::Map { key, value } => {
-                RcDoc::text("map[")
-                    .append(key.to_doc_with_lang(resolve, lang))
-                    .append(RcDoc::text("]"))
-                    .append(value.to_doc_with_lang(resolve, lang))
-            }
+            TypeName::Map { key, value } => RcDoc::text("map[")
+                .append(key.to_doc_with_lang(resolve, lang))
+                .append(RcDoc::text("]"))
+                .append(value.to_doc_with_lang(resolve, lang)),
             TypeName::Optional(inner) => {
                 let inner_doc = inner.to_doc_with_lang(resolve, lang);
                 inner_doc
@@ -447,10 +434,7 @@ mod tests {
             TypeName::primitive("number"),
             TypeName::primitive("boolean"),
         ]);
-        assert_eq!(
-            t.render(80, &identity_resolve),
-            "string | number | boolean"
-        );
+        assert_eq!(t.render(80, &identity_resolve), "string | number | boolean");
     }
 
     #[test]
@@ -478,10 +462,8 @@ mod tests {
 
     #[test]
     fn test_map() {
-        let t = TypeName::<TypeScript>::map(
-            TypeName::primitive("string"),
-            TypeName::primitive("User"),
-        );
+        let t =
+            TypeName::<TypeScript>::map(TypeName::primitive("string"), TypeName::primitive("User"));
         assert_eq!(t.render(80, &identity_resolve), "map[string]User");
     }
 
@@ -509,14 +491,8 @@ mod tests {
             TypeName::primitive("Array"),
             vec![TypeName::importable("./models", "User")],
         );
-        let outer = TypeName::generic(
-            TypeName::primitive("Promise"),
-            vec![inner],
-        );
-        assert_eq!(
-            outer.render(80, &identity_resolve),
-            "Promise<Array<User>>"
-        );
+        let outer = TypeName::generic(TypeName::primitive("Promise"), vec![inner]);
+        assert_eq!(outer.render(80, &identity_resolve), "Promise<Array<User>>");
     }
 
     #[test]

@@ -74,10 +74,10 @@ fn test_rust_generic_struct() {
     tb.visibility(Visibility::Public);
     tb.add_type_param(tp);
 
-    let mut fb = FieldSpec::builder("items", TypeName::generic(
-        TypeName::primitive("Vec"),
-        vec![TypeName::primitive("T")],
-    ));
+    let mut fb = FieldSpec::builder(
+        "items",
+        TypeName::generic(TypeName::primitive("Vec"), vec![TypeName::primitive("T")]),
+    );
     fb.visibility(Visibility::Public);
     tb.add_field(fb.build());
 
@@ -122,8 +122,8 @@ fn test_rust_enum() {
 
 #[test]
 fn test_rust_top_level_function() {
-    let tp = TypeParamSpec::<RustLang>::new("T")
-        .with_bound(TypeName::primitive("std::fmt::Display"));
+    let tp =
+        TypeParamSpec::<RustLang>::new("T").with_bound(TypeName::primitive("std::fmt::Display"));
 
     let mut fb = FunSpec::<RustLang>::builder("print_value");
     fb.visibility(Visibility::Public);

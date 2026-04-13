@@ -59,7 +59,6 @@ impl<L: CodeLang> FieldSpec<L> {
 
         // Build the field line.
         let vis = lang.render_visibility(self.modifiers.visibility, ctx);
-        let sep = lang.type_annotation_separator();
         let term = lang.field_terminator();
 
         let mut fmt = String::new();
@@ -69,16 +68,32 @@ impl<L: CodeLang> FieldSpec<L> {
         if self.modifiers.is_static {
             fmt.push_str("static ");
         }
-        if self.modifiers.is_readonly {
-            fmt.push_str("readonly ");
-        }
-        fmt.push_str(&lang.escape_reserved(&self.name));
 
-        // Skip type annotation when the type is empty (e.g., Python enum members).
-        if !self.field_type.is_empty() {
-            fmt.push_str(sep);
-            fmt.push_str("%T");
-            args.push(Arg::TypeName(self.field_type.clone()));
+        if lang.type_before_name() {
+            // C-style: type name
+            if self.modifiers.is_readonly {
+                fmt.push_str("const ");
+            }
+            if !self.field_type.is_empty() {
+                fmt.push_str("%T");
+                args.push(Arg::TypeName(self.field_type.clone()));
+                fmt.push(' ');
+            }
+            fmt.push_str(&lang.escape_reserved(&self.name));
+        } else {
+            // TS/Rust/Go/Python-style: name sep type
+            if self.modifiers.is_readonly {
+                fmt.push_str("readonly ");
+            }
+            fmt.push_str(&lang.escape_reserved(&self.name));
+
+            // Skip type annotation when the type is empty (e.g., Python enum members).
+            if !self.field_type.is_empty() {
+                let sep = lang.type_annotation_separator();
+                fmt.push_str(sep);
+                fmt.push_str("%T");
+                args.push(Arg::TypeName(self.field_type.clone()));
+            }
         }
 
         if let Some(init) = &self.initializer {

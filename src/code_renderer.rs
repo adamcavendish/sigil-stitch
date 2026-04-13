@@ -75,7 +75,8 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                         let remaining_width = self.width.saturating_sub(self.current_column);
                         let lang = self.lang;
                         let resolve = |module: &str, name: &str| -> String {
-                            let resolved = self.imports
+                            let resolved = self
+                                .imports
                                 .resolved_name(module, name)
                                 .unwrap_or(name)
                                 .to_string();
@@ -175,12 +176,7 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
     }
 
     /// Render a segment containing %W using the pretty crate.
-    fn render_with_pretty(
-        &mut self,
-        parts: &[FormatPart],
-        args: &[Arg<L>],
-        arg_index: &mut usize,
-    ) {
+    fn render_with_pretty(&mut self, parts: &[FormatPart], args: &[Arg<L>], arg_index: &mut usize) {
         // Build an RcDoc from the parts, using softline() for %W.
         let doc = self.build_doc_from_parts(parts, args, arg_index);
         let remaining_width = self.width.saturating_sub(self.current_column);
@@ -222,7 +218,8 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                     if let Arg::TypeName(tn) = arg {
                         let lang = self.lang;
                         let resolve = |module: &str, name: &str| -> String {
-                            let resolved = self.imports
+                            let resolved = self
+                                .imports
                                 .resolved_name(module, name)
                                 .unwrap_or(name)
                                 .to_string();
@@ -277,9 +274,7 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                     }
                 }
                 FormatPart::Newline => RcDoc::hardline(),
-                FormatPart::BlockOpen => {
-                    RcDoc::text(self.lang.block_open().to_string())
-                }
+                FormatPart::BlockOpen => RcDoc::text(self.lang.block_open().to_string()),
                 FormatPart::BlockClose => {
                     let close = self.lang.block_close();
                     if close.is_empty() {
@@ -408,7 +403,10 @@ mod tests {
     #[test]
     fn test_string_literal() {
         let mut b = CodeBlock::<TypeScript>::builder();
-        b.add_statement("const x = %S", (crate::code_block::StringLitArg("hello".to_string()),));
+        b.add_statement(
+            "const x = %S",
+            (crate::code_block::StringLitArg("hello".to_string()),),
+        );
         let block = b.build().unwrap();
         let output = render_block(&block, 80);
         assert_eq!(output.trim(), "const x = 'hello';");

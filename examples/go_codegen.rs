@@ -32,18 +32,20 @@ fn main() {
     // Build receiver methods as separate top-level functions.
     let mut start_fn = FunSpec::<GoLang>::builder("Start");
     start_fn.doc("Start begins listening on the configured address.");
-    start_fn.receiver(ParameterSpec::new("c", TypeName::pointer(TypeName::primitive("Config"))));
+    start_fn.receiver(ParameterSpec::new(
+        "c",
+        TypeName::pointer(TypeName::primitive("Config")),
+    ));
     start_fn.returns(TypeName::primitive("error"));
-    start_fn.body(
-        CodeBlock::<GoLang>::of("return %T(c.Host, nil)", (http_server,)).unwrap(),
-    );
+    start_fn.body(CodeBlock::<GoLang>::of("return %T(c.Host, nil)", (http_server,)).unwrap());
 
     let mut to_json_fn = FunSpec::<GoLang>::builder("ToJSON");
-    to_json_fn.receiver(ParameterSpec::new("c", TypeName::pointer(TypeName::primitive("Config"))));
+    to_json_fn.receiver(ParameterSpec::new(
+        "c",
+        TypeName::pointer(TypeName::primitive("Config")),
+    ));
     to_json_fn.returns(TypeName::raw("([]byte, error)"));
-    to_json_fn.body(
-        CodeBlock::<GoLang>::of("return %T(c)", (json_marshal,)).unwrap(),
-    );
+    to_json_fn.body(CodeBlock::<GoLang>::of("return %T(c)", (json_marshal,)).unwrap());
 
     // Assemble the file.
     let mut file = FileSpec::builder_with("config.go", GoLang::new());

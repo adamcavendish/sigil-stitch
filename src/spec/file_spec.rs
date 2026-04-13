@@ -183,7 +183,8 @@ impl<L: CodeLang> FileSpecBuilder<L> {
 
     /// Add raw content (no import tracking).
     pub fn add_raw(&mut self, content: &str) -> &mut Self {
-        self.members.push(FileMember::RawContent(content.to_string()));
+        self.members
+            .push(FileMember::RawContent(content.to_string()));
         self
     }
 

@@ -23,11 +23,7 @@ fn main() {
     tb.visibility(Visibility::Public);
 
     // Derive annotation.
-    let derive = CodeBlock::<RustLang>::of(
-        "#[derive(%T, %T)]",
-        (serialize, deserialize),
-    )
-    .unwrap();
+    let derive = CodeBlock::<RustLang>::of("#[derive(%T, %T)]", (serialize, deserialize)).unwrap();
     tb.annotation(derive);
 
     // Fields.
@@ -37,7 +33,10 @@ fn main() {
 
     let mut fb2 = FieldSpec::builder(
         "values",
-        TypeName::generic(hashmap, vec![TypeName::primitive("String"), TypeName::primitive("i64")]),
+        TypeName::generic(
+            hashmap,
+            vec![TypeName::primitive("String"), TypeName::primitive("i64")],
+        ),
     );
     fb2.visibility(Visibility::Public);
     tb.add_field(fb2.build());

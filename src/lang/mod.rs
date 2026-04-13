@@ -1,7 +1,8 @@
-pub mod typescript;
-pub mod rust_lang;
+pub mod c_lang;
 pub mod go_lang;
 pub mod python;
+pub mod rust_lang;
+pub mod typescript;
 
 use crate::import::ImportGroup;
 
@@ -156,6 +157,29 @@ pub trait CodeLang: Sized + Clone + 'static {
     ///
     /// Default: `""` (no body emitted). Python overrides to `"..."` (Ellipsis).
     fn empty_body(&self) -> &str {
+        ""
+    }
+
+    /// Whether type annotations use type-before-name order (e.g., C: `int count`)
+    /// rather than name-before-type (e.g., Rust: `count: i32`).
+    ///
+    /// Default: `false`. C overrides to `true`.
+    fn type_before_name(&self) -> bool {
+        false
+    }
+
+    /// Whether the return type appears before the function name (e.g., C: `int add(...)`)
+    /// rather than after the parameters (e.g., Rust: `fn add(...) -> int`).
+    ///
+    /// Default: `false`. C overrides to `true`.
+    fn return_type_is_prefix(&self) -> bool {
+        false
+    }
+
+    /// Terminator appended after a type declaration's closing brace.
+    ///
+    /// Default: `""`. C overrides to `";"` for `struct Config { ... };`.
+    fn type_close_terminator(&self) -> &str {
         ""
     }
 }

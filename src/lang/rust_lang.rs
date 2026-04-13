@@ -25,14 +25,13 @@ impl RustLang {
 
 const RUST_RESERVED: &[&str] = &[
     // Strict keywords (2024 edition)
-    "as", "async", "await", "break", "const", "continue", "crate", "dyn",
-    "else", "enum", "extern", "false", "fn", "for", "if", "impl", "in",
-    "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return",
-    "self", "Self", "static", "struct", "super", "trait", "true", "type",
+    "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern",
+    "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub",
+    "ref", "return", "self", "Self", "static", "struct", "super", "trait", "true", "type",
     "unsafe", "use", "where", "while",
     // Reserved keywords (cannot be used as identifiers)
-    "abstract", "become", "box", "do", "final", "gen", "macro", "override",
-    "priv", "try", "typeof", "unsized", "virtual", "yield",
+    "abstract", "become", "box", "do", "final", "gen", "macro", "override", "priv", "try", "typeof",
+    "unsized", "virtual", "yield",
 ];
 
 impl CodeLang for RustLang {
@@ -55,9 +54,16 @@ impl CodeLang for RustLang {
         let mut crate_imports: Vec<&ImportEntry> = Vec::new();
 
         for entry in &imports.entries {
-            if entry.module.starts_with("std::") || entry.module.starts_with("core::") || entry.module == "std" || entry.module == "core" {
+            if entry.module.starts_with("std::")
+                || entry.module.starts_with("core::")
+                || entry.module == "std"
+                || entry.module == "core"
+            {
                 std_imports.push(entry);
-            } else if entry.module.starts_with("crate::") || entry.module.starts_with("super::") || entry.module.starts_with("self::") {
+            } else if entry.module.starts_with("crate::")
+                || entry.module.starts_with("super::")
+                || entry.module.starts_with("self::")
+            {
                 crate_imports.push(entry);
             } else {
                 external_imports.push(entry);

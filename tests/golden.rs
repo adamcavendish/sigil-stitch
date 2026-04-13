@@ -38,9 +38,6 @@ pub fn assert_golden(name: &str, actual: &str) {
         eprintln!("{actual}");
         eprintln!("---");
         eprintln!("Run with BLESS=1 to update golden files.");
-        panic!(
-            "Golden file mismatch: {}",
-            golden_path.display()
-        );
+        panic!("Golden file mismatch: {}", golden_path.display());
     }
 }
