@@ -27,6 +27,16 @@ pub enum FormatPart {
     StatementEnd,
     /// Newline.
     Newline,
+    /// Block open delimiter — resolved at render time via `lang.block_open()`.
+    /// Emitted by control-flow builders; braces for TS/Rust/Go, colon for Python.
+    BlockOpen,
+    /// Block close delimiter (terminal) — resolved at render time via `lang.block_close()`.
+    /// Emitted by `end_control_flow`. No trailing space.
+    BlockClose,
+    /// Block close delimiter (transitional) — resolved at render time via
+    /// `lang.block_close()` + `" "`. Used by `next_control_flow` to emit `} else`.
+    /// When `block_close()` is empty, emits nothing (Python: dedent-only transition).
+    BlockCloseTransition,
 }
 
 /// An argument to a CodeBlock format string.
@@ -137,31 +147,31 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     /// Begin a control flow block (e.g., "if foo" -> "if foo {\n" + indent).
     pub fn begin_control_flow(&mut self, format: &str, args: impl IntoArgs<L>) -> &mut Self {
         self.add(format, args);
-        self.parts.push(FormatPart::Literal(" {".to_string()));
+        self.parts.push(FormatPart::BlockOpen);
         self.parts.push(FormatPart::Newline);
         self.parts.push(FormatPart::Indent);
         self.indent_depth += 1;
         self
     }
 
-    /// Add an else/else-if clause (e.g., "} else {").
+    /// Add an else/else-if clause (e.g., "} else {" or "elif ...:" for Python).
     pub fn next_control_flow(&mut self, format: &str, args: impl IntoArgs<L>) -> &mut Self {
         self.parts.push(FormatPart::Dedent);
         self.indent_depth -= 1;
-        self.parts.push(FormatPart::Literal("} ".to_string()));
+        self.parts.push(FormatPart::BlockCloseTransition);
         self.add(format, args);
-        self.parts.push(FormatPart::Literal(" {".to_string()));
+        self.parts.push(FormatPart::BlockOpen);
         self.parts.push(FormatPart::Newline);
         self.parts.push(FormatPart::Indent);
         self.indent_depth += 1;
         self
     }
 
-    /// End a control flow block (emits "}" and decreases indent).
+    /// End a control flow block (emits "}" or nothing for Python, and decreases indent).
     pub fn end_control_flow(&mut self) -> &mut Self {
         self.parts.push(FormatPart::Dedent);
         self.indent_depth -= 1;
-        self.parts.push(FormatPart::Literal("}".to_string()));
+        self.parts.push(FormatPart::BlockClose);
         self.parts.push(FormatPart::Newline);
         self
     }

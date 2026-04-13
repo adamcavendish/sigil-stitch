@@ -152,6 +152,24 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                 FormatPart::Newline => {
                     self.emit_newline();
                 }
+                FormatPart::BlockOpen => {
+                    self.emit(self.lang.block_open());
+                }
+                FormatPart::BlockClose => {
+                    let close = self.lang.block_close();
+                    if !close.is_empty() {
+                        self.ensure_indent();
+                        self.emit(close);
+                    }
+                }
+                FormatPart::BlockCloseTransition => {
+                    let close = self.lang.block_close();
+                    if !close.is_empty() {
+                        self.ensure_indent();
+                        self.emit(close);
+                        self.emit(" ");
+                    }
+                }
             }
         }
     }
@@ -259,6 +277,25 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                     }
                 }
                 FormatPart::Newline => RcDoc::hardline(),
+                FormatPart::BlockOpen => {
+                    RcDoc::text(self.lang.block_open().to_string())
+                }
+                FormatPart::BlockClose => {
+                    let close = self.lang.block_close();
+                    if close.is_empty() {
+                        RcDoc::nil()
+                    } else {
+                        RcDoc::text(close.to_string())
+                    }
+                }
+                FormatPart::BlockCloseTransition => {
+                    let close = self.lang.block_close();
+                    if close.is_empty() {
+                        RcDoc::nil()
+                    } else {
+                        RcDoc::text(format!("{} ", close))
+                    }
+                }
             };
             doc = doc.append(part_doc);
         }

@@ -106,8 +106,9 @@ impl<L: CodeLang> FunSpec<L> {
             cb.add_line();
         }
 
-        // Doc comment.
-        if !self.doc.is_empty() {
+        // Doc comment (above the declaration, unless lang puts it inside the body).
+        let doc_inside = lang.doc_comment_inside_body();
+        if !self.doc.is_empty() && !doc_inside {
             let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
             let doc_str = lang.render_doc_comment(&doc_lines);
             cb.add("%L", doc_str);
@@ -171,21 +172,54 @@ impl<L: CodeLang> FunSpec<L> {
 
         // Body or abstract.
         if let Some(body) = &self.body {
-            sig.push_str(" {");
+            sig.push_str(lang.block_open());
             cb.add(&sig, sig_args);
             cb.add_line();
             cb.add("%>", ());
+            // Docstring inside body (Python).
+            if !self.doc.is_empty() && doc_inside {
+                let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
+                let doc_str = lang.render_doc_comment(&doc_lines);
+                cb.add("%L", doc_str);
+                cb.add_line();
+            }
             cb.add_code(body.clone());
             cb.add_line();
             cb.add("%<", ());
-            cb.add("}", ());
-            cb.add_line();
-        } else {
-            if lang.uses_semicolons() {
-                sig.push(';');
+            let close = lang.block_close();
+            if !close.is_empty() {
+                cb.add(close, ());
+                cb.add_line();
             }
-            cb.add(&sig, sig_args);
-            cb.add_line();
+        } else {
+            let empty = lang.empty_body();
+            if !empty.is_empty() {
+                // Language requires a body placeholder (e.g., Python `...`).
+                sig.push_str(lang.block_open());
+                cb.add(&sig, sig_args);
+                cb.add_line();
+                cb.add("%>", ());
+                // Docstring inside body (Python).
+                if !self.doc.is_empty() && doc_inside {
+                    let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
+                    let doc_str = lang.render_doc_comment(&doc_lines);
+                    cb.add("%L", doc_str);
+                    cb.add_line();
+                }
+                cb.add_statement(empty, ());
+                cb.add("%<", ());
+                let close = lang.block_close();
+                if !close.is_empty() {
+                    cb.add(close, ());
+                    cb.add_line();
+                }
+            } else {
+                if lang.uses_semicolons() {
+                    sig.push(';');
+                }
+                cb.add(&sig, sig_args);
+                cb.add_line();
+            }
         }
 
         cb.build().unwrap()

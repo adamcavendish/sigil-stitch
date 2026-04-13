@@ -73,9 +73,13 @@ impl<L: CodeLang> FieldSpec<L> {
             fmt.push_str("readonly ");
         }
         fmt.push_str(&lang.escape_reserved(&self.name));
-        fmt.push_str(sep);
-        fmt.push_str("%T");
-        args.push(Arg::TypeName(self.field_type.clone()));
+
+        // Skip type annotation when the type is empty (e.g., Python enum members).
+        if !self.field_type.is_empty() {
+            fmt.push_str(sep);
+            fmt.push_str("%T");
+            args.push(Arg::TypeName(self.field_type.clone()));
+        }
 
         if let Some(init) = &self.initializer {
             fmt.push_str(" = %L");

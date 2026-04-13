@@ -3,7 +3,7 @@ pub struct Container<T: Clone + Send> {
 }
 
 impl<T: Clone + Send> Container<T> {
-    pub fn len(&self: ) -> usize {
+    pub fn len(&self) -> usize {
         self.items.len()
     }
 }

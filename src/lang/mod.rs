@@ -1,6 +1,7 @@
 pub mod typescript;
 pub mod rust_lang;
 pub mod go_lang;
+pub mod python;
 
 use crate::import::ImportGroup;
 
@@ -119,6 +120,42 @@ pub trait CodeLang: Sized + Clone + 'static {
     ///
     /// Default: empty (TS/Rust put the kind keyword before the name).
     fn type_kind_suffix(&self, _kind: crate::spec::modifiers::TypeKind) -> &str {
+        ""
+    }
+
+    /// Opening block delimiter appended after a function signature or type header.
+    ///
+    /// Default: `" {"` (brace languages). Python overrides to `":"`.
+    fn block_open(&self) -> &str {
+        " {"
+    }
+
+    /// Closing block delimiter emitted after a dedent at the end of a block.
+    ///
+    /// Default: `"}"` (brace languages). Python overrides to `""` (indent-only).
+    fn block_close(&self) -> &str {
+        "}"
+    }
+
+    /// Whether doc comments should be rendered inside the body (after block open)
+    /// rather than above the declaration.
+    ///
+    /// Default: `false`. Python overrides to `true` (docstrings go inside the body).
+    fn doc_comment_inside_body(&self) -> bool {
+        false
+    }
+
+    /// Closing delimiter for base class / implements list.
+    ///
+    /// Default: `""`. Python overrides to `")"` to close `class Foo(Base):`.
+    fn bases_close(&self) -> &str {
+        ""
+    }
+
+    /// Content to emit for an abstract method with no body.
+    ///
+    /// Default: `""` (no body emitted). Python overrides to `"..."` (Ellipsis).
+    fn empty_body(&self) -> &str {
         ""
     }
 }

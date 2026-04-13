@@ -69,6 +69,13 @@ impl<L: CodeLang> TypeSpec<L> {
 
         // Body.
         cb.add("%>", ());
+        // Docstring inside body (Python).
+        if !self.doc.is_empty() && lang.doc_comment_inside_body() {
+            let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
+            let doc_str = lang.render_doc_comment(&doc_lines);
+            cb.add("%L", doc_str);
+            cb.add_line();
+        }
         for (i, field) in self.fields.iter().enumerate() {
             if i > 0 {
                 // No extra blank line between fields.
@@ -88,8 +95,11 @@ impl<L: CodeLang> TypeSpec<L> {
             cb.add_code(extra.clone());
         }
         cb.add("%<", ());
-        cb.add("}", ());
-        cb.add_line();
+        let close = lang.block_close();
+        if !close.is_empty() {
+            cb.add(close, ());
+            cb.add_line();
+        }
 
         cb.build().unwrap()
     }
@@ -111,8 +121,11 @@ impl<L: CodeLang> TypeSpec<L> {
             cb.add_code(extra.clone());
         }
         cb.add("%<", ());
-        cb.add("}", ());
-        cb.add_line();
+        let close = lang.block_close();
+        if !close.is_empty() {
+            cb.add(close, ());
+            cb.add_line();
+        }
         blocks.push(cb.build().unwrap());
 
         // Block 2: impl block (only if methods are non-empty).
@@ -137,7 +150,7 @@ impl<L: CodeLang> TypeSpec<L> {
                 }
                 impl_fmt.push_str(lang.generic_close());
             }
-            impl_fmt.push_str(" {");
+            impl_fmt.push_str(lang.block_open());
             impl_cb.add(&impl_fmt, impl_args);
             impl_cb.add_line();
 
@@ -149,8 +162,11 @@ impl<L: CodeLang> TypeSpec<L> {
                 impl_cb.add_code(method.emit(lang, DeclarationContext::Member));
             }
             impl_cb.add("%<", ());
-            impl_cb.add("}", ());
-            impl_cb.add_line();
+            let close = lang.block_close();
+            if !close.is_empty() {
+                impl_cb.add(close, ());
+                impl_cb.add_line();
+            }
 
             blocks.push(impl_cb.build().unwrap());
         }
@@ -164,7 +180,7 @@ impl<L: CodeLang> TypeSpec<L> {
             cb.add_code(ann.clone());
             cb.add_line();
         }
-        if !self.doc.is_empty() {
+        if !self.doc.is_empty() && !lang.doc_comment_inside_body() {
             let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
             let doc_str = lang.render_doc_comment(&doc_lines);
             cb.add("%L", doc_str);
@@ -229,7 +245,15 @@ impl<L: CodeLang> TypeSpec<L> {
             fmt.push_str(suffix);
         }
 
-        fmt.push_str(" {");
+        // Close bases list (e.g., Python: ")").
+        if !self.super_types.is_empty() || !self.impl_types.is_empty() {
+            let bases_close = lang.bases_close();
+            if !bases_close.is_empty() {
+                fmt.push_str(bases_close);
+            }
+        }
+
+        fmt.push_str(lang.block_open());
         cb.add(&fmt, args);
         cb.add_line();
     }

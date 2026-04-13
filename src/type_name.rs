@@ -77,6 +77,14 @@ impl<L: CodeLang> TypeName<L> {
         TypeName::Primitive(name.to_string())
     }
 
+    /// Returns true if this type name renders to an empty string.
+    ///
+    /// Used by `ParameterSpec` to skip the type annotation when no type
+    /// is specified (e.g., Python's bare `self` parameter).
+    pub fn is_empty(&self) -> bool {
+        matches!(self, TypeName::Primitive(s) | TypeName::Raw(s) if s.is_empty())
+    }
+
     /// Create an array type.
     pub fn array(inner: TypeName<L>) -> Self {
         TypeName::Array(Box::new(inner))

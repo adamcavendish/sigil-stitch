@@ -38,7 +38,6 @@ impl<L: CodeLang> ParameterSpec<L> {
 
     /// Emit this parameter into a CodeBlockBuilder (appends format parts + args).
     pub fn emit_into(&self, cb: &mut CodeBlockBuilder<L>, lang: &L) {
-        let sep = lang.type_annotation_separator();
         let mut fmt = String::new();
         let mut args: Vec<Arg<L>> = Vec::new();
 
@@ -46,9 +45,14 @@ impl<L: CodeLang> ParameterSpec<L> {
             fmt.push_str("...");
         }
         fmt.push_str(&lang.escape_reserved(&self.name));
-        fmt.push_str(sep);
-        fmt.push_str("%T");
-        args.push(Arg::TypeName(self.param_type.clone()));
+
+        // Skip type annotation when the type is empty (e.g., Python's bare `self`).
+        if !self.param_type.is_empty() {
+            let sep = lang.type_annotation_separator();
+            fmt.push_str(sep);
+            fmt.push_str("%T");
+            args.push(Arg::TypeName(self.param_type.clone()));
+        }
 
         if let Some(default) = &self.default_value {
             fmt.push_str(" = %L");
