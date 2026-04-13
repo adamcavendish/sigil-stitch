@@ -1,0 +1,498 @@
+//! C++ language implementation.
+
+use crate::import::{ImportEntry, ImportGroup};
+use crate::lang::CodeLang;
+use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
+
+/// C++ language implementation.
+///
+/// C++-specific behaviors:
+/// - Type-before-name declarations (`int count`, not `count: int`)
+/// - Return type as prefix (`int add(int a, int b)`)
+/// - `#include` directives (system `<>` vs local `""`)
+/// - Semicolons after statements and after struct/class/enum closing braces
+/// - No function keyword (no `fn`/`func`/`def`)
+/// - `class` keyword with `: public` inheritance
+/// - `enum class` for scoped enums
+/// - `virtual` instead of `abstract` for polymorphic methods
+/// - `///` Doxygen-style doc comments
+/// - Access specifiers (`public:`, `private:`, `protected:`) via `extra_member`
+/// - Templates via `annotation` (e.g., `template<typename T>`)
+/// - Method suffixes (`const`, `override`, `noexcept`, `= 0`) via `suffix()`
+///
+/// # Import conventions
+///
+/// Same as C — use [`TypeName::importable`] with the header path as the module:
+/// ```ignore
+/// TypeName::importable("iostream", "std::cout")  // #include <iostream>
+/// TypeName::importable("vector", "std::vector")   // #include <vector>
+/// TypeName::importable("./myclass.hpp", "MyClass") // #include "myclass.hpp"
+/// ```
+///
+/// # Access specifiers
+///
+/// C++ uses section-header access specifiers. Add them as `extra_member`:
+/// ```ignore
+/// let mut access = CodeBlock::<CppLang>::builder();
+/// access.add("%<", ());          // dedent
+/// access.add("public:", ());
+/// access.add_line();
+/// access.add("%>", ());          // re-indent
+/// tb.extra_member(access.build().unwrap());
+/// ```
+///
+/// # Templates
+///
+/// Use annotations for `template<typename T>`:
+/// ```ignore
+/// fb.annotation(CodeBlock::<CppLang>::of("template<typename T>", ()).unwrap());
+/// ```
+///
+/// # Virtual / pure virtual
+///
+/// Use `is_abstract()` for `virtual` prefix, and `suffix("= 0")` for pure virtual:
+/// ```ignore
+/// fb.is_abstract();        // emits "virtual"
+/// fb.suffix("= 0");       // emits "= 0" after params
+/// ```
+#[derive(Debug, Clone)]
+pub struct CppLang {
+    /// Indent with this string (default: "    " — 4 spaces).
+    pub indent: String,
+    /// File extension (default: "cpp"). Set to "hpp" or "h" for header files.
+    pub extension: String,
+}
+
+impl Default for CppLang {
+    fn default() -> Self {
+        Self {
+            indent: "    ".to_string(),
+            extension: "cpp".to_string(),
+        }
+    }
+}
+
+impl CppLang {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a CppLang configured for header files (.hpp extension).
+    pub fn header() -> Self {
+        Self {
+            indent: "    ".to_string(),
+            extension: "hpp".to_string(),
+        }
+    }
+
+    /// Create a CppLang configured for .h header files.
+    pub fn header_h() -> Self {
+        Self {
+            indent: "    ".to_string(),
+            extension: "h".to_string(),
+        }
+    }
+}
+
+#[rustfmt::skip]
+const CPP_RESERVED: &[&str] = &[
+    // C keywords (inherited)
+    "auto", "break", "case", "char", "const", "continue", "default", "do",
+    "double", "else", "enum", "extern", "float", "for", "goto", "if",
+    "inline", "int", "long", "register", "return", "short", "signed",
+    "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned",
+    "void", "volatile", "while",
+    // C++ keywords
+    "alignas", "alignof", "and", "and_eq", "asm", "atomic_cancel",
+    "atomic_commit", "atomic_noexcept", "bitand", "bitor", "bool",
+    "catch", "char8_t", "char16_t", "char32_t", "class", "co_await",
+    "co_return", "co_yield", "compl", "concept", "const_cast", "consteval",
+    "constexpr", "constinit", "decltype", "delete", "dynamic_cast",
+    "explicit", "export", "false", "friend", "module", "mutable",
+    "namespace", "new", "noexcept", "not", "not_eq", "nullptr",
+    "operator", "or", "or_eq", "override", "private", "protected",
+    "public", "reflexpr", "reinterpret_cast", "requires", "static_assert",
+    "static_cast", "template", "this", "thread_local", "throw", "true",
+    "try", "typeid", "typename", "using", "virtual", "wchar_t", "xor",
+    "xor_eq",
+];
+
+/// Returns true if the header path looks like a system header (no `./` or `../` prefix).
+fn is_system_header(module: &str) -> bool {
+    !module.starts_with("./") && !module.starts_with("../")
+}
+
+/// Strip leading `./` from local header paths for the `#include` directive.
+fn strip_local_prefix(module: &str) -> &str {
+    module.strip_prefix("./").unwrap_or(module)
+}
+
+impl CodeLang for CppLang {
+    fn file_extension(&self) -> &str {
+        &self.extension
+    }
+
+    fn reserved_words(&self) -> &[&str] {
+        CPP_RESERVED
+    }
+
+    fn render_imports(&self, imports: &ImportGroup) -> String {
+        if imports.entries.is_empty() {
+            return String::new();
+        }
+
+        // Deduplicate to header-level: C++ includes entire headers, not symbols.
+        let mut seen = std::collections::BTreeSet::new();
+        let mut system_headers: Vec<&ImportEntry> = Vec::new();
+        let mut local_headers: Vec<&ImportEntry> = Vec::new();
+
+        for entry in &imports.entries {
+            if seen.contains(&entry.module) {
+                continue;
+            }
+            seen.insert(&entry.module);
+            if is_system_header(&entry.module) {
+                system_headers.push(entry);
+            } else {
+                local_headers.push(entry);
+            }
+        }
+
+        system_headers.sort_by_key(|e| &e.module);
+        local_headers.sort_by_key(|e| &e.module);
+
+        let mut lines: Vec<String> = Vec::new();
+
+        for entry in &system_headers {
+            lines.push(format!("#include <{}>", entry.module));
+        }
+
+        if !system_headers.is_empty() && !local_headers.is_empty() {
+            lines.push(String::new());
+        }
+
+        for entry in &local_headers {
+            lines.push(format!(
+                "#include \"{}\"",
+                strip_local_prefix(&entry.module)
+            ));
+        }
+
+        lines.join("\n")
+    }
+
+    fn render_string_literal(&self, s: &str) -> String {
+        format!(
+            "\"{}\"",
+            s.replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', "\\n")
+                .replace('\t', "\\t")
+                .replace('\r', "\\r")
+                .replace('\0', "\\0")
+        )
+    }
+
+    fn render_doc_comment(&self, lines: &[&str]) -> String {
+        // Doxygen-style /// comments.
+        let mut result = String::new();
+        for (i, line) in lines.iter().enumerate() {
+            if i > 0 {
+                result.push('\n');
+            }
+            if line.is_empty() {
+                result.push_str("///");
+            } else {
+                result.push_str("/// ");
+                result.push_str(line);
+            }
+        }
+        result
+    }
+
+    fn line_comment_prefix(&self) -> &str {
+        "//"
+    }
+
+    fn indent_unit(&self) -> &str {
+        &self.indent
+    }
+
+    fn uses_semicolons(&self) -> bool {
+        true
+    }
+
+    fn render_visibility(&self, _vis: Visibility, _ctx: DeclarationContext) -> &str {
+        // C++ uses section-header access specifiers, not per-member keywords.
+        // Users add `public:` / `private:` / `protected:` via extra_member.
+        ""
+    }
+
+    fn function_keyword(&self, _ctx: DeclarationContext) -> &str {
+        // C++ has no function keyword.
+        ""
+    }
+
+    fn return_type_separator(&self) -> &str {
+        // Unused when return_type_is_prefix() is true, but set for safety.
+        " "
+    }
+
+    fn type_keyword(&self, kind: TypeKind) -> &str {
+        match kind {
+            TypeKind::Class => "class",
+            TypeKind::Struct => "struct",
+            TypeKind::Enum => "enum class",
+            TypeKind::Interface | TypeKind::Trait => "class",
+        }
+    }
+
+    fn field_terminator(&self) -> &str {
+        ";"
+    }
+
+    fn methods_inside_type_body(&self, kind: TypeKind) -> bool {
+        match kind {
+            TypeKind::Class | TypeKind::Interface | TypeKind::Trait => true,
+            TypeKind::Struct | TypeKind::Enum => false,
+        }
+    }
+
+    fn generic_constraint_keyword(&self) -> &str {
+        ""
+    }
+
+    fn generic_constraint_separator(&self) -> &str {
+        ""
+    }
+
+    fn super_type_keyword(&self) -> &str {
+        " : public "
+    }
+
+    fn super_type_separator(&self) -> &str {
+        ", public "
+    }
+
+    fn implements_keyword(&self) -> &str {
+        ""
+    }
+
+    fn type_before_name(&self) -> bool {
+        true
+    }
+
+    fn return_type_is_prefix(&self) -> bool {
+        true
+    }
+
+    fn type_close_terminator(&self) -> &str {
+        ";"
+    }
+
+    fn abstract_keyword(&self) -> &str {
+        "virtual "
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_file_extension() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.file_extension(), "cpp");
+    }
+
+    #[test]
+    fn test_header_extension() {
+        let cpp = CppLang::header();
+        assert_eq!(cpp.file_extension(), "hpp");
+    }
+
+    #[test]
+    fn test_header_h_extension() {
+        let cpp = CppLang::header_h();
+        assert_eq!(cpp.file_extension(), "h");
+    }
+
+    #[test]
+    fn test_escape_reserved() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.escape_reserved("class"), "class_");
+        assert_eq!(cpp.escape_reserved("virtual"), "virtual_");
+        assert_eq!(cpp.escape_reserved("template"), "template_");
+        assert_eq!(cpp.escape_reserved("name"), "name");
+    }
+
+    #[test]
+    fn test_render_imports_system() {
+        let cpp = CppLang::new();
+        let imports = ImportGroup {
+            entries: vec![ImportEntry {
+                module: "iostream".into(),
+                name: "std::cout".into(),
+                alias: None,
+                is_type_only: false,
+            }],
+        };
+        assert_eq!(cpp.render_imports(&imports), "#include <iostream>");
+    }
+
+    #[test]
+    fn test_render_imports_local() {
+        let cpp = CppLang::new();
+        let imports = ImportGroup {
+            entries: vec![ImportEntry {
+                module: "./myclass.hpp".into(),
+                name: "MyClass".into(),
+                alias: None,
+                is_type_only: false,
+            }],
+        };
+        assert_eq!(cpp.render_imports(&imports), "#include \"myclass.hpp\"");
+    }
+
+    #[test]
+    fn test_render_imports_grouped() {
+        let cpp = CppLang::new();
+        let imports = ImportGroup {
+            entries: vec![
+                ImportEntry {
+                    module: "iostream".into(),
+                    name: "std::cout".into(),
+                    alias: None,
+                    is_type_only: false,
+                },
+                ImportEntry {
+                    module: "vector".into(),
+                    name: "std::vector".into(),
+                    alias: None,
+                    is_type_only: false,
+                },
+                ImportEntry {
+                    module: "./myclass.hpp".into(),
+                    name: "MyClass".into(),
+                    alias: None,
+                    is_type_only: false,
+                },
+            ],
+        };
+        let output = cpp.render_imports(&imports);
+        let lines: Vec<&str> = output.lines().collect();
+        assert_eq!(lines[0], "#include <iostream>");
+        assert_eq!(lines[1], "#include <vector>");
+        assert_eq!(lines[2], "");
+        assert_eq!(lines[3], "#include \"myclass.hpp\"");
+    }
+
+    #[test]
+    fn test_render_imports_dedup() {
+        let cpp = CppLang::new();
+        let imports = ImportGroup {
+            entries: vec![
+                ImportEntry {
+                    module: "vector".into(),
+                    name: "std::vector".into(),
+                    alias: None,
+                    is_type_only: false,
+                },
+                ImportEntry {
+                    module: "vector".into(),
+                    name: "std::vector".into(),
+                    alias: None,
+                    is_type_only: false,
+                },
+            ],
+        };
+        assert_eq!(cpp.render_imports(&imports), "#include <vector>");
+    }
+
+    #[test]
+    fn test_doc_comment_single() {
+        let cpp = CppLang::new();
+        assert_eq!(
+            cpp.render_doc_comment(&["A brief description."]),
+            "/// A brief description."
+        );
+    }
+
+    #[test]
+    fn test_doc_comment_multi() {
+        let cpp = CppLang::new();
+        let doc = cpp.render_doc_comment(&["Container class.", "", "Thread-safe."]);
+        assert_eq!(doc, "/// Container class.\n///\n/// Thread-safe.");
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.render_string_literal("hello"), "\"hello\"");
+        assert_eq!(cpp.render_string_literal("it\"s"), "\"it\\\"s\"");
+        assert_eq!(cpp.render_string_literal("new\nline"), "\"new\\nline\"");
+    }
+
+    #[test]
+    fn test_type_before_name() {
+        let cpp = CppLang::new();
+        assert!(cpp.type_before_name());
+    }
+
+    #[test]
+    fn test_return_type_is_prefix() {
+        let cpp = CppLang::new();
+        assert!(cpp.return_type_is_prefix());
+    }
+
+    #[test]
+    fn test_type_close_terminator() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.type_close_terminator(), ";");
+    }
+
+    #[test]
+    fn test_type_keyword() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.type_keyword(TypeKind::Class), "class");
+        assert_eq!(cpp.type_keyword(TypeKind::Struct), "struct");
+        assert_eq!(cpp.type_keyword(TypeKind::Enum), "enum class");
+        assert_eq!(cpp.type_keyword(TypeKind::Interface), "class");
+    }
+
+    #[test]
+    fn test_abstract_keyword() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.abstract_keyword(), "virtual ");
+    }
+
+    #[test]
+    fn test_super_type_keyword() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.super_type_keyword(), " : public ");
+    }
+
+    #[test]
+    fn test_super_type_separator() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.super_type_separator(), ", public ");
+    }
+
+    #[test]
+    fn test_methods_inside_type_body() {
+        let cpp = CppLang::new();
+        assert!(cpp.methods_inside_type_body(TypeKind::Class));
+        assert!(cpp.methods_inside_type_body(TypeKind::Interface));
+        assert!(!cpp.methods_inside_type_body(TypeKind::Struct));
+        assert!(!cpp.methods_inside_type_body(TypeKind::Enum));
+    }
+
+    #[test]
+    fn test_is_system_header() {
+        assert!(is_system_header("iostream"));
+        assert!(is_system_header("vector"));
+        assert!(is_system_header("string"));
+        assert!(!is_system_header("./myclass.hpp"));
+        assert!(!is_system_header("../utils/helper.h"));
+    }
+}

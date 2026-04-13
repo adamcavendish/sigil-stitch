@@ -1,4 +1,5 @@
 pub mod c_lang;
+pub mod cpp_lang;
 pub mod go_lang;
 pub mod python;
 pub mod rust_lang;
@@ -181,5 +182,19 @@ pub trait CodeLang: Sized + Clone + 'static {
     /// Default: `""`. C overrides to `";"` for `struct Config { ... };`.
     fn type_close_terminator(&self) -> &str {
         ""
+    }
+
+    /// The keyword emitted when `is_abstract` is set on a function.
+    ///
+    /// Default: `"abstract "` (TypeScript). C++ overrides to `"virtual "`.
+    fn abstract_keyword(&self) -> &str {
+        "abstract "
+    }
+
+    /// Separator between super types in an inheritance list.
+    ///
+    /// Default: `", "`. C++ overrides to `", public "` for `class D : public B1, public B2`.
+    fn super_type_separator(&self) -> &str {
+        ", "
     }
 }

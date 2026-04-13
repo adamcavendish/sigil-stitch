@@ -215,9 +215,10 @@ impl<L: CodeLang> TypeSpec<L> {
             let super_kw = lang.super_type_keyword();
             if !super_kw.is_empty() {
                 fmt.push_str(super_kw);
+                let sep = lang.super_type_separator();
                 for (i, st) in self.super_types.iter().enumerate() {
                     if i > 0 {
-                        fmt.push_str(", ");
+                        fmt.push_str(sep);
                     }
                     fmt.push_str("%T");
                     args.push(Arg::TypeName(st.clone()));

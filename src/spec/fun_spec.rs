@@ -75,6 +75,8 @@ pub struct FunSpec<L: CodeLang> {
     pub(crate) annotations: Vec<CodeBlock<L>>,
     /// Receiver parameter (e.g., Go: `func (s *Server) Handle()`).
     pub(crate) receiver: Option<ParameterSpec<L>>,
+    /// Suffixes appended after the parameter list (e.g., C++: `const`, `override`, `= 0`).
+    pub(crate) suffixes: Vec<String>,
 }
 
 impl<L: CodeLang> FunSpec<L> {
@@ -89,6 +91,7 @@ impl<L: CodeLang> FunSpec<L> {
             type_params: Vec::new(),
             annotations: Vec::new(),
             receiver: None,
+            suffixes: Vec::new(),
         }
     }
 
@@ -124,7 +127,7 @@ impl<L: CodeLang> FunSpec<L> {
 
         sig.push_str(vis);
         if self.modifiers.is_abstract {
-            sig.push_str("abstract ");
+            sig.push_str(lang.abstract_keyword());
         }
         if self.modifiers.is_static {
             sig.push_str("static ");
@@ -172,6 +175,12 @@ impl<L: CodeLang> FunSpec<L> {
         let params_block = self.build_params_block(lang);
         sig_args.push(Arg::Code(params_block));
         sig.push(')');
+
+        // Method suffixes (C++: const, override, noexcept, = 0).
+        for s in &self.suffixes {
+            sig.push(' ');
+            sig.push_str(s);
+        }
 
         // Return type as suffix (TS/Rust/Go-style: `fn add(...) -> int`).
         if !lang.return_type_is_prefix()
@@ -261,6 +270,7 @@ pub struct FunSpecBuilder<L: CodeLang> {
     type_params: Vec<TypeParamSpec<L>>,
     annotations: Vec<CodeBlock<L>>,
     receiver: Option<ParameterSpec<L>>,
+    suffixes: Vec<String>,
 }
 
 impl<L: CodeLang> FunSpecBuilder<L> {
@@ -324,6 +334,11 @@ impl<L: CodeLang> FunSpecBuilder<L> {
         self
     }
 
+    pub fn suffix(&mut self, s: &str) -> &mut Self {
+        self.suffixes.push(s.to_string());
+        self
+    }
+
     pub fn build(self) -> FunSpec<L> {
         FunSpec {
             name: self.name,
@@ -335,6 +350,7 @@ impl<L: CodeLang> FunSpecBuilder<L> {
             type_params: self.type_params,
             annotations: self.annotations,
             receiver: self.receiver,
+            suffixes: self.suffixes,
         }
     }
 }
