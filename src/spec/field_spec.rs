@@ -14,6 +14,8 @@ pub struct FieldSpec<L: CodeLang> {
     pub(crate) doc: Vec<String>,
     pub(crate) initializer: Option<CodeBlock<L>>,
     pub(crate) annotations: Vec<CodeBlock<L>>,
+    /// Struct tag (e.g., Go: `` `json:"name"` ``). Emitted inline after the type.
+    pub(crate) tag: Option<String>,
 }
 
 impl<L: CodeLang> FieldSpec<L> {
@@ -25,6 +27,7 @@ impl<L: CodeLang> FieldSpec<L> {
             doc: Vec::new(),
             initializer: None,
             annotations: Vec::new(),
+            tag: None,
         }
     }
 
@@ -79,6 +82,12 @@ impl<L: CodeLang> FieldSpec<L> {
             args.push(Arg::Code(init.clone()));
         }
 
+        if let Some(tag) = &self.tag {
+            fmt.push_str(" `");
+            fmt.push_str(tag);
+            fmt.push('`');
+        }
+
         fmt.push_str(term);
         cb.add(&fmt, args);
         cb.add_line();
@@ -96,6 +105,7 @@ pub struct FieldSpecBuilder<L: CodeLang> {
     doc: Vec<String>,
     initializer: Option<CodeBlock<L>>,
     annotations: Vec<CodeBlock<L>>,
+    tag: Option<String>,
 }
 
 impl<L: CodeLang> FieldSpecBuilder<L> {
@@ -129,6 +139,11 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
         self
     }
 
+    pub fn tag(&mut self, t: &str) -> &mut Self {
+        self.tag = Some(t.to_string());
+        self
+    }
+
     pub fn build(self) -> FieldSpec<L> {
         FieldSpec {
             name: self.name,
@@ -137,6 +152,7 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
             doc: self.doc,
             initializer: self.initializer,
             annotations: self.annotations,
+            tag: self.tag,
         }
     }
 }

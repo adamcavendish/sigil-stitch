@@ -41,7 +41,7 @@ pub fn render_type_params<L: CodeLang>(
     let constraint_kw = lang.generic_constraint_keyword();
     let constraint_sep = lang.generic_constraint_separator();
 
-    let mut fmt = String::from("<");
+    let mut fmt = String::from(lang.generic_open());
     for (i, tp) in params.iter().enumerate() {
         if i > 0 {
             fmt.push_str(", ");
@@ -58,7 +58,7 @@ pub fn render_type_params<L: CodeLang>(
             }
         }
     }
-    fmt.push('>');
+    fmt.push_str(lang.generic_close());
     fmt
 }
 
@@ -73,8 +73,7 @@ pub struct FunSpec<L: CodeLang> {
     pub(crate) doc: Vec<String>,
     pub(crate) type_params: Vec<TypeParamSpec<L>>,
     pub(crate) annotations: Vec<CodeBlock<L>>,
-    /// Receiver parameter (e.g., Go: `func (s *Server) Handle()`). Reserved for future use.
-    #[allow(dead_code)]
+    /// Receiver parameter (e.g., Go: `func (s *Server) Handle()`).
     pub(crate) receiver: Option<ParameterSpec<L>>,
 }
 
@@ -139,6 +138,17 @@ impl<L: CodeLang> FunSpec<L> {
             sig.push_str(fn_kw);
             sig.push(' ');
         }
+
+        // Receiver (e.g., Go: `func (s *Server) Handle()`).
+        if let Some(recv) = &self.receiver {
+            sig.push('(');
+            sig.push_str(&lang.escape_reserved(&recv.name));
+            sig.push_str(lang.type_annotation_separator());
+            sig.push_str("%T");
+            sig_args.push(Arg::TypeName(recv.param_type.clone()));
+            sig.push_str(") ");
+        }
+
         sig.push_str(&self.name);
 
         // Type parameters.

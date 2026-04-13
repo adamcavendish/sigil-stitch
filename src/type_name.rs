@@ -283,6 +283,87 @@ impl<L: CodeLang> TypeName<L> {
         doc.render(width, &mut buf).unwrap();
         String::from_utf8(buf).unwrap()
     }
+
+    /// Language-aware variant of [`to_doc`] that consults the lang for
+    /// syntax differences (e.g., generic delimiters `<>` vs `[]`).
+    pub fn to_doc_with_lang<F>(&self, resolve: &F, lang: &L) -> RcDoc<'static, ()>
+    where
+        F: Fn(&str, &str) -> String,
+    {
+        match self {
+            TypeName::Generic { base, params } => {
+                let base_doc = base.to_doc_with_lang(resolve, lang);
+                let params_docs: Vec<_> = params
+                    .iter()
+                    .map(|p| p.to_doc_with_lang(resolve, lang))
+                    .collect();
+                let sep = RcDoc::text(",").append(RcDoc::softline());
+                let params_doc = RcDoc::intersperse(params_docs, sep);
+                base_doc
+                    .append(RcDoc::text(lang.generic_open().to_string()))
+                    .append(params_doc.nest(2).group())
+                    .append(RcDoc::text(lang.generic_close().to_string()))
+            }
+            // For variants with recursive sub-types, thread lang through.
+            TypeName::Array(inner) => {
+                inner
+                    .to_doc_with_lang(resolve, lang)
+                    .append(RcDoc::text("[]"))
+            }
+            TypeName::Union(members) => {
+                let docs: Vec<_> = members
+                    .iter()
+                    .map(|m| m.to_doc_with_lang(resolve, lang))
+                    .collect();
+                let sep = RcDoc::softline().append(RcDoc::text("| "));
+                RcDoc::intersperse(docs, sep).group()
+            }
+            TypeName::Intersection(members) => {
+                let docs: Vec<_> = members
+                    .iter()
+                    .map(|m| m.to_doc_with_lang(resolve, lang))
+                    .collect();
+                let sep = RcDoc::softline().append(RcDoc::text("& "));
+                RcDoc::intersperse(docs, sep).group()
+            }
+            TypeName::Pointer(inner) => {
+                RcDoc::text("*").append(inner.to_doc_with_lang(resolve, lang))
+            }
+            TypeName::Slice(inner) => {
+                RcDoc::text("[]").append(inner.to_doc_with_lang(resolve, lang))
+            }
+            TypeName::Map { key, value } => {
+                RcDoc::text("map[")
+                    .append(key.to_doc_with_lang(resolve, lang))
+                    .append(RcDoc::text("]"))
+                    .append(value.to_doc_with_lang(resolve, lang))
+            }
+            TypeName::Optional(inner) => {
+                let inner_doc = inner.to_doc_with_lang(resolve, lang);
+                inner_doc
+                    .append(RcDoc::softline())
+                    .append(RcDoc::text("| null"))
+                    .group()
+            }
+            TypeName::Function {
+                params,
+                return_type,
+            } => {
+                let params_docs: Vec<_> = params
+                    .iter()
+                    .map(|p| p.to_doc_with_lang(resolve, lang))
+                    .collect();
+                let sep = RcDoc::text(",").append(RcDoc::softline());
+                let params_doc = RcDoc::intersperse(params_docs, sep);
+                RcDoc::text("(")
+                    .append(params_doc.nest(2).group())
+                    .append(RcDoc::text(") => "))
+                    .append(return_type.to_doc_with_lang(resolve, lang))
+            }
+            // Leaf variants delegate to to_doc (no recursion needed).
+            _ => self.to_doc(resolve),
+        }
+    }
 }
 
 #[cfg(test)]

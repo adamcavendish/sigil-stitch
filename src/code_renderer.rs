@@ -73,13 +73,18 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                     if let Arg::TypeName(tn) = arg {
                         self.ensure_indent();
                         let remaining_width = self.width.saturating_sub(self.current_column);
+                        let lang = self.lang;
                         let resolve = |module: &str, name: &str| -> String {
-                            self.imports
+                            let resolved = self.imports
                                 .resolved_name(module, name)
                                 .unwrap_or(name)
-                                .to_string()
+                                .to_string();
+                            lang.qualify_import_name(module, &resolved)
                         };
-                        let rendered = tn.render(remaining_width, &resolve);
+                        let doc = tn.to_doc_with_lang(&resolve, self.lang);
+                        let mut buf = Vec::new();
+                        doc.render(remaining_width, &mut buf).unwrap();
+                        let rendered = String::from_utf8(buf).unwrap();
                         // Handle multi-line output: indent continuation lines.
                         let lines: Vec<&str> = rendered.split('\n').collect();
                         for (i, line) in lines.iter().enumerate() {
@@ -197,13 +202,15 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                     let arg = &args[*arg_index];
                     *arg_index += 1;
                     if let Arg::TypeName(tn) = arg {
+                        let lang = self.lang;
                         let resolve = |module: &str, name: &str| -> String {
-                            self.imports
+                            let resolved = self.imports
                                 .resolved_name(module, name)
                                 .unwrap_or(name)
-                                .to_string()
+                                .to_string();
+                            lang.qualify_import_name(module, &resolved)
                         };
-                        tn.to_doc(&resolve)
+                        tn.to_doc_with_lang(&resolve, self.lang)
                     } else {
                         RcDoc::nil()
                     }

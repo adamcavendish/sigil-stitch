@@ -128,14 +128,14 @@ impl<L: CodeLang> TypeSpec<L> {
             impl_fmt.push_str(&self.name);
             // Repeat bare type param names.
             if !self.type_params.is_empty() {
-                impl_fmt.push('<');
+                impl_fmt.push_str(lang.generic_open());
                 for (i, tp) in self.type_params.iter().enumerate() {
                     if i > 0 {
                         impl_fmt.push_str(", ");
                     }
                     impl_fmt.push_str(&tp.name);
                 }
-                impl_fmt.push('>');
+                impl_fmt.push_str(lang.generic_close());
             }
             impl_fmt.push_str(" {");
             impl_cb.add(&impl_fmt, impl_args);
@@ -220,6 +220,13 @@ impl<L: CodeLang> TypeSpec<L> {
                     args.push(Arg::TypeName(it.clone()));
                 }
             }
+        }
+
+        // Kind suffix (e.g., Go: "type Foo struct").
+        let suffix = lang.type_kind_suffix(self.kind);
+        if !suffix.is_empty() {
+            fmt.push(' ');
+            fmt.push_str(suffix);
         }
 
         fmt.push_str(" {");

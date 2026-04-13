@@ -1,0 +1,9 @@
+package main
+
+func Max[T comparable](a T, b T) T {
+	if a > b {
+		return a
+	}
+	return b
+
+}

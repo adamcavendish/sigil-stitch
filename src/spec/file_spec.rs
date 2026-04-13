@@ -107,14 +107,7 @@ impl<L: CodeLang> FileSpec<L> {
         // Pass 2: Render with resolved names.
         let mut output = String::new();
 
-        // Render import header.
-        let import_header = self.lang.render_imports(&imports);
-        if !import_header.is_empty() {
-            output.push_str(&import_header);
-            output.push_str("\n\n");
-        }
-
-        // Render header block if present.
+        // Render header block if present (e.g., license comment, Go package declaration).
         if let Some(header) = &self.header {
             let mut renderer = CodeRenderer::new(&self.lang, &imports, width);
             let header_output = renderer.render(header);
@@ -125,6 +118,13 @@ impl<L: CodeLang> FileSpec<L> {
                 }
                 output.push('\n');
             }
+        }
+
+        // Render import header.
+        let import_header = self.lang.render_imports(&imports);
+        if !import_header.is_empty() {
+            output.push_str(&import_header);
+            output.push_str("\n\n");
         }
 
         // Render materialized members.

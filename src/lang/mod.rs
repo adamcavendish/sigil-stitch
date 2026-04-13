@@ -1,5 +1,6 @@
 pub mod typescript;
 pub mod rust_lang;
+pub mod go_lang;
 
 use crate::import::ImportGroup;
 
@@ -94,5 +95,30 @@ pub trait CodeLang: Sized + Clone + 'static {
     /// The async keyword with trailing space (e.g., "async ").
     fn async_keyword(&self) -> &str {
         "async "
+    }
+
+    /// Opening delimiter for generic type parameters (e.g., "<" for Rust/TS, "[" for Go).
+    fn generic_open(&self) -> &str {
+        "<"
+    }
+
+    /// Closing delimiter for generic type parameters (e.g., ">" for Rust/TS, "]" for Go).
+    fn generic_close(&self) -> &str {
+        ">"
+    }
+
+    /// Qualify an import name for rendering in code.
+    ///
+    /// Default: return the resolved name as-is (TS/Rust import individual symbols).
+    /// Go overrides this to prefix the package name (e.g., `"http.Server"`).
+    fn qualify_import_name(&self, _module: &str, resolved_name: &str) -> String {
+        resolved_name.to_string()
+    }
+
+    /// Optional kind suffix after the type name (e.g., Go's `type Foo struct`).
+    ///
+    /// Default: empty (TS/Rust put the kind keyword before the name).
+    fn type_kind_suffix(&self, _kind: crate::spec::modifiers::TypeKind) -> &str {
+        ""
     }
 }
