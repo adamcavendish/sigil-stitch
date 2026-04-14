@@ -2,6 +2,7 @@
 name = "sigil-stitch"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85.0"
 description = "Type-safe, import-aware, width-aware code generation for multiple languages"
 license = "MIT OR Apache-2.0"
 
