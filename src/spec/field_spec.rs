@@ -83,7 +83,12 @@ impl<L: CodeLang> FieldSpec<L> {
         } else {
             // TS/Rust/Go/Python-style: name sep type
             if self.modifiers.is_readonly {
-                fmt.push_str("readonly ");
+                fmt.push_str(lang.readonly_keyword());
+            } else {
+                let mk = lang.mutable_field_keyword();
+                if !mk.is_empty() {
+                    fmt.push_str(mk);
+                }
             }
             fmt.push_str(&lang.escape_reserved(&self.name));
 

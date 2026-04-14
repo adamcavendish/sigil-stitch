@@ -3,6 +3,7 @@ pub mod cpp_lang;
 pub mod go_lang;
 pub mod java_lang;
 pub mod javascript;
+pub mod kotlin;
 pub mod python;
 pub mod rust_lang;
 pub mod typescript;
@@ -200,10 +201,22 @@ pub trait CodeLang: Sized + Clone + 'static {
         ", "
     }
 
-    /// Keyword emitted for readonly/immutable fields in type-before-name languages.
+    /// Keyword emitted for readonly/immutable fields.
     ///
-    /// Default: `"const "` (C/C++). Java overrides to `"final "`.
+    /// In type-before-name languages (C/C++/Java): appears before the type.
+    /// In name-before-type languages (TS/Kotlin): appears before the name.
+    ///
+    /// Default: `"const "` (C/C++). Java overrides to `"final "`,
+    /// TypeScript to `"readonly "`, Kotlin to `"val "`.
     fn readonly_keyword(&self) -> &str {
         "const "
+    }
+
+    /// Keyword emitted for mutable fields in name-before-type languages.
+    ///
+    /// Default: `""` (most languages have no mutable keyword).
+    /// Kotlin overrides to `"var "`.
+    fn mutable_field_keyword(&self) -> &str {
+        ""
     }
 }

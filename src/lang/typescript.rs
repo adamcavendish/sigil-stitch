@@ -272,6 +272,10 @@ impl CodeLang for TypeScript {
     fn implements_keyword(&self) -> &str {
         " implements "
     }
+
+    fn readonly_keyword(&self) -> &str {
+        "readonly "
+    }
 }
 
 #[cfg(test)]
