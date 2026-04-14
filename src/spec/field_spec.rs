@@ -72,7 +72,7 @@ impl<L: CodeLang> FieldSpec<L> {
         if lang.type_before_name() {
             // C-style: type name
             if self.modifiers.is_readonly {
-                fmt.push_str("const ");
+                fmt.push_str(lang.readonly_keyword());
             }
             if !self.field_type.is_empty() {
                 fmt.push_str("%T");

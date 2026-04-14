@@ -1,6 +1,7 @@
 pub mod c_lang;
 pub mod cpp_lang;
 pub mod go_lang;
+pub mod java_lang;
 pub mod javascript;
 pub mod python;
 pub mod rust_lang;
@@ -197,5 +198,12 @@ pub trait CodeLang: Sized + Clone + 'static {
     /// Default: `", "`. C++ overrides to `", public "` for `class D : public B1, public B2`.
     fn super_type_separator(&self) -> &str {
         ", "
+    }
+
+    /// Keyword emitted for readonly/immutable fields in type-before-name languages.
+    ///
+    /// Default: `"const "` (C/C++). Java overrides to `"final "`.
+    fn readonly_keyword(&self) -> &str {
+        "const "
     }
 }
