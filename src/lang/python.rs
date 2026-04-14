@@ -19,7 +19,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// # Type hints
 ///
-/// Python uses `[]` for generic type hints. Use [`TypeName::generic`] for
+/// Python uses `[]` for generic type hints. Use [`crate::type_name::TypeName::generic`] for
 /// parameterized types:
 /// ```ignore
 /// TypeName::generic("list", vec![TypeName::primitive("int")])   // list[int]

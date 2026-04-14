@@ -22,7 +22,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// # Import conventions
 ///
-/// Same as C — use [`TypeName::importable`] with the header path as the module:
+/// Same as C — use [`crate::type_name::TypeName::importable`] with the header path as the module:
 /// ```ignore
 /// TypeName::importable("iostream", "std::cout")  // #include <iostream>
 /// TypeName::importable("vector", "std::vector")   // #include <vector>

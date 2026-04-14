@@ -283,7 +283,7 @@ impl<L: CodeLang> TypeName<L> {
         String::from_utf8(buf).unwrap()
     }
 
-    /// Language-aware variant of [`to_doc`] that consults the lang for
+    /// Language-aware variant of [`TypeName::to_doc`] that consults the lang for
     /// syntax differences (e.g., generic delimiters `<>` vs `[]`).
     pub fn to_doc_with_lang<F>(&self, resolve: &F, lang: &L) -> RcDoc<'static, ()>
     where

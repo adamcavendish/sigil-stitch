@@ -297,7 +297,7 @@ fn parse_format(format: &str) -> Vec<FormatPart> {
 
 // === IntoArgs trait and implementations ===
 
-/// Trait for converting various types into a Vec<Arg<L>> for format strings.
+/// Trait for converting various types into a `Vec<Arg<L>>` for format strings.
 pub trait IntoArgs<L: CodeLang> {
     fn into_args(self) -> Vec<Arg<L>>;
 }

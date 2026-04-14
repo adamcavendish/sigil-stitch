@@ -21,7 +21,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// # Import conventions
 ///
-/// Use [`TypeName::importable`] with the package as module and class name as name:
+/// Use [`crate::type_name::TypeName::importable`] with the package as module and class name as name:
 /// ```ignore
 /// TypeName::importable("java.util", "List")            // import java.util.List;
 /// TypeName::importable("java.util", "Map")             // import java.util.Map;
