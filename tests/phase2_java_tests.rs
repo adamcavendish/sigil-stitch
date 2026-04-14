@@ -2,6 +2,7 @@ mod golden;
 
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::java_lang::JavaLang;
+use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::{FunSpec, TypeParamSpec};
@@ -163,14 +164,9 @@ fn test_java_enum() {
     tb.visibility(Visibility::Public);
     tb.doc("Supported colors.");
 
-    let mut constants = CodeBlock::<JavaLang>::builder();
-    constants.add("RED,", ());
-    constants.add_line();
-    constants.add("GREEN,", ());
-    constants.add_line();
-    constants.add("BLUE", ());
-    constants.add_line();
-    tb.extra_member(constants.build().unwrap());
+    tb.add_variant(EnumVariantSpec::new("RED"));
+    tb.add_variant(EnumVariantSpec::new("GREEN"));
+    tb.add_variant(EnumVariantSpec::new("BLUE"));
 
     let ts = tb.build();
 

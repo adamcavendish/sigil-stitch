@@ -216,6 +216,10 @@ impl CodeLang for RustLang {
     fn implements_keyword(&self) -> &str {
         ""
     }
+
+    fn enum_variant_trailing_separator(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 
 use crate::code_block::{Arg, CodeBlock, CodeBlockBuilder};
 use crate::lang::CodeLang;
+use crate::spec::enum_variant_spec::EnumVariantSpec;
 use crate::spec::field_spec::FieldSpec;
 use crate::spec::fun_spec::{FunSpec, TypeParamSpec, render_type_params};
 use crate::spec::modifiers::{DeclarationContext, Modifiers, TypeKind, Visibility};
@@ -21,6 +22,7 @@ pub struct TypeSpec<L: CodeLang> {
     pub(crate) impl_types: Vec<TypeName<L>>,
     pub(crate) annotations: Vec<CodeBlock<L>>,
     pub(crate) extra_members: Vec<CodeBlock<L>>,
+    pub(crate) variants: Vec<EnumVariantSpec<L>>,
 }
 
 impl<L: CodeLang> TypeSpec<L> {
@@ -37,6 +39,7 @@ impl<L: CodeLang> TypeSpec<L> {
             impl_types: Vec::new(),
             annotations: Vec::new(),
             extra_members: Vec::new(),
+            variants: Vec::new(),
         }
     }
 
@@ -82,7 +85,15 @@ impl<L: CodeLang> TypeSpec<L> {
             }
             cb.add_code(field.emit(lang, DeclarationContext::Member));
         }
-        if !self.fields.is_empty() && !self.methods.is_empty() {
+        // Enum variants.
+        if !self.variants.is_empty() {
+            if !self.fields.is_empty() {
+                cb.add_line();
+            }
+            self.emit_variants(&mut cb, lang);
+        }
+        let has_body_above = !self.fields.is_empty() || !self.variants.is_empty();
+        if has_body_above && !self.methods.is_empty() {
             cb.add_line();
         }
         for (i, method) in self.methods.iter().enumerate() {
@@ -117,6 +128,13 @@ impl<L: CodeLang> TypeSpec<L> {
         cb.add("%>", ());
         for field in &self.fields {
             cb.add_code(field.emit(lang, DeclarationContext::Member));
+        }
+        // Enum variants.
+        if !self.variants.is_empty() {
+            if !self.fields.is_empty() {
+                cb.add_line();
+            }
+            self.emit_variants(&mut cb, lang);
         }
         for extra in &self.extra_members {
             cb.add_code(extra.clone());
@@ -174,6 +192,46 @@ impl<L: CodeLang> TypeSpec<L> {
         }
 
         blocks
+    }
+
+    /// Emit enum variants with language-aware separators.
+    fn emit_variants(&self, cb: &mut CodeBlockBuilder<L>, lang: &L) {
+        let sep = lang.enum_variant_separator();
+        let trailing = lang.enum_variant_trailing_separator();
+        let count = self.variants.len();
+
+        for (i, variant) in self.variants.iter().enumerate() {
+            // Emit variant parts directly here rather than calling variant.emit(),
+            // because we need to append the separator before the trailing newline.
+            for ann in &variant.annotations {
+                cb.add_code(ann.clone());
+                cb.add_line();
+            }
+            if !variant.doc.is_empty() && !lang.doc_comment_inside_body() {
+                let doc_lines: Vec<&str> = variant.doc.iter().map(|s| s.as_str()).collect();
+                let doc_str = lang.render_doc_comment(&doc_lines);
+                cb.add("%L", doc_str);
+                cb.add_line();
+            }
+
+            let prefix = lang.enum_variant_prefix();
+            let mut fmt = String::new();
+            let mut args: Vec<Arg<L>> = Vec::new();
+            fmt.push_str(prefix);
+            fmt.push_str(&variant.name);
+            if let Some(val) = &variant.value {
+                fmt.push_str(" = %L");
+                args.push(Arg::Code(val.clone()));
+            }
+
+            let is_last = i == count - 1;
+            if !sep.is_empty() && (!is_last || trailing) {
+                fmt.push_str(sep);
+            }
+
+            cb.add(&fmt, args);
+            cb.add_line();
+        }
     }
 
     /// Emit annotations and doc comment.
@@ -276,6 +334,7 @@ pub struct TypeSpecBuilder<L: CodeLang> {
     impl_types: Vec<TypeName<L>>,
     annotations: Vec<CodeBlock<L>>,
     extra_members: Vec<CodeBlock<L>>,
+    variants: Vec<EnumVariantSpec<L>>,
 }
 
 impl<L: CodeLang> TypeSpecBuilder<L> {
@@ -329,6 +388,12 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
         self
     }
 
+    /// Add an enum variant. Only meaningful when `kind` is `TypeKind::Enum`.
+    pub fn add_variant(&mut self, variant: EnumVariantSpec<L>) -> &mut Self {
+        self.variants.push(variant);
+        self
+    }
+
     pub fn build(self) -> TypeSpec<L> {
         TypeSpec {
             name: self.name,
@@ -342,6 +407,7 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
             impl_types: self.impl_types,
             annotations: self.annotations,
             extra_members: self.extra_members,
+            variants: self.variants,
         }
     }
 }

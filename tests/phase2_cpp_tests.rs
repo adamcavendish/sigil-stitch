@@ -2,6 +2,7 @@ mod golden;
 
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::cpp_lang::CppLang;
+use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::FunSpec;
@@ -103,14 +104,9 @@ fn test_cpp_struct_with_fields() {
 fn test_cpp_enum_class() {
     let mut tb = TypeSpec::<CppLang>::builder("Color", TypeKind::Enum);
     tb.doc("Available colors.");
-    let mut members = CodeBlock::<CppLang>::builder();
-    members.add("Red,", ());
-    members.add_line();
-    members.add("Green,", ());
-    members.add_line();
-    members.add("Blue", ());
-    members.add_line();
-    tb.extra_member(members.build().unwrap());
+    tb.add_variant(EnumVariantSpec::new("Red"));
+    tb.add_variant(EnumVariantSpec::new("Green"));
+    tb.add_variant(EnumVariantSpec::new("Blue"));
     let ts = tb.build();
 
     let mut fb = FileSpec::builder_with("color.hpp", CppLang::header());

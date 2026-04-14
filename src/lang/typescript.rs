@@ -276,6 +276,10 @@ impl CodeLang for TypeScript {
     fn readonly_keyword(&self) -> &str {
         "readonly "
     }
+
+    fn enum_variant_trailing_separator(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

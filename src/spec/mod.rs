@@ -1,3 +1,4 @@
+pub mod enum_variant_spec;
 pub mod field_spec;
 pub mod file_spec;
 pub mod fun_spec;

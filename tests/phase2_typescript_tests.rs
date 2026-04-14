@@ -4,6 +4,7 @@ mod golden;
 
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::typescript::TypeScript;
+use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::{FunSpec, TypeParamSpec};
@@ -147,16 +148,21 @@ fn test_ts_enum() {
     let mut tb = TypeSpec::<TypeScript>::builder("Direction", TypeKind::Enum);
     tb.visibility(Visibility::Public);
 
-    let mut extra = CodeBlock::<TypeScript>::builder();
-    extra.add("Up = 'UP',", ());
-    extra.add_line();
-    extra.add("Down = 'DOWN',", ());
-    extra.add_line();
-    extra.add("Left = 'LEFT',", ());
-    extra.add_line();
-    extra.add("Right = 'RIGHT',", ());
-    extra.add_line();
-    tb.extra_member(extra.build().unwrap());
+    let mut v_up = EnumVariantSpec::<TypeScript>::builder("Up");
+    v_up.value(CodeBlock::<TypeScript>::of("'UP'", ()).unwrap());
+    tb.add_variant(v_up.build());
+
+    let mut v_down = EnumVariantSpec::<TypeScript>::builder("Down");
+    v_down.value(CodeBlock::<TypeScript>::of("'DOWN'", ()).unwrap());
+    tb.add_variant(v_down.build());
+
+    let mut v_left = EnumVariantSpec::<TypeScript>::builder("Left");
+    v_left.value(CodeBlock::<TypeScript>::of("'LEFT'", ()).unwrap());
+    tb.add_variant(v_left.build());
+
+    let mut v_right = EnumVariantSpec::<TypeScript>::builder("Right");
+    v_right.value(CodeBlock::<TypeScript>::of("'RIGHT'", ()).unwrap());
+    tb.add_variant(v_right.build());
 
     let mut file = FileSpec::<TypeScript>::builder("Direction.ts");
     file.add_type(tb.build());

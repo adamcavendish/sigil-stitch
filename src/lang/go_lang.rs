@@ -275,6 +275,10 @@ impl CodeLang for GoLang {
             TypeKind::Enum => "",
         }
     }
+
+    fn enum_variant_separator(&self) -> &str {
+        ""
+    }
 }
 
 #[cfg(test)]

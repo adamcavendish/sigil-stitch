@@ -246,6 +246,10 @@ impl CodeLang for JavaScript {
         // JavaScript has no abstract keyword.
         ""
     }
+
+    fn enum_variant_trailing_separator(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

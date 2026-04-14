@@ -221,4 +221,27 @@ pub trait CodeLang: Sized + Clone + 'static {
     fn mutable_field_keyword(&self) -> &str {
         ""
     }
+
+    // --- Phase 3: enum variant support ---
+
+    /// Prefix before each enum variant name.
+    ///
+    /// Default: `""`. Swift overrides to `"case "`.
+    fn enum_variant_prefix(&self) -> &str {
+        ""
+    }
+
+    /// Separator after each enum variant (e.g., `","` for most languages).
+    ///
+    /// Default: `","`. Python and Swift override to `""`.
+    fn enum_variant_separator(&self) -> &str {
+        ","
+    }
+
+    /// Whether the separator appears after the last variant too (trailing comma).
+    ///
+    /// Default: `false`. Rust and TypeScript override to `true`.
+    fn enum_variant_trailing_separator(&self) -> bool {
+        false
+    }
 }

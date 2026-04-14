@@ -1,5 +1,6 @@
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::python::Python;
+use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::FunSpec;
@@ -148,22 +149,22 @@ fn test_python_enum() {
     let mut tb = TypeSpec::<Python>::builder("Direction", TypeKind::Enum);
     tb.extends(enum_base);
 
-    // Enum members as fields with initializers.
-    let mut up = FieldSpec::builder("UP", TypeName::primitive(""));
-    up.initializer(CodeBlock::<Python>::of("'UP'", ()).unwrap());
-    tb.add_field(up.build());
+    // Enum members as variants with values.
+    let mut v_up = EnumVariantSpec::<Python>::builder("UP");
+    v_up.value(CodeBlock::<Python>::of("'UP'", ()).unwrap());
+    tb.add_variant(v_up.build());
 
-    let mut down = FieldSpec::builder("DOWN", TypeName::primitive(""));
-    down.initializer(CodeBlock::<Python>::of("'DOWN'", ()).unwrap());
-    tb.add_field(down.build());
+    let mut v_down = EnumVariantSpec::<Python>::builder("DOWN");
+    v_down.value(CodeBlock::<Python>::of("'DOWN'", ()).unwrap());
+    tb.add_variant(v_down.build());
 
-    let mut left = FieldSpec::builder("LEFT", TypeName::primitive(""));
-    left.initializer(CodeBlock::<Python>::of("'LEFT'", ()).unwrap());
-    tb.add_field(left.build());
+    let mut v_left = EnumVariantSpec::<Python>::builder("LEFT");
+    v_left.value(CodeBlock::<Python>::of("'LEFT'", ()).unwrap());
+    tb.add_variant(v_left.build());
 
-    let mut right = FieldSpec::builder("RIGHT", TypeName::primitive(""));
-    right.initializer(CodeBlock::<Python>::of("'RIGHT'", ()).unwrap());
-    tb.add_field(right.build());
+    let mut v_right = EnumVariantSpec::<Python>::builder("RIGHT");
+    v_right.value(CodeBlock::<Python>::of("'RIGHT'", ()).unwrap());
+    tb.add_variant(v_right.build());
 
     let mut fb = FileSpec::builder_with("direction.py", Python::new());
     fb.add_type(tb.build());

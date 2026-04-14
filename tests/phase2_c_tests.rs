@@ -2,6 +2,7 @@ mod golden;
 
 use sigil_stitch::code_block::{CodeBlock, StringLitArg};
 use sigil_stitch::lang::c_lang::CLang;
+use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::FunSpec;
@@ -75,17 +76,10 @@ fn test_c_void_function() {
 fn test_c_enum() {
     let mut tb = TypeSpec::<CLang>::builder("Direction", TypeKind::Enum);
     tb.doc("Cardinal directions.");
-    // C enum members are comma-separated values, use extra_member for raw entries.
-    let mut members = CodeBlock::<CLang>::builder();
-    members.add("UP,", ());
-    members.add_line();
-    members.add("DOWN,", ());
-    members.add_line();
-    members.add("LEFT,", ());
-    members.add_line();
-    members.add("RIGHT", ());
-    members.add_line();
-    tb.extra_member(members.build().unwrap());
+    tb.add_variant(EnumVariantSpec::new("UP"));
+    tb.add_variant(EnumVariantSpec::new("DOWN"));
+    tb.add_variant(EnumVariantSpec::new("LEFT"));
+    tb.add_variant(EnumVariantSpec::new("RIGHT"));
     let ts = tb.build();
 
     let mut fb = FileSpec::builder_with("direction.h", CLang::header());

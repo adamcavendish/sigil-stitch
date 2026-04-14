@@ -2,6 +2,7 @@ mod golden;
 
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::dart::DartLang;
+use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::{FunSpec, TypeParamSpec};
@@ -117,14 +118,9 @@ fn test_dart_enum() {
     let mut tb = TypeSpec::<DartLang>::builder("Color", TypeKind::Enum);
     tb.doc("Supported colors.");
 
-    let mut constants = CodeBlock::<DartLang>::builder();
-    constants.add("red,", ());
-    constants.add_line();
-    constants.add("green,", ());
-    constants.add_line();
-    constants.add("blue", ());
-    constants.add_line();
-    tb.extra_member(constants.build().unwrap());
+    tb.add_variant(EnumVariantSpec::new("red"));
+    tb.add_variant(EnumVariantSpec::new("green"));
+    tb.add_variant(EnumVariantSpec::new("blue"));
 
     let ts = tb.build();
 

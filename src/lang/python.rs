@@ -308,6 +308,10 @@ impl CodeLang for Python {
     fn empty_body(&self) -> &str {
         "..."
     }
+
+    fn enum_variant_separator(&self) -> &str {
+        ""
+    }
 }
 
 /// Render a `from module import name1, name2` line.

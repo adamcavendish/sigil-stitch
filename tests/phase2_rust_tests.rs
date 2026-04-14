@@ -4,6 +4,7 @@ mod golden;
 
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::rust_lang::RustLang;
+use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::{FunSpec, TypeParamSpec};
@@ -104,14 +105,9 @@ fn test_rust_enum() {
     let derive = CodeBlock::<RustLang>::of("#[derive(Debug, Clone, Copy)]", ()).unwrap();
     tb.annotation(derive);
 
-    let mut extra = CodeBlock::<RustLang>::builder();
-    extra.add("Red,", ());
-    extra.add_line();
-    extra.add("Green,", ());
-    extra.add_line();
-    extra.add("Blue,", ());
-    extra.add_line();
-    tb.extra_member(extra.build().unwrap());
+    tb.add_variant(EnumVariantSpec::new("Red"));
+    tb.add_variant(EnumVariantSpec::new("Green"));
+    tb.add_variant(EnumVariantSpec::new("Blue"));
 
     let mut file = FileSpec::builder_with("color.rs", RustLang::new());
     file.add_type(tb.build());

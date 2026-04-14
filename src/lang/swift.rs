@@ -314,6 +314,14 @@ impl CodeLang for Swift {
         // Swift protocols declare requirements by omitting the body — no keyword.
         ""
     }
+
+    fn enum_variant_prefix(&self) -> &str {
+        "case "
+    }
+
+    fn enum_variant_separator(&self) -> &str {
+        ""
+    }
 }
 
 #[cfg(test)]
