@@ -244,6 +244,50 @@ pub trait CodeLang: Sized + Clone + 'static {
     fn enum_variant_trailing_separator(&self) -> bool {
         false
     }
+
+    // --- Phase 3: annotation support ---
+
+    /// Prefix and suffix wrapping an annotation name.
+    ///
+    /// Default: `("@", "")` → `@Name(args)`.
+    /// Rust: `("#[", "]")` → `#[name(args)]`.
+    /// C++: `("[[", "]]")` → `[[name(args)]]`.
+    /// C: `("__attribute__((", "))")` → `__attribute__((name(args)))`.
+    fn render_annotation_prefix(&self) -> (&str, &str) {
+        ("@", "")
+    }
+
+    // --- Phase 3: constructor support ---
+
+    /// Function keyword used for constructors.
+    ///
+    /// When `FunSpec::is_constructor()` is set, this keyword is used instead of
+    /// `function_keyword()`. Default: `""` (no keyword prefix — works for TS/JS,
+    /// Java, C++, Dart, Swift, Kotlin where constructors have no function keyword).
+    ///
+    /// Python overrides to `"def"` (`def __init__`).
+    /// Rust overrides to `"fn"` (`fn new`).
+    fn constructor_keyword(&self) -> &str {
+        ""
+    }
+
+    // --- Phase 3: property support ---
+
+    /// How `PropertySpec` renders: accessor methods or inline field body.
+    ///
+    /// Default: `Accessor` — emits `get name()` / `set name(v)` methods (TS/JS).
+    /// Swift and Kotlin override to `Field` — emits a field with inline `get`/`set` blocks.
+    fn property_style(&self) -> crate::spec::modifiers::PropertyStyle {
+        crate::spec::modifiers::PropertyStyle::Accessor
+    }
+
+    /// The keyword for a property getter in field-style rendering.
+    ///
+    /// Default: `"get"` (Swift: `get { ... }`).
+    /// Kotlin overrides to `"get()"`.
+    fn property_getter_keyword(&self) -> &str {
+        "get"
+    }
 }
 
 /// Derive a PascalCase namespace alias from a module path.

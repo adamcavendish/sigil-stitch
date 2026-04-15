@@ -1,0 +1,315 @@
+//! Property specification with getter/setter support.
+//!
+//! `PropertySpec` renders computed properties in two styles:
+//!
+//! - **Accessor** (TS/JS and fallback): `get name(): T { ... }` / `set name(v: T) { ... }`
+//! - **Field** (Swift/Kotlin): field with inline `get`/`set` body blocks
+
+use crate::code_block::{Arg, CodeBlock};
+use crate::lang::CodeLang;
+use crate::spec::annotation_spec::AnnotationSpec;
+use crate::spec::modifiers::{DeclarationContext, Modifiers, PropertyStyle, Visibility};
+use crate::type_name::TypeName;
+
+/// A setter definition: parameter name + body.
+#[derive(Debug, Clone)]
+pub struct SetterSpec<L: CodeLang> {
+    pub(crate) param_name: String,
+    pub(crate) body: CodeBlock<L>,
+}
+
+/// A computed property with optional getter and setter.
+#[derive(Debug, Clone)]
+pub struct PropertySpec<L: CodeLang> {
+    pub(crate) name: String,
+    pub(crate) property_type: TypeName<L>,
+    pub(crate) modifiers: Modifiers,
+    pub(crate) doc: Vec<String>,
+    pub(crate) getter: Option<CodeBlock<L>>,
+    pub(crate) setter: Option<SetterSpec<L>>,
+    pub(crate) annotations: Vec<CodeBlock<L>>,
+    pub(crate) annotation_specs: Vec<AnnotationSpec<L>>,
+}
+
+impl<L: CodeLang> PropertySpec<L> {
+    pub fn builder(name: &str, property_type: TypeName<L>) -> PropertySpecBuilder<L> {
+        PropertySpecBuilder {
+            name: name.to_string(),
+            property_type,
+            modifiers: Modifiers::default(),
+            doc: Vec::new(),
+            getter: None,
+            setter: None,
+            annotations: Vec::new(),
+            annotation_specs: Vec::new(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Emit this property as one or more CodeBlocks.
+    ///
+    /// Accessor style returns 1–2 blocks (getter, setter).
+    /// Field style returns 1 block (field with inline body).
+    pub fn emit(&self, lang: &L, ctx: DeclarationContext) -> Vec<CodeBlock<L>> {
+        match lang.property_style() {
+            PropertyStyle::Accessor => self.emit_accessor(lang, ctx),
+            PropertyStyle::Field => self.emit_field(lang, ctx),
+        }
+    }
+
+    /// Emit as accessor methods: `get name(): T { ... }` / `set name(v: T) { ... }`.
+    fn emit_accessor(&self, lang: &L, ctx: DeclarationContext) -> Vec<CodeBlock<L>> {
+        let mut blocks = Vec::new();
+
+        if let Some(getter_body) = &self.getter {
+            let mut cb = CodeBlock::<L>::builder();
+
+            // Annotations + doc on the getter.
+            self.emit_preamble(&mut cb, lang);
+
+            // Signature: [vis] get [name]()[return_type_sep][type][block_open]
+            let vis = lang.render_visibility(self.modifiers.visibility, ctx);
+            let mut sig = String::new();
+            let mut sig_args: Vec<Arg<L>> = Vec::new();
+
+            sig.push_str(vis);
+            if self.modifiers.is_static {
+                sig.push_str("static ");
+            }
+            sig.push_str("get ");
+            sig.push_str(&self.name);
+            sig.push_str("()");
+
+            if !self.property_type.is_empty() {
+                sig.push_str(lang.return_type_separator());
+                sig.push_str("%T");
+                sig_args.push(Arg::TypeName(self.property_type.clone()));
+            }
+
+            sig.push_str(lang.block_open());
+            cb.add(&sig, sig_args);
+            cb.add_line();
+            cb.add("%>", ());
+            cb.add_code(getter_body.clone());
+            cb.add_line();
+            cb.add("%<", ());
+            let close = lang.block_close();
+            if !close.is_empty() {
+                cb.add(close, ());
+                cb.add_line();
+            }
+
+            blocks.push(cb.build().unwrap());
+        }
+
+        if let Some(setter) = &self.setter {
+            let mut cb = CodeBlock::<L>::builder();
+
+            // Setter signature: [vis] set [name]([param][sep][type])[block_open]
+            let vis = lang.render_visibility(self.modifiers.visibility, ctx);
+            let mut sig = String::new();
+            let mut sig_args: Vec<Arg<L>> = Vec::new();
+
+            sig.push_str(vis);
+            if self.modifiers.is_static {
+                sig.push_str("static ");
+            }
+            sig.push_str("set ");
+            sig.push_str(&self.name);
+            sig.push('(');
+            sig.push_str(&lang.escape_reserved(&setter.param_name));
+
+            if !self.property_type.is_empty() {
+                sig.push_str(lang.type_annotation_separator());
+                sig.push_str("%T");
+                sig_args.push(Arg::TypeName(self.property_type.clone()));
+            }
+
+            sig.push(')');
+            sig.push_str(lang.block_open());
+            cb.add(&sig, sig_args);
+            cb.add_line();
+            cb.add("%>", ());
+            cb.add_code(setter.body.clone());
+            cb.add_line();
+            cb.add("%<", ());
+            let close = lang.block_close();
+            if !close.is_empty() {
+                cb.add(close, ());
+                cb.add_line();
+            }
+
+            blocks.push(cb.build().unwrap());
+        }
+
+        blocks
+    }
+
+    /// Emit as a field with inline getter/setter body (Swift/Kotlin).
+    fn emit_field(&self, lang: &L, ctx: DeclarationContext) -> Vec<CodeBlock<L>> {
+        let mut cb = CodeBlock::<L>::builder();
+
+        // Annotations + doc.
+        self.emit_preamble(&mut cb, lang);
+
+        // Field header: [vis] [var/let] [name]: [type] {
+        let vis = lang.render_visibility(self.modifiers.visibility, ctx);
+        let has_setter = self.setter.is_some();
+
+        let mut sig = String::new();
+        let mut sig_args: Vec<Arg<L>> = Vec::new();
+
+        sig.push_str(vis);
+        if self.modifiers.is_static {
+            sig.push_str("static ");
+        }
+
+        if has_setter {
+            sig.push_str(lang.mutable_field_keyword());
+        } else {
+            sig.push_str(lang.readonly_keyword());
+        }
+
+        sig.push_str(&lang.escape_reserved(&self.name));
+
+        if !self.property_type.is_empty() {
+            sig.push_str(lang.type_annotation_separator());
+            sig.push_str("%T");
+            sig_args.push(Arg::TypeName(self.property_type.clone()));
+        }
+
+        sig.push_str(lang.block_open());
+        cb.add(&sig, sig_args);
+        cb.add_line();
+        cb.add("%>", ());
+
+        // Getter block.
+        if let Some(getter_body) = &self.getter {
+            let getter_kw = lang.property_getter_keyword();
+            let getter_sig = format!("{getter_kw}{}", lang.block_open());
+            cb.add(&getter_sig, ());
+            cb.add_line();
+            cb.add("%>", ());
+            cb.add_code(getter_body.clone());
+            cb.add_line();
+            cb.add("%<", ());
+            let close = lang.block_close();
+            if !close.is_empty() {
+                cb.add(close, ());
+                cb.add_line();
+            }
+        }
+
+        // Setter block.
+        if let Some(setter) = &self.setter {
+            let setter_sig = format!("set({}){}", setter.param_name, lang.block_open());
+            cb.add(&setter_sig, ());
+            cb.add_line();
+            cb.add("%>", ());
+            cb.add_code(setter.body.clone());
+            cb.add_line();
+            cb.add("%<", ());
+            let close = lang.block_close();
+            if !close.is_empty() {
+                cb.add(close, ());
+                cb.add_line();
+            }
+        }
+
+        cb.add("%<", ());
+        let close = lang.block_close();
+        if !close.is_empty() {
+            cb.add(close, ());
+            cb.add_line();
+        }
+
+        vec![cb.build().unwrap()]
+    }
+
+    /// Emit annotations and doc comment as a preamble.
+    fn emit_preamble(&self, cb: &mut crate::code_block::CodeBlockBuilder<L>, lang: &L) {
+        for spec in &self.annotation_specs {
+            cb.add_code(spec.emit(lang));
+            cb.add_line();
+        }
+        for ann in &self.annotations {
+            cb.add_code(ann.clone());
+            cb.add_line();
+        }
+        if !self.doc.is_empty() {
+            let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
+            let doc_str = lang.render_doc_comment(&doc_lines);
+            cb.add("%L", doc_str);
+            cb.add_line();
+        }
+    }
+}
+
+/// Builder for [`PropertySpec`].
+#[derive(Debug)]
+pub struct PropertySpecBuilder<L: CodeLang> {
+    name: String,
+    property_type: TypeName<L>,
+    modifiers: Modifiers,
+    doc: Vec<String>,
+    getter: Option<CodeBlock<L>>,
+    setter: Option<SetterSpec<L>>,
+    annotations: Vec<CodeBlock<L>>,
+    annotation_specs: Vec<AnnotationSpec<L>>,
+}
+
+impl<L: CodeLang> PropertySpecBuilder<L> {
+    pub fn getter(&mut self, body: CodeBlock<L>) -> &mut Self {
+        self.getter = Some(body);
+        self
+    }
+
+    pub fn setter(&mut self, param_name: &str, body: CodeBlock<L>) -> &mut Self {
+        self.setter = Some(SetterSpec {
+            param_name: param_name.to_string(),
+            body,
+        });
+        self
+    }
+
+    pub fn visibility(&mut self, vis: Visibility) -> &mut Self {
+        self.modifiers.visibility = vis;
+        self
+    }
+
+    pub fn is_static(&mut self) -> &mut Self {
+        self.modifiers.is_static = true;
+        self
+    }
+
+    pub fn doc(&mut self, line: &str) -> &mut Self {
+        self.doc.push(line.to_string());
+        self
+    }
+
+    pub fn annotation(&mut self, ann: CodeBlock<L>) -> &mut Self {
+        self.annotations.push(ann);
+        self
+    }
+
+    pub fn annotate(&mut self, spec: AnnotationSpec<L>) -> &mut Self {
+        self.annotation_specs.push(spec);
+        self
+    }
+
+    pub fn build(self) -> PropertySpec<L> {
+        PropertySpec {
+            name: self.name,
+            property_type: self.property_type,
+            modifiers: self.modifiers,
+            doc: self.doc,
+            getter: self.getter,
+            setter: self.setter,
+            annotations: self.annotations,
+            annotation_specs: self.annotation_specs,
+        }
+    }
+}

@@ -2,6 +2,7 @@
 
 use crate::code_block::{Arg, CodeBlock};
 use crate::lang::CodeLang;
+use crate::spec::annotation_spec::AnnotationSpec;
 use crate::spec::modifiers::{DeclarationContext, Modifiers, Visibility};
 use crate::type_name::TypeName;
 
@@ -14,6 +15,7 @@ pub struct FieldSpec<L: CodeLang> {
     pub(crate) doc: Vec<String>,
     pub(crate) initializer: Option<CodeBlock<L>>,
     pub(crate) annotations: Vec<CodeBlock<L>>,
+    pub(crate) annotation_specs: Vec<AnnotationSpec<L>>,
     /// Struct tag (e.g., Go: `` `json:"name"` ``). Emitted inline after the type.
     pub(crate) tag: Option<String>,
 }
@@ -27,6 +29,7 @@ impl<L: CodeLang> FieldSpec<L> {
             doc: Vec::new(),
             initializer: None,
             annotations: Vec::new(),
+            annotation_specs: Vec::new(),
             tag: None,
         }
     }
@@ -43,7 +46,11 @@ impl<L: CodeLang> FieldSpec<L> {
     pub fn emit(&self, lang: &L, ctx: DeclarationContext) -> CodeBlock<L> {
         let mut cb = CodeBlock::<L>::builder();
 
-        // Annotations.
+        // Annotations (structured specs first, then raw CodeBlocks).
+        for spec in &self.annotation_specs {
+            cb.add_code(spec.emit(lang));
+            cb.add_line();
+        }
         for ann in &self.annotations {
             cb.add_code(ann.clone());
             cb.add_line();
@@ -129,6 +136,7 @@ pub struct FieldSpecBuilder<L: CodeLang> {
     doc: Vec<String>,
     initializer: Option<CodeBlock<L>>,
     annotations: Vec<CodeBlock<L>>,
+    annotation_specs: Vec<AnnotationSpec<L>>,
     tag: Option<String>,
 }
 
@@ -163,6 +171,11 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
         self
     }
 
+    pub fn annotate(&mut self, spec: AnnotationSpec<L>) -> &mut Self {
+        self.annotation_specs.push(spec);
+        self
+    }
+
     pub fn tag(&mut self, t: &str) -> &mut Self {
         self.tag = Some(t.to_string());
         self
@@ -176,6 +189,7 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
             doc: self.doc,
             initializer: self.initializer,
             annotations: self.annotations,
+            annotation_specs: self.annotation_specs,
             tag: self.tag,
         }
     }

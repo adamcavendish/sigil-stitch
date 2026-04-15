@@ -2,6 +2,7 @@
 
 use crate::code_block::{Arg, CodeBlock};
 use crate::lang::CodeLang;
+use crate::spec::annotation_spec::AnnotationSpec;
 use crate::spec::modifiers::{DeclarationContext, Modifiers, Visibility};
 use crate::spec::parameter_spec::ParameterSpec;
 use crate::type_name::TypeName;
@@ -73,6 +74,7 @@ pub struct FunSpec<L: CodeLang> {
     pub(crate) doc: Vec<String>,
     pub(crate) type_params: Vec<TypeParamSpec<L>>,
     pub(crate) annotations: Vec<CodeBlock<L>>,
+    pub(crate) annotation_specs: Vec<AnnotationSpec<L>>,
     /// Receiver parameter (e.g., Go: `func (s *Server) Handle()`).
     pub(crate) receiver: Option<ParameterSpec<L>>,
     /// Suffixes appended after the parameter list (e.g., C++: `const`, `override`, `= 0`).
@@ -90,6 +92,7 @@ impl<L: CodeLang> FunSpec<L> {
             doc: Vec::new(),
             type_params: Vec::new(),
             annotations: Vec::new(),
+            annotation_specs: Vec::new(),
             receiver: None,
             suffixes: Vec::new(),
         }
@@ -103,7 +106,11 @@ impl<L: CodeLang> FunSpec<L> {
     pub fn emit(&self, lang: &L, ctx: DeclarationContext) -> CodeBlock<L> {
         let mut cb = CodeBlock::<L>::builder();
 
-        // Annotations.
+        // Annotations (structured specs first, then raw CodeBlocks).
+        for spec in &self.annotation_specs {
+            cb.add_code(spec.emit(lang));
+            cb.add_line();
+        }
         for ann in &self.annotations {
             cb.add_code(ann.clone());
             cb.add_line();
@@ -120,7 +127,11 @@ impl<L: CodeLang> FunSpec<L> {
 
         // Build signature.
         let vis = lang.render_visibility(self.modifiers.visibility, ctx);
-        let fn_kw = lang.function_keyword(ctx);
+        let fn_kw = if self.modifiers.is_constructor {
+            lang.constructor_keyword()
+        } else {
+            lang.function_keyword(ctx)
+        };
 
         let mut sig = String::new();
         let mut sig_args: Vec<Arg<L>> = Vec::new();
@@ -269,6 +280,7 @@ pub struct FunSpecBuilder<L: CodeLang> {
     doc: Vec<String>,
     type_params: Vec<TypeParamSpec<L>>,
     annotations: Vec<CodeBlock<L>>,
+    annotation_specs: Vec<AnnotationSpec<L>>,
     receiver: Option<ParameterSpec<L>>,
     suffixes: Vec<String>,
 }
@@ -314,6 +326,11 @@ impl<L: CodeLang> FunSpecBuilder<L> {
         self
     }
 
+    pub fn is_constructor(&mut self) -> &mut Self {
+        self.modifiers.is_constructor = true;
+        self
+    }
+
     pub fn doc(&mut self, line: &str) -> &mut Self {
         self.doc.push(line.to_string());
         self
@@ -326,6 +343,11 @@ impl<L: CodeLang> FunSpecBuilder<L> {
 
     pub fn annotation(&mut self, ann: CodeBlock<L>) -> &mut Self {
         self.annotations.push(ann);
+        self
+    }
+
+    pub fn annotate(&mut self, spec: AnnotationSpec<L>) -> &mut Self {
+        self.annotation_specs.push(spec);
         self
     }
 
@@ -349,6 +371,7 @@ impl<L: CodeLang> FunSpecBuilder<L> {
             doc: self.doc,
             type_params: self.type_params,
             annotations: self.annotations,
+            annotation_specs: self.annotation_specs,
             receiver: self.receiver,
             suffixes: self.suffixes,
         }

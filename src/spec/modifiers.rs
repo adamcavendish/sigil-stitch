@@ -42,6 +42,15 @@ pub enum TypeKind {
     Enum,
 }
 
+/// How a `PropertySpec` renders: accessor methods or inline field body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PropertyStyle {
+    /// Emit getter/setter as separate accessor methods: `get name(): T { ... }` (TS/JS).
+    Accessor,
+    /// Emit as a field with inline getter/setter body: `var x: T { get { } set { } }` (Swift/Kotlin).
+    Field,
+}
+
 /// Modifier flags for a declaration.
 #[derive(Debug, Clone, Default)]
 pub struct Modifiers {
@@ -51,6 +60,7 @@ pub struct Modifiers {
     pub is_readonly: bool,
     pub is_async: bool,
     pub is_override: bool,
+    pub is_constructor: bool,
 }
 
 #[cfg(test)]
@@ -72,5 +82,6 @@ mod tests {
         assert!(!m.is_readonly);
         assert!(!m.is_async);
         assert!(!m.is_override);
+        assert!(!m.is_constructor);
     }
 }

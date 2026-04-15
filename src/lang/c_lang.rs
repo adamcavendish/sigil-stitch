@@ -277,6 +277,10 @@ impl CodeLang for CLang {
     fn type_close_terminator(&self) -> &str {
         ";"
     }
+
+    fn render_annotation_prefix(&self) -> (&str, &str) {
+        ("__attribute__((", "))")
+    }
 }
 
 #[cfg(test)]

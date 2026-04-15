@@ -232,6 +232,14 @@ impl CodeLang for RustLang {
     fn enum_variant_trailing_separator(&self) -> bool {
         true
     }
+
+    fn render_annotation_prefix(&self) -> (&str, &str) {
+        ("#[", "]")
+    }
+
+    fn constructor_keyword(&self) -> &str {
+        "fn"
+    }
 }
 
 #[cfg(test)]

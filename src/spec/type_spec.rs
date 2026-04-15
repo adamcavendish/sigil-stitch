@@ -2,10 +2,12 @@
 
 use crate::code_block::{Arg, CodeBlock, CodeBlockBuilder};
 use crate::lang::CodeLang;
+use crate::spec::annotation_spec::AnnotationSpec;
 use crate::spec::enum_variant_spec::EnumVariantSpec;
 use crate::spec::field_spec::FieldSpec;
 use crate::spec::fun_spec::{FunSpec, TypeParamSpec, render_type_params};
 use crate::spec::modifiers::{DeclarationContext, Modifiers, TypeKind, Visibility};
+use crate::spec::property_spec::PropertySpec;
 use crate::type_name::TypeName;
 
 /// A type declaration (struct, class, interface, trait, enum).
@@ -16,11 +18,13 @@ pub struct TypeSpec<L: CodeLang> {
     pub(crate) modifiers: Modifiers,
     pub(crate) doc: Vec<String>,
     pub(crate) fields: Vec<FieldSpec<L>>,
+    pub(crate) properties: Vec<PropertySpec<L>>,
     pub(crate) methods: Vec<FunSpec<L>>,
     pub(crate) type_params: Vec<TypeParamSpec<L>>,
     pub(crate) super_types: Vec<TypeName<L>>,
     pub(crate) impl_types: Vec<TypeName<L>>,
     pub(crate) annotations: Vec<CodeBlock<L>>,
+    pub(crate) annotation_specs: Vec<AnnotationSpec<L>>,
     pub(crate) extra_members: Vec<CodeBlock<L>>,
     pub(crate) variants: Vec<EnumVariantSpec<L>>,
 }
@@ -33,11 +37,13 @@ impl<L: CodeLang> TypeSpec<L> {
             modifiers: Modifiers::default(),
             doc: Vec::new(),
             fields: Vec::new(),
+            properties: Vec::new(),
             methods: Vec::new(),
             type_params: Vec::new(),
             super_types: Vec::new(),
             impl_types: Vec::new(),
             annotations: Vec::new(),
+            annotation_specs: Vec::new(),
             extra_members: Vec::new(),
             variants: Vec::new(),
         }
@@ -93,6 +99,22 @@ impl<L: CodeLang> TypeSpec<L> {
             self.emit_variants(&mut cb, lang);
         }
         let has_body_above = !self.fields.is_empty() || !self.variants.is_empty();
+        // Properties (after fields, before methods).
+        if !self.properties.is_empty() {
+            if has_body_above {
+                cb.add_line();
+            }
+            for (i, prop) in self.properties.iter().enumerate() {
+                if i > 0 {
+                    cb.add_line();
+                }
+                for block in prop.emit(lang, DeclarationContext::Member) {
+                    cb.add_code(block);
+                }
+            }
+        }
+        let has_body_above =
+            has_body_above || !self.properties.is_empty();
         if has_body_above && !self.methods.is_empty() {
             cb.add_line();
         }
@@ -148,8 +170,8 @@ impl<L: CodeLang> TypeSpec<L> {
         }
         blocks.push(cb.build().unwrap());
 
-        // Block 2: impl block (only if methods are non-empty).
-        if !self.methods.is_empty() {
+        // Block 2: impl block (only if methods or properties are non-empty).
+        if !self.methods.is_empty() || !self.properties.is_empty() {
             let mut impl_cb = CodeBlock::<L>::builder();
             let mut impl_fmt = String::from("impl");
             let mut impl_args: Vec<Arg<L>> = Vec::new();
@@ -175,6 +197,18 @@ impl<L: CodeLang> TypeSpec<L> {
             impl_cb.add_line();
 
             impl_cb.add("%>", ());
+            // Properties before methods.
+            for (i, prop) in self.properties.iter().enumerate() {
+                if i > 0 {
+                    impl_cb.add_line();
+                }
+                for block in prop.emit(lang, DeclarationContext::Member) {
+                    impl_cb.add_code(block);
+                }
+            }
+            if !self.properties.is_empty() && !self.methods.is_empty() {
+                impl_cb.add_line();
+            }
             for (i, method) in self.methods.iter().enumerate() {
                 if i > 0 {
                     impl_cb.add_line();
@@ -203,6 +237,10 @@ impl<L: CodeLang> TypeSpec<L> {
         for (i, variant) in self.variants.iter().enumerate() {
             // Emit variant parts directly here rather than calling variant.emit(),
             // because we need to append the separator before the trailing newline.
+            for spec in &variant.annotation_specs {
+                cb.add_code(spec.emit(lang));
+                cb.add_line();
+            }
             for ann in &variant.annotations {
                 cb.add_code(ann.clone());
                 cb.add_line();
@@ -236,6 +274,10 @@ impl<L: CodeLang> TypeSpec<L> {
 
     /// Emit annotations and doc comment.
     fn emit_preamble(&self, cb: &mut CodeBlockBuilder<L>, lang: &L) {
+        for spec in &self.annotation_specs {
+            cb.add_code(spec.emit(lang));
+            cb.add_line();
+        }
         for ann in &self.annotations {
             cb.add_code(ann.clone());
             cb.add_line();
@@ -328,11 +370,13 @@ pub struct TypeSpecBuilder<L: CodeLang> {
     modifiers: Modifiers,
     doc: Vec<String>,
     fields: Vec<FieldSpec<L>>,
+    properties: Vec<PropertySpec<L>>,
     methods: Vec<FunSpec<L>>,
     type_params: Vec<TypeParamSpec<L>>,
     super_types: Vec<TypeName<L>>,
     impl_types: Vec<TypeName<L>>,
     annotations: Vec<CodeBlock<L>>,
+    annotation_specs: Vec<AnnotationSpec<L>>,
     extra_members: Vec<CodeBlock<L>>,
     variants: Vec<EnumVariantSpec<L>>,
 }
@@ -355,6 +399,11 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
 
     pub fn add_field(&mut self, field: FieldSpec<L>) -> &mut Self {
         self.fields.push(field);
+        self
+    }
+
+    pub fn add_property(&mut self, prop: PropertySpec<L>) -> &mut Self {
+        self.properties.push(prop);
         self
     }
 
@@ -383,6 +432,11 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
         self
     }
 
+    pub fn annotate(&mut self, spec: AnnotationSpec<L>) -> &mut Self {
+        self.annotation_specs.push(spec);
+        self
+    }
+
     pub fn extra_member(&mut self, block: CodeBlock<L>) -> &mut Self {
         self.extra_members.push(block);
         self
@@ -401,11 +455,13 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
             modifiers: self.modifiers,
             doc: self.doc,
             fields: self.fields,
+            properties: self.properties,
             methods: self.methods,
             type_params: self.type_params,
             super_types: self.super_types,
             impl_types: self.impl_types,
             annotations: self.annotations,
+            annotation_specs: self.annotation_specs,
             extra_members: self.extra_members,
             variants: self.variants,
         }

@@ -2,6 +2,7 @@
 
 use crate::code_block::CodeBlock;
 use crate::lang::CodeLang;
+use crate::spec::annotation_spec::AnnotationSpec;
 
 /// A single enum variant (e.g., `Red`, `Up = 'UP'`, `case red`).
 ///
@@ -17,6 +18,7 @@ pub struct EnumVariantSpec<L: CodeLang> {
     pub(crate) doc: Vec<String>,
     pub(crate) value: Option<CodeBlock<L>>,
     pub(crate) annotations: Vec<CodeBlock<L>>,
+    pub(crate) annotation_specs: Vec<AnnotationSpec<L>>,
 }
 
 impl<L: CodeLang> EnumVariantSpec<L> {
@@ -27,6 +29,7 @@ impl<L: CodeLang> EnumVariantSpec<L> {
             doc: Vec::new(),
             value: None,
             annotations: Vec::new(),
+            annotation_specs: Vec::new(),
         }
     }
 
@@ -37,6 +40,7 @@ impl<L: CodeLang> EnumVariantSpec<L> {
             doc: Vec::new(),
             value: None,
             annotations: Vec::new(),
+            annotation_specs: Vec::new(),
         }
     }
 }
@@ -48,6 +52,7 @@ pub struct EnumVariantSpecBuilder<L: CodeLang> {
     doc: Vec<String>,
     value: Option<CodeBlock<L>>,
     annotations: Vec<CodeBlock<L>>,
+    annotation_specs: Vec<AnnotationSpec<L>>,
 }
 
 impl<L: CodeLang> EnumVariantSpecBuilder<L> {
@@ -69,6 +74,12 @@ impl<L: CodeLang> EnumVariantSpecBuilder<L> {
         self
     }
 
+    /// Add a structured annotation.
+    pub fn annotate(&mut self, spec: AnnotationSpec<L>) -> &mut Self {
+        self.annotation_specs.push(spec);
+        self
+    }
+
     /// Build the variant spec.
     pub fn build(self) -> EnumVariantSpec<L> {
         EnumVariantSpec {
@@ -76,6 +87,7 @@ impl<L: CodeLang> EnumVariantSpecBuilder<L> {
             doc: self.doc,
             value: self.value,
             annotations: self.annotations,
+            annotation_specs: self.annotation_specs,
         }
     }
 }

@@ -328,6 +328,10 @@ impl CodeLang for Python {
     fn enum_variant_separator(&self) -> &str {
         ""
     }
+
+    fn constructor_keyword(&self) -> &str {
+        "def"
+    }
 }
 
 /// Render a `from module import name1, name2` line.

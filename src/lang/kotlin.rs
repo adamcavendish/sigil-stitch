@@ -309,6 +309,14 @@ impl CodeLang for Kotlin {
     fn mutable_field_keyword(&self) -> &str {
         "var "
     }
+
+    fn property_style(&self) -> crate::spec::modifiers::PropertyStyle {
+        crate::spec::modifiers::PropertyStyle::Field
+    }
+
+    fn property_getter_keyword(&self) -> &str {
+        "get()"
+    }
 }
 
 #[cfg(test)]

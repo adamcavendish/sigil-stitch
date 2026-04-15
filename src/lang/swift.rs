@@ -322,6 +322,10 @@ impl CodeLang for Swift {
     fn enum_variant_separator(&self) -> &str {
         ""
     }
+
+    fn property_style(&self) -> crate::spec::modifiers::PropertyStyle {
+        crate::spec::modifiers::PropertyStyle::Field
+    }
 }
 
 #[cfg(test)]

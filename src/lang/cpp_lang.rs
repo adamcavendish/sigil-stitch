@@ -293,6 +293,10 @@ impl CodeLang for CppLang {
     fn abstract_keyword(&self) -> &str {
         "virtual "
     }
+
+    fn render_annotation_prefix(&self) -> (&str, &str) {
+        ("[[", "]]")
+    }
 }
 
 #[cfg(test)]
