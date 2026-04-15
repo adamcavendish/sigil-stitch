@@ -6,6 +6,14 @@ default:
 test:
     cargo test
 
+# Run tests with nextest (requires cargo-nextest installed)
+test-nextest:
+    cargo nextest run
+
+# Run doctests only
+test-doc:
+    cargo test --doc
+
 # Run clippy
 lint:
     cargo clippy -- -D warnings
@@ -31,6 +39,11 @@ coverage-html:
 coverage-lcov:
     mkdir -p coverage
     cargo llvm-cov --lcov --output-path coverage/lcov.info
+
+# Generate LCOV output using nextest (matches CI)
+coverage-nextest:
+    mkdir -p coverage
+    cargo llvm-cov nextest --lcov --output-path coverage/lcov.info
 
 # Update golden test files
 bless:
