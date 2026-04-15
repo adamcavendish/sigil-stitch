@@ -279,6 +279,12 @@ fn test_no_duplicate_when_explicit_matches_auto() {
     // "User" appears in the import line and in the code line, but the import line itself
     // should only appear once.
     let import_count = output.matches("import { User } from './models';").count();
-    assert_eq!(import_count, 1, "Import should appear exactly once: {output}");
-    assert!(count >= 2, "User should appear in import and code: {output}");
+    assert_eq!(
+        import_count, 1,
+        "Import should appear exactly once: {output}"
+    );
+    assert!(
+        count >= 2,
+        "User should appear in import and code: {output}"
+    );
 }

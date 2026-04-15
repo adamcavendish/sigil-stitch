@@ -131,11 +131,10 @@ impl CodeLang for DartLang {
         package_imports.sort();
         relative_imports.sort();
 
-        let groups: Vec<&Vec<String>> =
-            [&dart_imports, &package_imports, &relative_imports]
-                .into_iter()
-                .filter(|g| !g.is_empty())
-                .collect();
+        let groups: Vec<&Vec<String>> = [&dart_imports, &package_imports, &relative_imports]
+            .into_iter()
+            .filter(|g| !g.is_empty())
+            .collect();
 
         let mut lines = Vec::new();
         for (i, group) in groups.iter().enumerate() {
@@ -410,10 +409,7 @@ mod tests {
     fn test_doc_comment_multi() {
         let d = DartLang::new();
         let doc = d.render_doc_comment(&["Container class.", "", "See also [OtherClass]."]);
-        assert_eq!(
-            doc,
-            "/// Container class.\n///\n/// See also [OtherClass]."
-        );
+        assert_eq!(doc, "/// Container class.\n///\n/// See also [OtherClass].");
     }
 
     #[test]
@@ -439,9 +435,18 @@ mod tests {
     #[test]
     fn test_no_visibility_keywords() {
         let d = DartLang::new();
-        assert_eq!(d.render_visibility(Visibility::Public, DeclarationContext::TopLevel), "");
-        assert_eq!(d.render_visibility(Visibility::Private, DeclarationContext::Member), "");
-        assert_eq!(d.render_visibility(Visibility::Protected, DeclarationContext::Member), "");
+        assert_eq!(
+            d.render_visibility(Visibility::Public, DeclarationContext::TopLevel),
+            ""
+        );
+        assert_eq!(
+            d.render_visibility(Visibility::Private, DeclarationContext::Member),
+            ""
+        );
+        assert_eq!(
+            d.render_visibility(Visibility::Protected, DeclarationContext::Member),
+            ""
+        );
     }
 
     #[test]

@@ -278,7 +278,9 @@ fn test_mixed_annotation_and_codeblock() {
     fb.body(CodeBlock::of("// test body", ()).unwrap());
     let output = render_fun(&fb.build(), &rs, DeclarationContext::TopLevel);
     // Structured specs appear before raw CodeBlock annotations.
-    let cfg_pos = output.find("#[cfg(test)]").expect("should contain #[cfg(test)]");
+    let cfg_pos = output
+        .find("#[cfg(test)]")
+        .expect("should contain #[cfg(test)]");
     let ignore_pos = output.find("#[ignore]").expect("should contain #[ignore]");
     assert!(cfg_pos < ignore_pos, "spec annotations should come first");
 }
@@ -335,7 +337,11 @@ fn test_multiple_annotations_on_fun() {
 fn test_multiple_args() {
     let rs = RustLang::new();
     let mut fb = FunSpec::<RustLang>::builder("handler");
-    fb.annotate(AnnotationSpec::new("cfg").arg("feature = \"web\"").arg("not(test)"));
+    fb.annotate(
+        AnnotationSpec::new("cfg")
+            .arg("feature = \"web\"")
+            .arg("not(test)"),
+    );
     fb.body(CodeBlock::of("// handler", ()).unwrap());
     let output = render_fun(&fb.build(), &rs, DeclarationContext::TopLevel);
     assert!(output.contains("#[cfg(feature = \"web\", not(test))]"));

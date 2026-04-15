@@ -94,7 +94,10 @@ fn test_java_constructor() {
     let mut fb = FunSpec::<JavaLang>::builder("UserService");
     fb.is_constructor();
     fb.visibility(Visibility::Public);
-    fb.add_param(ParameterSpec::new("repo", TypeName::primitive("UserRepository")));
+    fb.add_param(ParameterSpec::new(
+        "repo",
+        TypeName::primitive("UserRepository"),
+    ));
     fb.body(CodeBlock::of("this.repo = repo;", ()).unwrap());
     let output = render_fun(&fb.build(), &java, DeclarationContext::Member);
     assert!(output.contains("public UserService(UserRepository repo) {"));
@@ -269,7 +272,10 @@ fn test_backward_compat_java_constructor_without_flag() {
     let java = JavaLang::new();
     let mut fb = FunSpec::<JavaLang>::builder("UserService");
     fb.visibility(Visibility::Public);
-    fb.add_param(ParameterSpec::new("repo", TypeName::primitive("UserRepository")));
+    fb.add_param(ParameterSpec::new(
+        "repo",
+        TypeName::primitive("UserRepository"),
+    ));
     fb.body(CodeBlock::of("this.repo = repo;", ()).unwrap());
     let output = render_fun(&fb.build(), &java, DeclarationContext::Member);
     assert!(output.contains("public UserService(UserRepository repo) {"));

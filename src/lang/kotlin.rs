@@ -237,13 +237,13 @@ impl CodeLang for Kotlin {
     fn render_visibility(&self, vis: Visibility, ctx: DeclarationContext) -> &str {
         match ctx {
             DeclarationContext::TopLevel => match vis {
-                Visibility::Public => "",  // public is default in Kotlin
+                Visibility::Public => "", // public is default in Kotlin
                 Visibility::Private => "private ",
                 Visibility::Protected => "protected ",
                 _ => "internal ",
             },
             DeclarationContext::Member => match vis {
-                Visibility::Public => "",  // public is default
+                Visibility::Public => "", // public is default
                 Visibility::Private => "private ",
                 Visibility::Protected => "protected ",
                 _ => "internal ",

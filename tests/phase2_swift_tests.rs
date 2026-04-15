@@ -288,11 +288,13 @@ fn test_swift_full_module() {
     let cls_spec = cls.build();
 
     // Standalone function using URL import.
-    let make_body =
-        CodeBlock::<Swift>::of("return %T(string: urlString)!", (url,)).unwrap();
+    let make_body = CodeBlock::<Swift>::of("return %T(string: urlString)!", (url,)).unwrap();
     let mut make_fn = FunSpec::<Swift>::builder("makeURL");
     make_fn.returns(TypeName::primitive("URL"));
-    make_fn.add_param(ParameterSpec::new("urlString", TypeName::primitive("String")));
+    make_fn.add_param(ParameterSpec::new(
+        "urlString",
+        TypeName::primitive("String"),
+    ));
     make_fn.body(make_body);
     let make_url = make_fn.build();
 

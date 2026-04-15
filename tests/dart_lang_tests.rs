@@ -27,8 +27,7 @@ fn test_dart_import_grouping() {
     let future = TypeName::<DartLang>::importable("dart:async", "Future");
     let convert = TypeName::<DartLang>::importable("dart:convert", "json");
     let http = TypeName::<DartLang>::importable("package:http/http.dart", "Client");
-    let provider =
-        TypeName::<DartLang>::importable("package:provider/provider.dart", "Provider");
+    let provider = TypeName::<DartLang>::importable("package:provider/provider.dart", "Provider");
     let user = TypeName::<DartLang>::importable("../models/user.dart", "User");
     let config = TypeName::<DartLang>::importable("./config.dart", "Config");
 

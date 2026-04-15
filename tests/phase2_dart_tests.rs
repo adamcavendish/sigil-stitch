@@ -61,8 +61,7 @@ fn test_dart_abstract_class() {
     tb.is_abstract();
 
     // Concrete method.
-    let desc_body =
-        CodeBlock::<DartLang>::of("return runtimeType.toString();", ()).unwrap();
+    let desc_body = CodeBlock::<DartLang>::of("return runtimeType.toString();", ()).unwrap();
     let mut desc = FunSpec::<DartLang>::builder("describe");
     desc.returns(TypeName::primitive("String"));
     desc.body(desc_body);
@@ -87,10 +86,8 @@ fn test_dart_abstract_class() {
 #[test]
 fn test_dart_class_extends_implements() {
     let base = TypeName::<DartLang>::importable("package:myapp/base.dart", "BaseService");
-    let auth =
-        TypeName::<DartLang>::importable("package:myapp/auth.dart", "Authenticatable");
-    let serial =
-        TypeName::<DartLang>::importable("package:myapp/serial.dart", "Serializable");
+    let auth = TypeName::<DartLang>::importable("package:myapp/auth.dart", "Authenticatable");
+    let serial = TypeName::<DartLang>::importable("package:myapp/serial.dart", "Serializable");
 
     let mut tb = TypeSpec::<DartLang>::builder("AdminService", TypeKind::Class);
     tb.extends(base);
@@ -134,8 +131,7 @@ fn test_dart_enum() {
 
 #[test]
 fn test_dart_generic_class() {
-    let tp = TypeParamSpec::<DartLang>::new("T")
-        .with_bound(TypeName::primitive("Comparable"));
+    let tp = TypeParamSpec::<DartLang>::new("T").with_bound(TypeName::primitive("Comparable"));
 
     let mut tb = TypeSpec::<DartLang>::builder("SortedList", TypeKind::Class);
     tb.add_type_param(tp);
@@ -286,8 +282,7 @@ fn test_dart_full_module() {
     cls.add_method(find_impl.build());
 
     // findAll with @override.
-    let find_all_body =
-        CodeBlock::<DartLang>::of("return List.unmodifiable(_users);", ()).unwrap();
+    let find_all_body = CodeBlock::<DartLang>::of("return List.unmodifiable(_users);", ()).unwrap();
     let mut find_all_impl = FunSpec::<DartLang>::builder("findAll");
     find_all_impl.returns(TypeName::primitive("List<User>"));
     find_all_impl.annotation(CodeBlock::<DartLang>::of("@override", ()).unwrap());

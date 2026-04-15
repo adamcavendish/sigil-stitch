@@ -113,8 +113,7 @@ impl<L: CodeLang> TypeSpec<L> {
                 }
             }
         }
-        let has_body_above =
-            has_body_above || !self.properties.is_empty();
+        let has_body_above = has_body_above || !self.properties.is_empty();
         if has_body_above && !self.methods.is_empty() {
             cb.add_line();
         }

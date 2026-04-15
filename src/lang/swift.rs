@@ -450,7 +450,8 @@ mod tests {
     #[test]
     fn test_doc_comment_multi() {
         let sw = Swift::new();
-        let doc = sw.render_doc_comment(&["Container class.", "", "- Parameter T: the element type"]);
+        let doc =
+            sw.render_doc_comment(&["Container class.", "", "- Parameter T: the element type"]);
         assert_eq!(
             doc,
             "/// Container class.\n///\n/// - Parameter T: the element type"

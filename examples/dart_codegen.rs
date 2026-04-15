@@ -19,8 +19,8 @@ use sigil_stitch::lang::dart::DartLang;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::{FunSpec, TypeParamSpec};
-use sigil_stitch::spec::parameter_spec::ParameterSpec;
 use sigil_stitch::spec::modifiers::TypeKind;
+use sigil_stitch::spec::parameter_spec::ParameterSpec;
 use sigil_stitch::spec::type_spec::TypeSpec;
 use sigil_stitch::type_name::TypeName;
 
@@ -119,11 +119,8 @@ fn main() {
     api_field.is_static();
     api_field.is_readonly();
     api_field.initializer(
-        CodeBlock::<DartLang>::of(
-            "%S",
-            (StringLitArg("https://api.example.com".to_string()),),
-        )
-        .unwrap(),
+        CodeBlock::<DartLang>::of("%S", (StringLitArg("https://api.example.com".to_string()),))
+            .unwrap(),
     );
     constants.add_field(api_field.build());
 
@@ -153,8 +150,7 @@ fn main() {
     impl_cls.add_method(find_impl.build());
 
     // findAll with @override.
-    let find_all_body =
-        CodeBlock::<DartLang>::of("return List.unmodifiable(_tasks);", ()).unwrap();
+    let find_all_body = CodeBlock::<DartLang>::of("return List.unmodifiable(_tasks);", ()).unwrap();
     let mut find_all_impl = FunSpec::<DartLang>::builder("findAll");
     find_all_impl.returns(TypeName::primitive("List<Task>"));
     find_all_impl.annotation(CodeBlock::<DartLang>::of("@override", ()).unwrap());
@@ -172,8 +168,8 @@ fn main() {
     let impl_spec = impl_cls.build();
 
     // --- Generic class: SortedList<T extends Comparable> ---
-    let sorted_tp = TypeParamSpec::<DartLang>::new("T")
-        .with_bound(TypeName::primitive("Comparable"));
+    let sorted_tp =
+        TypeParamSpec::<DartLang>::new("T").with_bound(TypeName::primitive("Comparable"));
 
     let mut sorted = TypeSpec::<DartLang>::builder("SortedList", TypeKind::Class);
     sorted.add_type_param(sorted_tp);
@@ -184,8 +180,7 @@ fn main() {
     items_field.initializer(CodeBlock::<DartLang>::of("[]", ()).unwrap());
     sorted.add_field(items_field.build());
 
-    let add_body =
-        CodeBlock::<DartLang>::of("_items.add(item);\n_items.sort();", ()).unwrap();
+    let add_body = CodeBlock::<DartLang>::of("_items.add(item);\n_items.sort();", ()).unwrap();
     let mut add_fn = FunSpec::<DartLang>::builder("add");
     add_fn.returns(TypeName::primitive("void"));
     add_fn.add_param(ParameterSpec::new("item", TypeName::primitive("T")));

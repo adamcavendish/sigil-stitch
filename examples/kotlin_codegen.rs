@@ -106,11 +106,7 @@ fn main() {
     base_svc.add_field(name_f.build());
 
     // Concrete method
-    let log_body = CodeBlock::<Kotlin>::of(
-        "println(\"[$serviceName] $message\")",
-        (),
-    )
-    .unwrap();
+    let log_body = CodeBlock::<Kotlin>::of("println(\"[$serviceName] $message\")", ()).unwrap();
     let mut log_fn = FunSpec::<Kotlin>::builder("log");
     log_fn.visibility(Visibility::Protected);
     log_fn.add_param(ParameterSpec::new("message", TypeName::primitive("String")));
@@ -138,18 +134,19 @@ fn main() {
     task_svc.add_field(tasks_field.build());
 
     // initialize override
-    let init_body = CodeBlock::<Kotlin>::of("log(%S)", (StringLitArg("TaskService initialized".to_string()),)).unwrap();
+    let init_body = CodeBlock::<Kotlin>::of(
+        "log(%S)",
+        (StringLitArg("TaskService initialized".to_string()),),
+    )
+    .unwrap();
     let mut init_impl = FunSpec::<Kotlin>::builder("initialize");
     init_impl.is_override();
     init_impl.body(init_body);
     task_svc.add_method(init_impl.build());
 
     // findById override — trigger UUID import
-    let find_body = CodeBlock::<Kotlin>::of(
-        "return tasks.firstOrNull { it.id == id }",
-        (),
-    )
-    .unwrap();
+    let find_body =
+        CodeBlock::<Kotlin>::of("return tasks.firstOrNull { it.id == id }", ()).unwrap();
     let mut find_impl = FunSpec::<Kotlin>::builder("findById");
     find_impl.returns(TypeName::primitive("Task?"));
     find_impl.add_param(ParameterSpec::new("id", TypeName::primitive("String")));
@@ -196,7 +193,10 @@ fn main() {
     let mut create_fn = FunSpec::<Kotlin>::builder("createTask");
     create_fn.returns(TypeName::primitive("Task"));
     create_fn.add_param(ParameterSpec::new("name", TypeName::primitive("String")));
-    create_fn.add_param(ParameterSpec::new("priority", TypeName::primitive("Priority")));
+    create_fn.add_param(ParameterSpec::new(
+        "priority",
+        TypeName::primitive("Priority"),
+    ));
     create_fn.body(create_body);
     let create_task = create_fn.build();
 

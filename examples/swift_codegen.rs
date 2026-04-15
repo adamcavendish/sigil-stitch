@@ -111,11 +111,7 @@ fn main() {
     svc_name_field.is_readonly();
     base_svc.add_field(svc_name_field.build());
 
-    let log_body = CodeBlock::<Swift>::of(
-        "print(\"[\\(serviceName)] \\(message)\")",
-        (),
-    )
-    .unwrap();
+    let log_body = CodeBlock::<Swift>::of("print(\"[\\(serviceName)] \\(message)\")", ()).unwrap();
     let mut log_fn = FunSpec::<Swift>::builder("log");
     log_fn.add_param(ParameterSpec::new("message", TypeName::primitive("String")));
     log_fn.body(log_body);
@@ -136,11 +132,7 @@ fn main() {
     task_svc.add_field(tasks_field.build());
 
     // findById
-    let find_body = CodeBlock::<Swift>::of(
-        "return tasks.first { $0.id == id }",
-        (),
-    )
-    .unwrap();
+    let find_body = CodeBlock::<Swift>::of("return tasks.first { $0.id == id }", ()).unwrap();
     let mut find_impl = FunSpec::<Swift>::builder("findById");
     find_impl.returns(TypeName::primitive("Task?"));
     find_impl.add_param(ParameterSpec::new("id", TypeName::primitive("String")));
@@ -185,17 +177,18 @@ fn main() {
     .unwrap();
     let mut create_fn = FunSpec::<Swift>::builder("makeURL");
     create_fn.returns(TypeName::primitive("URL"));
-    create_fn.add_param(ParameterSpec::new("urlString", TypeName::primitive("String")));
+    create_fn.add_param(ParameterSpec::new(
+        "urlString",
+        TypeName::primitive("String"),
+    ));
     create_fn.body(create_body);
     let make_url = create_fn.build();
 
     // Trigger Combine import
-    let combine_trigger =
-        CodeBlock::<Swift>::of("// Publisher: %T", (publisher,)).unwrap();
+    let combine_trigger = CodeBlock::<Swift>::of("// Publisher: %T", (publisher,)).unwrap();
 
     // Trigger Data import
-    let data_trigger =
-        CodeBlock::<Swift>::of("// Data: %T", (data,)).unwrap();
+    let data_trigger = CodeBlock::<Swift>::of("// Data: %T", (data,)).unwrap();
 
     // --- Assemble file ---
     let mut fb = FileSpec::builder_with("TaskApp.swift", Swift::new());
