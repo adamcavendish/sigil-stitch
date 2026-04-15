@@ -37,7 +37,7 @@ fn render_type<L: sigil_stitch::lang::CodeLang>(spec: &TypeSpec<L>, lang: &L) ->
             output.push('\n');
         }
         let mut renderer = sigil_stitch::code_renderer::CodeRenderer::new(lang, &imports, 80);
-        output.push_str(&renderer.render(&block));
+        output.push_str(&renderer.render(block));
     }
     output
 }
