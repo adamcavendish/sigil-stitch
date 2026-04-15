@@ -1,6 +1,5 @@
 internal class Dog : Animal {
-    override
-    internal fun speak(): String {
+    internal override fun speak(): String {
         return "Woof!"
     }
 }

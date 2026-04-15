@@ -140,7 +140,7 @@ fn main() {
     // initialize override
     let init_body = CodeBlock::<Kotlin>::of("log(%S)", (StringLitArg("TaskService initialized".to_string()),)).unwrap();
     let mut init_impl = FunSpec::<Kotlin>::builder("initialize");
-    init_impl.annotation(CodeBlock::<Kotlin>::of("override", ()).unwrap());
+    init_impl.is_override();
     init_impl.body(init_body);
     task_svc.add_method(init_impl.build());
 
@@ -153,7 +153,7 @@ fn main() {
     let mut find_impl = FunSpec::<Kotlin>::builder("findById");
     find_impl.returns(TypeName::primitive("Task?"));
     find_impl.add_param(ParameterSpec::new("id", TypeName::primitive("String")));
-    find_impl.annotation(CodeBlock::<Kotlin>::of("override", ()).unwrap());
+    find_impl.is_override();
     find_impl.body(find_body);
     task_svc.add_method(find_impl.build());
 
@@ -161,7 +161,7 @@ fn main() {
     let find_all_body = CodeBlock::<Kotlin>::of("return %T(tasks)", (list.clone(),)).unwrap();
     let mut find_all_impl = FunSpec::<Kotlin>::builder("findAll");
     find_all_impl.returns(list);
-    find_all_impl.annotation(CodeBlock::<Kotlin>::of("override", ()).unwrap());
+    find_all_impl.is_override();
     find_all_impl.body(find_all_body);
     task_svc.add_method(find_all_impl.build());
 
@@ -169,7 +169,7 @@ fn main() {
     let save_body = CodeBlock::<Kotlin>::of("tasks.add(entity)", ()).unwrap();
     let mut save_impl = FunSpec::<Kotlin>::builder("save");
     save_impl.add_param(ParameterSpec::new("entity", TypeName::primitive("Task")));
-    save_impl.annotation(CodeBlock::<Kotlin>::of("override", ()).unwrap());
+    save_impl.is_override();
     save_impl.body(save_body);
     task_svc.add_method(save_impl.build());
 

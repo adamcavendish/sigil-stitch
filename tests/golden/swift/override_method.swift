@@ -1,6 +1,5 @@
 class Dog: Animal {
-    override
-    func speak() -> String {
+    override func speak() -> String {
         return "Woof!"
     }
 }

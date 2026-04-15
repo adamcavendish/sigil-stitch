@@ -218,7 +218,7 @@ fn test_swift_override_method() {
     .unwrap();
     let mut speak = FunSpec::<Swift>::builder("speak");
     speak.returns(TypeName::primitive("String"));
-    speak.annotation(CodeBlock::<Swift>::of("override", ()).unwrap());
+    speak.is_override();
     speak.body(body);
     tb.add_method(speak.build());
 

@@ -211,7 +211,7 @@ fn test_kotlin_override_method() {
     let body = CodeBlock::<Kotlin>::of("return %S", (sigil_stitch::code_block::StringLitArg("Woof!".to_string()),)).unwrap();
     let mut speak = FunSpec::<Kotlin>::builder("speak");
     speak.returns(TypeName::primitive("String"));
-    speak.annotation(CodeBlock::<Kotlin>::of("override", ()).unwrap());
+    speak.is_override();
     speak.body(body);
     tb.add_method(speak.build());
 
@@ -264,7 +264,7 @@ fn test_kotlin_full_module() {
     let mut find_impl = FunSpec::<Kotlin>::builder("findById");
     find_impl.returns(TypeName::primitive("User?"));
     find_impl.add_param(ParameterSpec::new("id", TypeName::primitive("String")));
-    find_impl.annotation(CodeBlock::<Kotlin>::of("override", ()).unwrap());
+    find_impl.is_override();
     find_impl.body(find_body);
     cls.add_method(find_impl.build());
 
@@ -273,7 +273,7 @@ fn test_kotlin_full_module() {
         CodeBlock::<Kotlin>::of("return %T(users)", (array_list,)).unwrap();
     let mut find_all_impl = FunSpec::<Kotlin>::builder("findAll");
     find_all_impl.returns(list);
-    find_all_impl.annotation(CodeBlock::<Kotlin>::of("override", ()).unwrap());
+    find_all_impl.is_override();
     find_all_impl.body(find_all_body);
     cls.add_method(find_all_impl.build());
 
