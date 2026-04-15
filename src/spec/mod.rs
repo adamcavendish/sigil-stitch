@@ -6,5 +6,6 @@ pub mod fun_spec;
 pub mod import_spec;
 pub mod modifiers;
 pub mod parameter_spec;
+pub mod project_spec;
 pub mod property_spec;
 pub mod type_spec;

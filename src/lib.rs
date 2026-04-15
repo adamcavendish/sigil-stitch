@@ -60,6 +60,7 @@ pub mod prelude {
     pub use crate::spec::fun_spec::{FunSpec, TypeParamSpec};
     pub use crate::spec::modifiers::{DeclarationContext, Modifiers, TypeKind, Visibility};
     pub use crate::spec::parameter_spec::ParameterSpec;
+    pub use crate::spec::project_spec::{ProjectSpec, RenderedFile};
     pub use crate::spec::type_spec::TypeSpec;
     pub use crate::type_name::TypeName;
 }
