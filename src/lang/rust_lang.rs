@@ -48,12 +48,26 @@ impl CodeLang for RustLang {
             return String::new();
         }
 
-        // Group by crate origin: std/core first, then external, then crate::.
+        let mut lines = Vec::new();
+
+        // Handle side-effect and wildcard imports first.
+        for entry in &imports.entries {
+            if entry.is_wildcard {
+                lines.push(format!("use {}::*;", entry.module));
+            } else if entry.is_side_effect {
+                lines.push(format!("use {};", entry.module));
+            }
+        }
+
+        // Group named imports by crate origin: std/core first, then external, then crate::.
         let mut std_imports: Vec<&ImportEntry> = Vec::new();
         let mut external_imports: Vec<&ImportEntry> = Vec::new();
         let mut crate_imports: Vec<&ImportEntry> = Vec::new();
 
         for entry in &imports.entries {
+            if entry.is_side_effect || entry.is_wildcard {
+                continue;
+            }
             if entry.module.starts_with("std::")
                 || entry.module.starts_with("core::")
                 || entry.module == "std"
@@ -69,8 +83,6 @@ impl CodeLang for RustLang {
                 external_imports.push(entry);
             }
         }
-
-        let mut lines = Vec::new();
 
         // Group imports from the same module into `use mod::{A, B}` form.
         fn render_group(entries: &[&ImportEntry], lines: &mut Vec<String>) {
@@ -251,24 +263,32 @@ mod tests {
                     name: "HashMap".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "std::collections".into(),
                     name: "BTreeMap".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "serde".into(),
                     name: "Serialize".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "crate::models".into(),
                     name: "User".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -295,6 +315,8 @@ mod tests {
                 name: "User".into(),
                 alias: Some("ModelsUser".into()),
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         let output = rs.render_imports(&imports);

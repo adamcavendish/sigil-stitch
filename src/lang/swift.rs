@@ -354,6 +354,8 @@ mod tests {
                 name: "URL".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(sw.render_imports(&imports), "import Foundation");
@@ -369,18 +371,24 @@ mod tests {
                     name: "MyType".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "Foundation".into(),
                     name: "URL".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "UIKit".into(),
                     name: "UIViewController".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -402,18 +410,24 @@ mod tests {
                     name: "URL".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "Foundation".into(),
                     name: "Data".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "Foundation".into(),
                     name: "JSONDecoder".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };

@@ -105,12 +105,23 @@ impl CodeLang for JavaLang {
 
         let mut seen = std::collections::BTreeSet::new();
         for entry in &imports.entries {
-            let fqn = format!("{}.{}", entry.module, entry.name);
-            if !seen.insert(fqn.clone()) {
+            let line = if entry.is_wildcard {
+                let fqn = format!("{}.*", entry.module);
+                if !seen.insert(fqn.clone()) {
+                    continue;
+                }
+                format!("import {};", fqn)
+            } else if entry.is_side_effect {
+                // Java has no side-effect imports; skip.
                 continue;
-            }
+            } else {
+                let fqn = format!("{}.{}", entry.module, entry.name);
+                if !seen.insert(fqn.clone()) {
+                    continue;
+                }
+                format!("import {};", fqn)
+            };
 
-            let line = format!("import {};", fqn);
             match import_group_order(&entry.module) {
                 0 => java_imports.push(line),
                 1 => javax_imports.push(line),
@@ -283,6 +294,8 @@ mod tests {
                 name: "List".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(java.render_imports(&imports), "import java.util.List;");
@@ -298,18 +311,24 @@ mod tests {
                     name: "User".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "java.util".into(),
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "javax.persistence".into(),
                     name: "Entity".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -332,18 +351,24 @@ mod tests {
                     name: "Map".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "java.io".into(),
                     name: "File".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "java.util".into(),
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -364,12 +389,16 @@ mod tests {
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "java.util".into(),
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };

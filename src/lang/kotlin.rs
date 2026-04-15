@@ -138,13 +138,23 @@ impl CodeLang for Kotlin {
 
         let mut seen = std::collections::BTreeSet::new();
         for entry in &imports.entries {
-            let fqn = format!("{}.{}", entry.module, entry.name);
-            if !seen.insert(fqn.clone()) {
+            let line = if entry.is_wildcard {
+                let fqn = format!("{}.*", entry.module);
+                if !seen.insert(fqn.clone()) {
+                    continue;
+                }
+                format!("import {fqn}")
+            } else if entry.is_side_effect {
+                // Kotlin has no side-effect imports; skip.
                 continue;
-            }
+            } else {
+                let fqn = format!("{}.{}", entry.module, entry.name);
+                if !seen.insert(fqn.clone()) {
+                    continue;
+                }
+                format!("import {fqn}")
+            };
 
-            // Kotlin imports have no semicolons.
-            let line = format!("import {fqn}");
             match import_group_order(&entry.module) {
                 0 => kotlin_imports.push(line),
                 1 => kotlinx_imports.push(line),
@@ -331,6 +341,8 @@ mod tests {
                 name: "List".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(
@@ -349,18 +361,24 @@ mod tests {
                     name: "User".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "kotlin.collections".into(),
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "java.util".into(),
                     name: "UUID".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -383,18 +401,24 @@ mod tests {
                     name: "Set".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "kotlin.collections".into(),
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "kotlin.collections".into(),
                     name: "Map".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -415,12 +439,16 @@ mod tests {
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "kotlin.collections".into(),
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };

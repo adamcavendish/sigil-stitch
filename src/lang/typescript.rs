@@ -129,11 +129,26 @@ impl CodeLang for TypeScript {
 
     fn render_imports(&self, imports: &ImportGroup) -> String {
         let mut lines = Vec::new();
+        let quote = if self.single_quotes { '\'' } else { '"' };
 
         // Group entries by module path.
         let mut by_module: std::collections::BTreeMap<&str, Vec<&ImportEntry>> =
             std::collections::BTreeMap::new();
         for entry in &imports.entries {
+            if entry.is_side_effect {
+                lines.push(format!("import {quote}{}{quote};", entry.module));
+                continue;
+            }
+            if entry.is_wildcard {
+                // TS wildcard: import * as Module from "module";
+                // Use module_to_alias to generate a reasonable namespace name.
+                let alias = super::module_to_alias(&entry.module);
+                lines.push(format!(
+                    "import * as {} from {quote}{}{quote};",
+                    alias, entry.module,
+                ));
+                continue;
+            }
             by_module.entry(&entry.module).or_default().push(entry);
         }
 
@@ -159,7 +174,6 @@ impl CodeLang for TypeScript {
             value_names.sort();
 
             if !type_names.is_empty() {
-                let quote = if self.single_quotes { '\'' } else { '"' };
                 lines.push(format!(
                     "import type {{ {} }} from {quote}{}{quote};",
                     type_names.join(", "),
@@ -167,7 +181,6 @@ impl CodeLang for TypeScript {
                 ));
             }
             if !value_names.is_empty() {
-                let quote = if self.single_quotes { '\'' } else { '"' };
                 lines.push(format!(
                     "import {{ {} }} from {quote}{}{quote};",
                     value_names.join(", "),
@@ -329,12 +342,16 @@ mod tests {
                     name: "User".to_string(),
                     alias: None,
                     is_type_only: true,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "./models".to_string(),
                     name: "UserFromJSON".to_string(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -353,12 +370,16 @@ mod tests {
                     name: "User".to_string(),
                     alias: None,
                     is_type_only: true,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "./other".to_string(),
                     name: "User".to_string(),
                     alias: Some("OtherUser".to_string()),
                     is_type_only: true,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };

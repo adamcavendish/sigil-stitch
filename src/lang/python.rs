@@ -164,13 +164,27 @@ impl CodeLang for Python {
             return String::new();
         }
 
-        // Group by module, merging names from the same module.
+        let mut lines: Vec<String> = Vec::new();
+
+        // Handle side-effect and wildcard imports first.
+        for entry in &imports.entries {
+            if entry.is_side_effect {
+                lines.push(format!("import {}", entry.module));
+            } else if entry.is_wildcard {
+                lines.push(format!("from {} import *", entry.module));
+            }
+        }
+
+        // Group named imports by module, merging names from the same module.
         let mut stdlib: std::collections::BTreeMap<&str, Vec<&ImportEntry>> =
             std::collections::BTreeMap::new();
         let mut thirdparty: std::collections::BTreeMap<&str, Vec<&ImportEntry>> =
             std::collections::BTreeMap::new();
 
         for entry in &imports.entries {
+            if entry.is_side_effect || entry.is_wildcard {
+                continue;
+            }
             let target = if is_stdlib(&entry.module) {
                 &mut stdlib
             } else {
@@ -179,7 +193,9 @@ impl CodeLang for Python {
             target.entry(entry.module.as_str()).or_default().push(entry);
         }
 
-        let mut lines: Vec<String> = Vec::new();
+        if !lines.is_empty() && (!stdlib.is_empty() || !thirdparty.is_empty()) {
+            lines.push(String::new());
+        }
 
         // Emit stdlib imports.
         for (module, entries) in &stdlib {
@@ -361,6 +377,8 @@ mod tests {
                 name: "dumps".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(py.render_imports(&imports), "from json import dumps");
@@ -376,12 +394,16 @@ mod tests {
                     name: "Optional".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "typing".into(),
                     name: "List".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -401,12 +423,16 @@ mod tests {
                     name: "dumps".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "flask".into(),
                     name: "Flask".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };

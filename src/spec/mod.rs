@@ -2,6 +2,7 @@ pub mod enum_variant_spec;
 pub mod field_spec;
 pub mod file_spec;
 pub mod fun_spec;
+pub mod import_spec;
 pub mod modifiers;
 pub mod parameter_spec;
 pub mod type_spec;

@@ -312,6 +312,8 @@ mod tests {
                 name: "printf".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(c.render_imports(&imports), "#include <stdio.h>");
@@ -326,6 +328,8 @@ mod tests {
                 name: "Config".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(c.render_imports(&imports), "#include \"config.h\"");
@@ -341,18 +345,24 @@ mod tests {
                     name: "printf".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "stdlib.h".into(),
                     name: "malloc".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "./config.h".into(),
                     name: "Config".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -374,12 +384,16 @@ mod tests {
                     name: "printf".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "stdio.h".into(),
                     name: "fprintf".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };

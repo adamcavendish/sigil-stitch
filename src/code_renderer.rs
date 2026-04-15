@@ -387,6 +387,8 @@ mod tests {
                 name: "User".to_string(),
                 alias: None,
                 is_type_only: true,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
 

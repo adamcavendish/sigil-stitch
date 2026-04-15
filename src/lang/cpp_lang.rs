@@ -335,6 +335,8 @@ mod tests {
                 name: "std::cout".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(cpp.render_imports(&imports), "#include <iostream>");
@@ -349,6 +351,8 @@ mod tests {
                 name: "MyClass".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(cpp.render_imports(&imports), "#include \"myclass.hpp\"");
@@ -364,18 +368,24 @@ mod tests {
                     name: "std::cout".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "vector".into(),
                     name: "std::vector".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "./myclass.hpp".into(),
                     name: "MyClass".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -397,12 +407,16 @@ mod tests {
                     name: "std::vector".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "vector".into(),
                     name: "std::vector".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };

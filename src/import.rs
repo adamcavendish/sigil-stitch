@@ -9,11 +9,16 @@ pub struct ImportEntry {
     /// Module path (e.g., "./models", "std::collections", "net/http").
     pub module: String,
     /// Simple name being imported (e.g., "User", "HashMap").
+    /// Empty for side-effect and wildcard imports.
     pub name: String,
     /// Alias if there was a naming conflict (e.g., "OtherUser").
     pub alias: Option<String>,
     /// Whether this is a type-only import (TypeScript `import type`).
     pub is_type_only: bool,
+    /// Whether this is a side-effect import (no named binding).
+    pub is_side_effect: bool,
+    /// Whether this is a wildcard import (e.g., `import java.util.*`).
+    pub is_wildcard: bool,
 }
 
 impl ImportEntry {
@@ -82,6 +87,73 @@ impl ImportGroup {
                 name: import_ref.name.clone(),
                 alias,
                 is_type_only: import_ref.is_type_only,
+                is_side_effect: false,
+                is_wildcard: false,
+            });
+        }
+
+        Self { entries }
+    }
+
+    /// Resolve import references, merging with explicit (user-specified) entries.
+    ///
+    /// Explicit entries are processed first so their aliases and names take
+    /// precedence over auto-generated aliases from conflict resolution.
+    pub fn resolve_with_explicit(refs: &[ImportRef], explicit: Vec<ImportEntry>) -> Self {
+        let mut entries = Vec::new();
+        let mut claimed: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        let mut seen: std::collections::HashSet<(String, String)> =
+            std::collections::HashSet::new();
+
+        // Process explicit entries first — they take precedence.
+        for entry in explicit {
+            if entry.is_side_effect || entry.is_wildcard {
+                entries.push(entry);
+                continue;
+            }
+
+            let key = (entry.module.clone(), entry.name.clone());
+            seen.insert(key);
+
+            // Claim the resolved name (alias or name).
+            let resolved = entry.alias.as_deref().unwrap_or(&entry.name);
+            claimed.insert(resolved.to_string(), entry.module.clone());
+            // Also claim the original name to prevent auto-imports from taking it.
+            if entry.alias.is_some() {
+                claimed.insert(entry.name.clone(), entry.module.clone());
+            }
+
+            entries.push(entry);
+        }
+
+        // Then process auto-collected refs.
+        for import_ref in refs {
+            let key = (import_ref.module.clone(), import_ref.name.clone());
+            if seen.contains(&key) {
+                continue;
+            }
+            seen.insert(key);
+
+            let alias = if let Some(existing_module) = claimed.get(&import_ref.name) {
+                if *existing_module == import_ref.module {
+                    None
+                } else {
+                    let module_prefix = module_to_prefix(&import_ref.module);
+                    Some(format!("{}{}", module_prefix, import_ref.name))
+                }
+            } else {
+                claimed.insert(import_ref.name.clone(), import_ref.module.clone());
+                None
+            };
+
+            entries.push(ImportEntry {
+                module: import_ref.module.clone(),
+                name: import_ref.name.clone(),
+                alias,
+                is_type_only: import_ref.is_type_only,
+                is_side_effect: false,
+                is_wildcard: false,
             });
         }
 

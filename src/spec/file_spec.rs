@@ -4,6 +4,7 @@ use crate::import::ImportGroup;
 use crate::import_collector;
 use crate::lang::CodeLang;
 use crate::spec::fun_spec::FunSpec;
+use crate::spec::import_spec::ImportSpec;
 use crate::spec::modifiers::DeclarationContext;
 use crate::spec::type_spec::TypeSpec;
 
@@ -31,6 +32,7 @@ pub struct FileSpec<L: CodeLang> {
     filename: String,
     header: Option<CodeBlock<L>>,
     members: Vec<FileMember<L>>,
+    explicit_imports: Vec<ImportSpec<L>>,
     lang: L,
 }
 
@@ -44,6 +46,7 @@ impl<L: CodeLang> FileSpec<L> {
             filename: filename.to_string(),
             header: None,
             members: Vec::new(),
+            explicit_imports: Vec::new(),
             lang: L::default(),
         }
     }
@@ -54,6 +57,7 @@ impl<L: CodeLang> FileSpec<L> {
             filename: filename.to_string(),
             header: None,
             members: Vec::new(),
+            explicit_imports: Vec::new(),
             lang,
         }
     }
@@ -102,7 +106,14 @@ impl<L: CodeLang> FileSpec<L> {
         }
 
         // Import Resolution: Dedup, conflict detection, alias assignment.
-        let imports = ImportGroup::resolve(&import_refs);
+        // Convert explicit ImportSpec entries to ImportEntry and merge.
+        let explicit_entries: Vec<_> = self
+            .explicit_imports
+            .iter()
+            .cloned()
+            .map(|spec| spec.into_entry())
+            .collect();
+        let imports = ImportGroup::resolve_with_explicit(&import_refs, explicit_entries);
 
         // Pass 2: Render with resolved names.
         let mut output = String::new();
@@ -165,6 +176,7 @@ pub struct FileSpecBuilder<L: CodeLang> {
     filename: String,
     header: Option<CodeBlock<L>>,
     members: Vec<FileMember<L>>,
+    explicit_imports: Vec<ImportSpec<L>>,
     lang: L,
 }
 
@@ -212,12 +224,19 @@ impl<L: CodeLang> FileSpecBuilder<L> {
         self
     }
 
+    /// Add an explicit import (forced, aliased, side-effect, or wildcard).
+    pub fn add_import(&mut self, spec: ImportSpec<L>) -> &mut Self {
+        self.explicit_imports.push(spec);
+        self
+    }
+
     /// Build the FileSpec.
     pub fn build(self) -> FileSpec<L> {
         FileSpec {
             filename: self.filename,
             header: self.header,
             members: self.members,
+            explicit_imports: self.explicit_imports,
             lang: self.lang,
         }
     }

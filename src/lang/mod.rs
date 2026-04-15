@@ -245,3 +245,23 @@ pub trait CodeLang: Sized + Clone + 'static {
         false
     }
 }
+
+/// Derive a PascalCase namespace alias from a module path.
+///
+/// Used for wildcard imports that need a namespace name
+/// (e.g., `import * as Models from "./models"`).
+pub(crate) fn module_to_alias(module: &str) -> String {
+    let last_segment = module
+        .rsplit(['/', ':', '.', '\\'])
+        .find(|s| !s.is_empty())
+        .unwrap_or(module);
+
+    let mut chars = last_segment.chars();
+    match chars.next() {
+        None => "Module".to_string(),
+        Some(first) => {
+            let upper: String = first.to_uppercase().collect();
+            format!("{upper}{}", chars.as_str())
+        }
+    }
+}

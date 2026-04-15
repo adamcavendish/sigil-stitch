@@ -108,11 +108,25 @@ impl CodeLang for JavaScript {
 
     fn render_imports(&self, imports: &ImportGroup) -> String {
         let mut lines = Vec::new();
+        let quote = if self.single_quotes { '\'' } else { '"' };
+        let semi = if self.semicolons { ";" } else { "" };
 
         // Group entries by module path.
         let mut by_module: std::collections::BTreeMap<&str, Vec<&ImportEntry>> =
             std::collections::BTreeMap::new();
         for entry in &imports.entries {
+            if entry.is_side_effect {
+                lines.push(format!("import {quote}{}{quote}{semi}", entry.module));
+                continue;
+            }
+            if entry.is_wildcard {
+                let alias = super::module_to_alias(&entry.module);
+                lines.push(format!(
+                    "import * as {} from {quote}{}{quote}{semi}",
+                    alias, entry.module,
+                ));
+                continue;
+            }
             by_module.entry(&entry.module).or_default().push(entry);
         }
 
@@ -132,8 +146,6 @@ impl CodeLang for JavaScript {
             names.sort();
 
             if !names.is_empty() {
-                let quote = if self.single_quotes { '\'' } else { '"' };
-                let semi = if self.semicolons { ";" } else { "" };
                 lines.push(format!(
                     "import {{ {} }} from {quote}{}{quote}{semi}",
                     names.join(", "),
@@ -297,6 +309,8 @@ mod tests {
                 name: "formatDate".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(
@@ -315,12 +329,16 @@ mod tests {
                     name: "User".into(),
                     alias: None,
                     is_type_only: true, // Should be ignored in JS.
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "./models".into(),
                     name: "createUser".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -339,6 +357,8 @@ mod tests {
                 name: "User".into(),
                 alias: Some("OtherUser".into()),
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(
@@ -357,12 +377,16 @@ mod tests {
                     name: "User".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "./utils".into(),
                     name: "format".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -385,6 +409,8 @@ mod tests {
                 name: "format".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(

@@ -120,6 +120,20 @@ impl CodeLang for GoLang {
         std_packages.sort_by_key(|e| &e.module);
         ext_packages.sort_by_key(|e| &e.module);
 
+        /// Render a single Go import line with prefix handling.
+        fn render_go_import(entry: &ImportEntry) -> String {
+            let prefix = if entry.is_side_effect {
+                "_ "
+            } else if entry.is_wildcard {
+                ". "
+            } else if let Some(alias) = &entry.alias {
+                return format!("{alias} \"{}\"", entry.module);
+            } else {
+                ""
+            };
+            format!("{prefix}\"{}\"", entry.module)
+        }
+
         let all_packages: Vec<&ImportEntry> = std_packages
             .iter()
             .copied()
@@ -130,31 +144,18 @@ impl CodeLang for GoLang {
         let has_both_groups = !std_packages.is_empty() && !ext_packages.is_empty();
 
         if total == 1 {
-            let entry = all_packages[0];
-            if let Some(alias) = &entry.alias {
-                format!("import {alias} \"{}\"", entry.module)
-            } else {
-                format!("import \"{}\"", entry.module)
-            }
+            format!("import {}", render_go_import(all_packages[0]))
         } else {
             let mut lines = Vec::new();
             lines.push("import (".to_string());
             for entry in &std_packages {
-                if let Some(alias) = &entry.alias {
-                    lines.push(format!("\t{alias} \"{}\"", entry.module));
-                } else {
-                    lines.push(format!("\t\"{}\"", entry.module));
-                }
+                lines.push(format!("\t{}", render_go_import(entry)));
             }
             if has_both_groups {
                 lines.push(String::new());
             }
             for entry in &ext_packages {
-                if let Some(alias) = &entry.alias {
-                    lines.push(format!("\t{alias} \"{}\"", entry.module));
-                } else {
-                    lines.push(format!("\t\"{}\"", entry.module));
-                }
+                lines.push(format!("\t{}", render_go_import(entry)));
             }
             lines.push(")".to_string());
             lines.join("\n")
@@ -308,6 +309,8 @@ mod tests {
                 name: "Println".into(),
                 alias: None,
                 is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
             }],
         };
         assert_eq!(go.render_imports(&imports), "import \"fmt\"");
@@ -323,18 +326,24 @@ mod tests {
                     name: "Println".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "net/http".into(),
                     name: "Server".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "github.com/gin-gonic/gin".into(),
                     name: "Context".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
@@ -359,12 +368,16 @@ mod tests {
                     name: "Server".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
                 ImportEntry {
                     module: "net/http".into(),
                     name: "Handler".into(),
                     alias: None,
                     is_type_only: false,
+                    is_side_effect: false,
+                    is_wildcard: false,
                 },
             ],
         };
