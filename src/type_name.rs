@@ -5,9 +5,36 @@ use crate::lang::CodeLang;
 
 /// A type name reference in generated code.
 ///
-/// TypeName represents a type as it should appear in the output.
-/// `Importable` variants automatically track imports through the
-/// two-pass rendering system.
+/// `TypeName` represents a type as it should appear in the output. The
+/// [`Importable`](TypeName::Importable) variant automatically tracks imports
+/// through the two-pass rendering system, so using a `TypeName` with `%T` in a
+/// `CodeBlock` is enough to generate the corresponding import statement.
+///
+/// Variants cover common type constructs across all supported languages:
+/// arrays, generics, unions, optionals, maps, pointers, slices, and function types.
+/// Use [`TypeName::raw()`] as an escape hatch for forms not covered by the model.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::type_name::TypeName;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// // Importable type (generates `import { User } from './models'`):
+/// let user = TypeName::<TypeScript>::importable("./models", "User");
+///
+/// // Primitive (no import needed):
+/// let num = TypeName::<TypeScript>::primitive("number");
+///
+/// // Generic: Promise<User>
+/// let promise = TypeName::<TypeScript>::generic(
+///     TypeName::primitive("Promise"),
+///     vec![user],
+/// );
+///
+/// // Optional: string | null
+/// let maybe_str = TypeName::<TypeScript>::optional(TypeName::primitive("string"));
+/// ```
 #[derive(Debug, Clone)]
 pub enum TypeName<L: CodeLang> {
     /// A type that requires an import statement.

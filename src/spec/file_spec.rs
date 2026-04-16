@@ -35,10 +35,34 @@ pub enum FileMember<L: CodeLang> {
 
 /// A complete source file with automatic import management.
 ///
-/// FileSpec orchestrates the three-pass rendering model:
-/// 1. **Pass 1 (Collect)**: Walk all CodeBlocks, extract import references
-/// 2. **Import Resolution**: Dedup, detect conflicts, assign aliases
-/// 3. **Pass 2 (Render)**: Render with resolved names, column tracking, pretty printing
+/// `FileSpec` is the top-level orchestrator that combines code blocks, type
+/// declarations, and functions into a rendered source file. It drives the
+/// three-pass rendering pipeline:
+///
+/// 1. **Materialize** -- Specs (`TypeSpec`, `FunSpec`) emit `CodeBlock`s
+/// 2. **Collect imports** -- Walk all blocks, extract `ImportRef` from `%T` types
+/// 3. **Render** -- Emit import header + body with resolved names and pretty printing
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let user = TypeName::<TypeScript>::importable_type("./models", "User");
+///
+/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// cb.add_statement("const u: %T = getUser()", (user,));
+/// let body = cb.build().unwrap();
+///
+/// let mut fb = FileSpec::<TypeScript>::builder("user.ts");
+/// fb.add_code(body);
+/// let file = fb.build();
+///
+/// let output = file.render(80).unwrap();
+/// // output contains: import type { User } from './models'
+/// // output contains: const u: User = getUser();
+/// ```
 #[derive(Debug, Clone)]
 pub struct FileSpec<L: CodeLang> {
     filename: String,
@@ -206,7 +230,10 @@ impl<L: CodeLang> FileSpec<L> {
     }
 }
 
-/// Builder for FileSpec.
+/// Builder for [`FileSpec`].
+///
+/// Use [`FileSpec::builder()`] to create. Add members with `add_code()`,
+/// `add_type()`, `add_function()`, or `add_raw()`, then call `build()`.
 #[derive(Debug)]
 pub struct FileSpecBuilder<L: CodeLang> {
     filename: String,

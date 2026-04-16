@@ -12,6 +12,34 @@ use crate::spec::property_spec::PropertySpec;
 use crate::type_name::TypeName;
 
 /// A type declaration (struct, class, interface, trait, enum).
+///
+/// `TypeSpec` models a complete type declaration with fields, methods, properties,
+/// type parameters, supertype relationships, annotations, and enum variants.
+/// It emits one or more `CodeBlock`s depending on the language: TypeScript classes
+/// produce a single block, while Rust structs produce separate struct + impl blocks
+/// (controlled by [`CodeLang::methods_inside_type_body()`](crate::lang::CodeLang::methods_inside_type_body)).
+///
+/// Use [`TypeSpec::builder()`] to construct, then add to a
+/// [`FileSpec`](crate::spec::file_spec::FileSpec) with `add_type()`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let mut tb = TypeSpec::<TypeScript>::builder("UserService", TypeKind::Class);
+/// tb.visibility(Visibility::Public);
+/// tb.add_field(
+///     FieldSpec::builder("name", TypeName::primitive("string")).build(),
+/// );
+/// let body = CodeBlock::<TypeScript>::of("return this.name", ()).unwrap();
+/// let mut fb = FunSpec::builder("getName");
+/// fb.returns(TypeName::primitive("string"));
+/// fb.body(body);
+/// tb.add_method(fb.build());
+/// let type_spec = tb.build();
+/// ```
 #[derive(Debug, Clone)]
 pub struct TypeSpec<L: CodeLang> {
     pub(crate) name: String,

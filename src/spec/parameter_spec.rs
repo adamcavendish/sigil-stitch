@@ -5,6 +5,27 @@ use crate::lang::CodeLang;
 use crate::type_name::TypeName;
 
 /// A single function parameter.
+///
+/// `ParameterSpec` models a named, typed parameter in a function signature.
+/// It supports optional default values and variadic markers. For simple
+/// parameters, use [`ParameterSpec::new()`]; for defaults or variadic,
+/// use [`ParameterSpec::builder()`].
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// // Simple parameter:
+/// let param = ParameterSpec::<TypeScript>::new("id", TypeName::primitive("string"));
+///
+/// // Parameter with default value:
+/// let default_val = CodeBlock::<TypeScript>::of("0", ()).unwrap();
+/// let mut pb = ParameterSpec::builder("count", TypeName::<TypeScript>::primitive("number"));
+/// pb.default_value(default_val);
+/// let param = pb.build();
+/// ```
 #[derive(Debug, Clone)]
 pub struct ParameterSpec<L: CodeLang> {
     pub(crate) name: String,

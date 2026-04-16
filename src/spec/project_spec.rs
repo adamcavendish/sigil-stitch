@@ -7,7 +7,7 @@
 use crate::lang::CodeLang;
 use crate::spec::file_spec::FileSpec;
 
-/// A rendered file: path and content.
+/// A rendered file produced by [`ProjectSpec::render()`]: path and content pair.
 #[derive(Debug, Clone)]
 pub struct RenderedFile {
     /// The file path (as provided to `FileSpec::builder`).
@@ -17,6 +17,32 @@ pub struct RenderedFile {
 }
 
 /// A multi-file project that renders all files as a unit.
+///
+/// `ProjectSpec` orchestrates rendering multiple [`FileSpec`]s, returning an
+/// in-memory collection of [`RenderedFile`]s or writing them to the filesystem.
+/// Each file resolves imports independently.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let models = FileSpec::<TypeScript>::builder("src/models.ts")
+///     .add_type(TypeSpec::builder("User", TypeKind::Interface).build())
+///     .build();
+/// let index = FileSpec::<TypeScript>::builder("src/index.ts")
+///     .add_code(CodeBlock::of("export {}", ()).unwrap())
+///     .build();
+///
+/// let mut pb = ProjectSpec::<TypeScript>::builder();
+/// pb.add_file(models);
+/// pb.add_file(index);
+/// let project = pb.build();
+///
+/// let rendered = project.render(80).unwrap();
+/// assert_eq!(rendered.len(), 2);
+/// ```
 #[derive(Debug, Clone)]
 pub struct ProjectSpec<L: CodeLang> {
     pub(crate) files: Vec<FileSpec<L>>,

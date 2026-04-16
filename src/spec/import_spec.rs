@@ -12,6 +12,24 @@ use crate::lang::CodeLang;
 /// - **Aliased imports**: specify an exact alias (e.g., `import { Foo as Bar }`)
 /// - **Side-effect imports**: import a module for side effects only (no binding)
 /// - **Wildcard imports**: import all exports from a module
+///
+/// Add to a [`FileSpec`](crate::spec::file_spec::FileSpec) via `add_import()`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::spec::import_spec::ImportSpec;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// // Forced named import:
+/// let spec = ImportSpec::<TypeScript>::named("./models", "User");
+///
+/// // Aliased import: import { User as MyUser } from './models'
+/// let spec = ImportSpec::<TypeScript>::named_as("./models", "User", "MyUser");
+///
+/// // Side-effect import: import './polyfill';
+/// let spec = ImportSpec::<TypeScript>::side_effect("./polyfill");
+/// ```
 #[derive(Debug, Clone)]
 pub enum ImportSpec<L: CodeLang> {
     /// Import a specific named symbol from a module.

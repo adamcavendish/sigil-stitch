@@ -97,12 +97,31 @@ struct TemplateParam {
 
 /// A reusable, parameterized code template.
 ///
-/// Templates are language-agnostic format string patterns. The language
-/// parameter enters at [`apply`](CodeTemplate::apply) time when concrete
-/// arguments are provided.
+/// Templates are language-agnostic format string patterns using `#{name:K}`
+/// syntax for named parameters. The language parameter `L` enters at
+/// [`apply`](CodeTemplate::apply) time when concrete arguments are provided.
+/// This allows the same template to be reused across different target languages.
 ///
-/// Duplicate parameter names are allowed — the same value is used at each
+/// Duplicate parameter names are allowed -- the same value is used at each
 /// occurrence.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::code_template::CodeTemplate;
+/// use sigil_stitch::code_block::NameArg;
+/// use sigil_stitch::lang::typescript::TypeScript;
+/// use sigil_stitch::type_name::TypeName;
+///
+/// let tmpl = CodeTemplate::new("const #{var:N}: #{type:T} = #{init:L}").unwrap();
+///
+/// let block = tmpl.apply::<TypeScript>()
+///     .set("var", NameArg("user".into()))
+///     .set("type", TypeName::<TypeScript>::primitive("string"))
+///     .set("init", "null")
+///     .build()
+///     .unwrap();
+/// ```
 #[derive(Debug, Clone)]
 pub struct CodeTemplate {
     /// Original template format string (for error messages).
@@ -148,6 +167,9 @@ impl CodeTemplate {
 }
 
 /// Builder for applying a [`CodeTemplate`] with concrete arguments.
+///
+/// Created by [`CodeTemplate::apply()`]. Set named parameters with `set()`,
+/// then call `build()` to produce a `CodeBlock`.
 pub struct TemplateApply<'t, L: CodeLang> {
     template: &'t CodeTemplate,
     args: HashMap<String, Arg<L>>,

@@ -15,6 +15,30 @@ use crate::lang::CodeLang;
 use crate::type_name::TypeName;
 
 /// A structured annotation that renders with language-appropriate syntax.
+///
+/// `AnnotationSpec` produces annotations with the correct prefix and suffix
+/// for each language: `@Name(args)` in Java/Kotlin/TS, `#[name(args)]` in Rust,
+/// `[[name(args)]]` in C++, `__attribute__((name(args)))` in C.
+///
+/// Use [`AnnotationSpec::new()`] for simple names or
+/// [`AnnotationSpec::importable()`] for import-tracked annotation types.
+/// The existing `.annotation(CodeBlock)` API on builders remains as an
+/// escape hatch for annotations that don't fit this model.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::spec::annotation_spec::AnnotationSpec;
+/// use sigil_stitch::lang::rust_lang::RustLang;
+///
+/// // Simple: #[allow(dead_code)]
+/// let ann = AnnotationSpec::<RustLang>::new("allow").arg("dead_code");
+///
+/// // Multiple args: #[cfg(test, feature = "nightly")]
+/// let ann = AnnotationSpec::<RustLang>::new("cfg")
+///     .arg("test")
+///     .arg("feature = \"nightly\"");
+/// ```
 #[derive(Debug, Clone)]
 pub struct AnnotationSpec<L: CodeLang> {
     pub(crate) name: AnnotationName<L>,

@@ -8,9 +8,14 @@ use crate::type_name::TypeName;
 
 /// A single enum variant (e.g., `Red`, `Up = 'UP'`, `case red`).
 ///
-/// Used with [`crate::spec::type_spec::TypeSpec`] via `add_variant()`.
-/// The language's [`CodeLang::enum_variant_prefix`], [`CodeLang::enum_variant_separator`],
-/// and [`CodeLang::enum_variant_trailing_separator`] control rendering.
+/// Used with [`TypeSpec`](crate::spec::type_spec::TypeSpec) via `add_variant()`.
+/// The language's [`CodeLang::enum_variant_prefix`],
+/// [`CodeLang::enum_variant_separator`],
+/// and [`CodeLang::enum_variant_trailing_separator`]
+/// control rendering.
+///
+/// For simple variants use [`EnumVariantSpec::new()`]; for variants with values,
+/// annotations, or doc comments use [`EnumVariantSpec::builder()`].
 ///
 /// # Variant forms
 ///
@@ -20,6 +25,23 @@ use crate::type_name::TypeName;
 ///   Rust: `Some(i32)`, Swift: `case success(Data)`
 /// - **Struct**: `.add_field(FieldSpec::builder("x", TypeName::primitive("i32")).build())` →
 ///   Rust: `Move { x: i32, y: i32 }`
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let mut tb = TypeSpec::<TypeScript>::builder("Direction", TypeKind::Enum);
+/// tb.add_variant(EnumVariantSpec::new("Up"));
+///
+/// let mut v = EnumVariantSpec::builder("Down");
+/// v.value(CodeBlock::<TypeScript>::of("'DOWN'", ()).unwrap());
+/// tb.add_variant(v.build());
+///
+/// let type_spec = tb.build();
+/// ```
 #[derive(Debug, Clone)]
 pub struct EnumVariantSpec<L: CodeLang> {
     pub(crate) name: String,

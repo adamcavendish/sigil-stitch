@@ -19,6 +19,29 @@ pub struct SetterSpec<L: CodeLang> {
 }
 
 /// A computed property with optional getter and setter.
+///
+/// `PropertySpec` renders computed properties in two styles depending on the
+/// target language:
+///
+/// - **Accessor** (TS/JS and fallback): `get name(): T { ... }` / `set name(v: T) { ... }`
+/// - **Field** (Swift/Kotlin): field with inline `get`/`set` body blocks
+///
+/// Use [`PropertySpec::builder()`] to construct, then add to a
+/// [`TypeSpec`](crate::spec::type_spec::TypeSpec) with `add_property()`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::spec::property_spec::PropertySpec;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let getter_body = CodeBlock::<TypeScript>::of("return this._name", ()).unwrap();
+///
+/// let mut pb = PropertySpec::builder("name", TypeName::<TypeScript>::primitive("string"));
+/// pb.getter(getter_body);
+/// let prop = pb.build();
+/// ```
 #[derive(Debug, Clone)]
 pub struct PropertySpec<L: CodeLang> {
     pub(crate) name: String,

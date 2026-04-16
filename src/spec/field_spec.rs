@@ -7,6 +7,26 @@ use crate::spec::modifiers::{DeclarationContext, Modifiers, Visibility};
 use crate::type_name::TypeName;
 
 /// A single field/property in a struct or class.
+///
+/// `FieldSpec` represents a named, typed member of a type declaration. It supports
+/// visibility modifiers, static/readonly flags, initializers, doc comments,
+/// annotations, and struct tags (for Go). The emitted format adapts to the target
+/// language (e.g., `name: string;` in TypeScript vs `pub name: String,` in Rust).
+///
+/// Use [`FieldSpec::builder()`] to construct, then add to a
+/// [`TypeSpec`](crate::spec::type_spec::TypeSpec) with `add_field()`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let mut fb = FieldSpec::builder("name", TypeName::<TypeScript>::primitive("string"));
+/// fb.visibility(Visibility::Private);
+/// fb.is_readonly();
+/// let field = fb.build();
+/// ```
 #[derive(Debug, Clone)]
 pub struct FieldSpec<L: CodeLang> {
     pub(crate) name: String,

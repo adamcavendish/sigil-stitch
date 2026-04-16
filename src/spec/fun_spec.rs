@@ -8,6 +8,22 @@ use crate::spec::parameter_spec::ParameterSpec;
 use crate::type_name::TypeName;
 
 /// A generic type parameter with optional bounds.
+///
+/// Used with [`FunSpec`] and [`TypeSpec`](crate::spec::type_spec::TypeSpec) for
+/// generic declarations (e.g., `<T extends Serializable>` in TypeScript,
+/// `<T: Clone>` in Rust).
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let tp = TypeParamSpec::<TypeScript>::new("T")
+///     .with_bound(TypeName::primitive("Serializable"));
+/// let mut fb = FunSpec::<TypeScript>::builder("serialize");
+/// fb.add_type_param(tp);
+/// ```
 #[derive(Debug, Clone)]
 pub struct TypeParamSpec<L: CodeLang> {
     pub(crate) name: String,
@@ -66,6 +82,29 @@ pub fn render_type_params<L: CodeLang>(
 }
 
 /// A function or method specification.
+///
+/// `FunSpec` models a function declaration with parameters, return type, body,
+/// modifiers (visibility, async, static, abstract, constructor), type parameters,
+/// annotations, and doc comments. It emits a language-appropriate `CodeBlock` via
+/// [`FunSpec::emit()`].
+///
+/// Use [`FunSpec::builder()`] to construct. Add to a [`FileSpec`](crate::spec::file_spec::FileSpec)
+/// with `add_function()` or to a [`TypeSpec`](crate::spec::type_spec::TypeSpec)
+/// with `add_method()`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::prelude::*;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let body = CodeBlock::<TypeScript>::of("return this.name", ()).unwrap();
+///
+/// let mut fb = FunSpec::<TypeScript>::builder("getName");
+/// fb.returns(TypeName::primitive("string"));
+/// fb.body(body);
+/// let fun = fb.build();
+/// ```
 #[derive(Debug, Clone)]
 pub struct FunSpec<L: CodeLang> {
     pub(crate) name: String,

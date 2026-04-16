@@ -56,8 +56,32 @@ pub enum Arg<L: CodeLang> {
 
 /// An immutable code fragment with embedded type references.
 ///
-/// CodeBlocks are the core composition primitive. They contain format parts
-/// (parsed from format strings with `%T`, `%N`, etc.) and corresponding arguments.
+/// `CodeBlock` is the core composition primitive in sigil-stitch. It stores parsed
+/// format parts (from format strings using `%T`, `%N`, `%S`, `%L`, etc.) alongside
+/// their corresponding arguments. CodeBlocks are produced by [`CodeBlockBuilder`] and
+/// consumed by [`FileSpec`](crate::spec::file_spec::FileSpec) during rendering. Type
+/// references embedded via `%T` are automatically tracked for import resolution.
+///
+/// Use [`CodeBlock::builder()`] to construct a block incrementally, or
+/// [`CodeBlock::of()`] for simple one-liners.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::code_block::CodeBlock;
+/// use sigil_stitch::lang::typescript::TypeScript;
+/// use sigil_stitch::type_name::TypeName;
+///
+/// // One-liner with a type reference:
+/// let user = TypeName::<TypeScript>::importable("./models", "User");
+/// let block = CodeBlock::<TypeScript>::of("const u: %T = getUser()", (user,)).unwrap();
+///
+/// // Multi-statement block via builder:
+/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// cb.add_statement("const x = 1", ());
+/// cb.add_statement("const y = 2", ());
+/// let block = cb.build().unwrap();
+/// ```
 #[derive(Debug, Clone)]
 pub struct CodeBlock<L: CodeLang> {
     pub(crate) parts: Vec<FormatPart>,
@@ -94,7 +118,27 @@ impl<L: CodeLang> CodeBlock<L> {
     }
 }
 
-/// Builder for constructing CodeBlock instances.
+/// Builder for constructing [`CodeBlock`] instances.
+///
+/// Provides methods for adding formatted code fragments, statements, control
+/// flow blocks, and nested code blocks. Format strings use `%T`, `%N`, `%S`,
+/// `%L` for type/name/string/literal substitution, and `%W`, `%>`, `%<` for
+/// soft line breaks and indentation.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::code_block::CodeBlock;
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// cb.begin_control_flow("if (x > 0)", ());
+/// cb.add_statement("return x", ());
+/// cb.next_control_flow("else", ());
+/// cb.add_statement("return -x", ());
+/// cb.end_control_flow();
+/// let block = cb.build().unwrap();
+/// ```
 #[derive(Debug)]
 pub struct CodeBlockBuilder<L: CodeLang> {
     parts: Vec<FormatPart>,
@@ -299,6 +343,11 @@ fn parse_format(format: &str) -> Vec<FormatPart> {
 // === IntoArgs trait and implementations ===
 
 /// Trait for converting various types into a `Vec<Arg<L>>` for format strings.
+///
+/// Implemented for `()` (no args), `TypeName`, `&str`, `String`, `CodeBlock`,
+/// `NameArg`, `StringLitArg`, `Vec<Arg<L>>`, and tuples up to 8 elements.
+/// Bare strings convert to `Arg::Literal`; use [`NameArg`] or [`StringLitArg`]
+/// wrappers to target `%N` or `%S` specifiers instead.
 pub trait IntoArgs<L: CodeLang> {
     /// Convert into a vector of format arguments.
     fn into_args(self) -> Vec<Arg<L>>;
@@ -345,7 +394,21 @@ impl<L: CodeLang> IntoArgs<L> for Vec<Arg<L>> {
     }
 }
 
-/// A wrapper to explicitly mark a string as a Name arg (for %N).
+/// A wrapper to explicitly mark a string as a Name arg (for `%N`).
+///
+/// By default, bare strings convert to `Arg::Literal` (for `%L`). Wrap with
+/// `NameArg` when your format string uses `%N`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::code_block::{CodeBlock, NameArg};
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// cb.add("this.%N()", (NameArg("getData".to_string()),));
+/// let block = cb.build().unwrap();
+/// ```
 pub struct NameArg(pub String);
 
 impl<L: CodeLang> IntoArgs<L> for NameArg {
@@ -354,7 +417,21 @@ impl<L: CodeLang> IntoArgs<L> for NameArg {
     }
 }
 
-/// A wrapper to explicitly mark a string as a StringLit arg (for %S).
+/// A wrapper to explicitly mark a string as a StringLit arg (for `%S`).
+///
+/// By default, bare strings convert to `Arg::Literal` (for `%L`). Wrap with
+/// `StringLitArg` when your format string uses `%S` to emit a quoted string.
+///
+/// # Examples
+///
+/// ```ignore
+/// use sigil_stitch::code_block::{CodeBlock, StringLitArg};
+/// use sigil_stitch::lang::typescript::TypeScript;
+///
+/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// cb.add_statement("const msg = %S", (StringLitArg("hello".to_string()),));
+/// let block = cb.build().unwrap();
+/// ```
 pub struct StringLitArg(pub String);
 
 impl<L: CodeLang> IntoArgs<L> for StringLitArg {
