@@ -48,7 +48,16 @@ name = "sigil-stitch"
 version = "0.1.0"
 dependencies = [
  "pretty",
+ "sigil-stitch-macros",
  "snafu",
+]
+
+[[package]]
+name = "sigil-stitch-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
 ]
 
 [[package]]

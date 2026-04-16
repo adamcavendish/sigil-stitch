@@ -21,3 +21,4 @@ exclude = [
 [dependencies]
 pretty = "0.12"
 snafu = "0.9"
+sigil-stitch-macros = { path = "macros" }

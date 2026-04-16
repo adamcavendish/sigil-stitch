@@ -79,4 +79,5 @@ pub mod prelude {
     pub use crate::spec::project_spec::{ProjectSpec, RenderedFile};
     pub use crate::spec::type_spec::TypeSpec;
     pub use crate::type_name::TypeName;
+    pub use sigil_stitch_macros::sigil_quote;
 }
