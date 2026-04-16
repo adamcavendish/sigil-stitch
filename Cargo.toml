@@ -14,6 +14,7 @@ categories = ["development-tools"]
 exclude = [
     ".github/",
     "coverage/",
+    "doc/",
     "tests/golden/",
     "Justfile",
 ]

@@ -1,12 +1,16 @@
-# `sigil_quote!` Guide
+# sigil_quote! Macro
 
 `sigil_quote!` lets you write target-language code inline and have it expand to
 `CodeBlockBuilder` method calls at compile time. It's the recommended way to build
 `CodeBlock`s when the structure is known ahead of time.
 
+For background on the `%` format specifiers that `sigil_quote!` expands to, see
+[Format Specifiers](format_specifiers.md). For a hands-on introduction, see
+[Getting Started](getting_started.md).
+
 ## Basic Usage
 
-```rust
+```rust,ignore
 use sigil_stitch::prelude::*;
 use sigil_stitch::lang::typescript::TypeScript;
 
@@ -38,7 +42,7 @@ It returns `Result<CodeBlock<LangType>, SigilStitchError>`.
 
 ### Types (`$T`)
 
-```rust
+```rust,ignore
 let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
 let block = sigil_quote!(TypeScript {
     const user: $T(user_type) = getUser();
@@ -49,7 +53,7 @@ let block = sigil_quote!(TypeScript {
 
 ### Names (`$N`)
 
-```rust
+```rust,ignore
 let var_name = "myVariable";
 let block = sigil_quote!(TypeScript {
     const $N(var_name) = 42;
@@ -59,7 +63,7 @@ let block = sigil_quote!(TypeScript {
 
 ### String Literals (`$S`)
 
-```rust
+```rust,ignore
 let block = sigil_quote!(TypeScript {
     console.log($S("hello world"));
 }).unwrap();
@@ -68,7 +72,7 @@ let block = sigil_quote!(TypeScript {
 
 ### Literals (`$L`)
 
-```rust
+```rust,ignore
 let default_val = "0";
 let block = sigil_quote!(TypeScript {
     const count = $L(default_val);
@@ -78,7 +82,7 @@ let block = sigil_quote!(TypeScript {
 
 ### Nested Code Blocks (`$C`)
 
-```rust
+```rust,ignore
 let inner = CodeBlock::<TypeScript>::of("doSomething()", ()).unwrap();
 let block = sigil_quote!(TypeScript {
     $C(inner);
@@ -88,7 +92,7 @@ let block = sigil_quote!(TypeScript {
 
 ### Dollar Escape (`$$`)
 
-```rust
+```rust,ignore
 let block = sigil_quote!(TypeScript {
     const price = $$100;
 }).unwrap();
@@ -105,7 +109,7 @@ The macro classifies each line based on how it ends:
 Lines ending with `;` become statement calls (the renderer adds the language's
 statement terminator):
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     const x = 1;        // -> add_statement("const x = 1", ())
     const y = x + 1;    // -> add_statement("const y = x + 1", ())
@@ -116,7 +120,7 @@ sigil_quote!(TypeScript {
 
 Lines ending with `{ ... }` (without a trailing `;`) become control flow:
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     if (x > 0) {            // -> begin_control_flow("if(x > 0)", ())
         return true;         // -> add_statement("return true", ())
@@ -129,7 +133,7 @@ sigil_quote!(TypeScript {
 A `{ ... }` followed by `;` is treated as part of a statement, not control flow.
 This is how the macro distinguishes object literals:
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     const config = { timeout: 5000 };    // statement (has trailing ;)
     if (ready) {                          // control flow (no trailing ;)
@@ -142,7 +146,7 @@ sigil_quote!(TypeScript {
 
 Blank lines in the macro body insert visual separators:
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     const a = 1;
 
@@ -155,7 +159,7 @@ sigil_quote!(TypeScript {
 Rust's proc macro tokenizer strips `//` comments, so they're invisible to the macro.
 Use `$comment()` instead:
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     $comment("Initialize the connection pool");
     const pool = createPool();
@@ -171,7 +175,7 @@ sigil_quote!(TypeScript {
 
 The macro detects `else` and `else if` chains after closing braces:
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     if (x > 0) {
         return 1;
@@ -184,7 +188,7 @@ sigil_quote!(TypeScript {
 ```
 
 This expands to:
-```rust
+```rust,ignore
 __sigil_builder.begin_control_flow("if(x > 0)", ());
 __sigil_builder.add_statement("return 1", ());
 __sigil_builder.next_control_flow("else if(x < 0)", ());
@@ -198,7 +202,7 @@ __sigil_builder.end_control_flow();
 
 Any tokens followed by `{ ... }` are treated as control flow:
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     for (const item of items) {
         process(item);
@@ -206,7 +210,7 @@ sigil_quote!(TypeScript {
 })
 ```
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     try {
         riskyOperation();
@@ -218,7 +222,7 @@ sigil_quote!(TypeScript {
 
 ### Nested Control Flow
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     if (users.length > 0) {
         for (const user of users) {
@@ -232,7 +236,7 @@ sigil_quote!(TypeScript {
 
 ### Interpolation in Conditions
 
-```rust
+```rust,ignore
 let error_type = TypeName::<TypeScript>::importable_type("./errors", "NotFoundError");
 sigil_quote!(TypeScript {
     if (!user) {
@@ -245,7 +249,7 @@ sigil_quote!(TypeScript {
 
 The same syntax works with any language type:
 
-```rust
+```rust,ignore
 use sigil_stitch::lang::python::Python;
 
 sigil_quote!(Python {
@@ -254,7 +258,7 @@ sigil_quote!(Python {
 })
 ```
 
-```rust
+```rust,ignore
 use sigil_stitch::lang::go_lang::GoLang;
 
 sigil_quote!(GoLang {
@@ -262,7 +266,7 @@ sigil_quote!(GoLang {
 })
 ```
 
-```rust
+```rust,ignore
 use sigil_stitch::lang::rust_lang::RustLang;
 
 sigil_quote!(RustLang {
@@ -309,7 +313,7 @@ Use `$comment("text")` for comments in generated code.
 The expression inside `$T(...)`, `$S(...)`, etc. is passed through as an opaque
 token stream. Any valid Rust expression works:
 
-```rust
+```rust,ignore
 sigil_quote!(TypeScript {
     const x: $T(TypeName::<TypeScript>::primitive("string")) = $S("hello".to_uppercase());
 })

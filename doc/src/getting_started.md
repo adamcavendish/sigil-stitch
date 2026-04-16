@@ -1,0 +1,133 @@
+# Getting Started
+
+## Installation
+
+Add sigil-stitch to your project:
+
+```bash
+cargo add sigil-stitch
+```
+
+Or add it directly to your `Cargo.toml`:
+
+```toml
+[dependencies]
+sigil-stitch = "0.1"
+```
+
+sigil-stitch requires Rust edition 2024 and MSRV 1.88.0.
+
+## Your First CodeBlock
+
+A `CodeBlock` is a composable code fragment built from format strings and typed arguments. Here's a complete example that generates a TypeScript file with an automatic import:
+
+```rust,ignore
+use sigil_stitch::prelude::*;
+use sigil_stitch::code_block::StringLitArg;
+use sigil_stitch::lang::typescript::TypeScript;
+
+let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+
+let mut cb = CodeBlock::<TypeScript>::builder();
+cb.add_statement(
+    "const user: %T = await getUser(%S)",
+    (user_type.clone(), StringLitArg("id".into())),
+);
+cb.add_statement("return user", ());
+let body = cb.build().unwrap();
+
+let mut fb = FileSpec::<TypeScript>::builder("user.ts");
+fb.add_code(body);
+let file = fb.build().unwrap();
+
+let output = file.render(80).unwrap();
+println!("{output}");
+```
+
+This produces:
+
+```typescript
+import type { User } from './models'
+
+const user: User = await getUser('id');
+return user;
+```
+
+Two things happened automatically:
+
+- `%T` with `user_type` rendered as `User` in the code *and* added `import type { User } from './models'` at the top of the file.
+- `%S` with `StringLitArg` rendered the string `"id"` as a single-quoted TypeScript string literal `'id'`.
+
+The `()` in `cb.add_statement("return user", ())` means "no arguments" -- the format string has no specifiers, so none are needed.
+
+## The Macro Alternative
+
+The `sigil_quote!` macro lets you write target-language code inline, with less ceremony than the builder API. Here's the same example:
+
+```rust,ignore
+use sigil_stitch::prelude::*;
+use sigil_stitch::lang::typescript::TypeScript;
+
+let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+
+let body = sigil_quote!(TypeScript {
+    const user: $T(user_type) = await getUser($S("id"));
+    return user;
+}).unwrap();
+```
+
+This produces the same `CodeBlock` as the builder version above. The macro uses `$T` instead of `%T` and `$S` instead of `%S`, but the result is identical -- same import tracking, same rendering, same output when passed to `FileSpec`.
+
+The macro is a good fit when you're writing a block of target-language code with a few interpolations. The builder is better when you're constructing code programmatically (loops, conditionals on what to emit).
+
+## Building Structured Declarations
+
+For functions, types, and other declarations, use the Spec layer. Specs carry structural metadata (name, return type, visibility, modifiers) and emit `CodeBlock`s internally.
+
+Here's a function declaration:
+
+```rust,ignore
+use sigil_stitch::prelude::*;
+use sigil_stitch::lang::typescript::TypeScript;
+
+let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+
+let mut fun = FunSpec::builder("getActiveUsers");
+fun.returns(TypeName::array(user_type.clone()));
+fun.is_async();
+fun.body(sigil_quote!(TypeScript {
+    const users = await fetchAll();
+    return users.filter(u => u.active);
+}).unwrap());
+let fun = fun.build().unwrap();
+
+let mut file = FileSpec::<TypeScript>::builder("users.ts");
+file.add_function(fun);
+let file = file.build().unwrap();
+
+let output = file.render(80).unwrap();
+println!("{output}");
+```
+
+This produces a complete TypeScript file with the function declaration, including the `async` keyword, the `User[]` return type annotation, and the import for `User`.
+
+Notice the builder pattern: setter methods like `.returns()`, `.is_async()`, and `.body()` take `&mut self` and return `&mut Self` for chaining. The `.build()` call consumes the builder and returns `Result<FunSpec<TypeScript>>`. Keep the builder in a `let mut` binding and call `.build()` as a separate step.
+
+## Specs Emit CodeBlocks
+
+Every spec type follows the same pattern: you configure it with a builder, call `.build()`, and eventually `FileSpec` calls `.emit()` on it to get a `CodeBlock`. This means:
+
+- You never write raw import statements. `%T` handles it.
+- You never manually format function signatures. `FunSpec` handles it.
+- You can mix specs and raw CodeBlocks freely in a `FileSpec`.
+
+The renderer and import collector only see `CodeBlock` trees. They don't know or care whether a block came from a `FunSpec`, a `TypeSpec`, or a hand-written `CodeBlock::builder()` call.
+
+## What's Next
+
+Now that you've seen the basics:
+
+- [Format Specifiers](format_specifiers.md) explains every `%` specifier in depth.
+- [The Spec Layer](spec_layer.md) covers TypeSpec, FunSpec, FieldSpec, and friends.
+- [sigil_quote! Macro](sigil_quote.md) has the full guide for the macro syntax.
+- [Code Templates](code_templates.md) covers reusable named-parameter templates.

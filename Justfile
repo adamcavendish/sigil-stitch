@@ -52,3 +52,11 @@ bless:
 # Build docs
 doc:
     cargo doc --no-deps --open
+
+# Build the mdbook
+book:
+    mdbook build doc
+
+# Serve the mdbook with live reload
+book-serve:
+    mdbook serve doc --open
