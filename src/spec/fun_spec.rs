@@ -381,7 +381,15 @@ impl<L: CodeLang> FunSpecBuilder<L> {
     }
 
     /// Consume the builder and produce a [`FunSpec`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
     pub fn build(self) -> FunSpec<L> {
+        assert!(
+            !self.name.is_empty(),
+            "FunSpecBuilder::build() failed: 'name' must not be empty",
+        );
         FunSpec {
             name: self.name,
             params: self.params,
@@ -489,5 +497,11 @@ mod tests {
         let fun = fb.build();
         let output = emit_fun_ts(&fun, DeclarationContext::TopLevel);
         assert!(output.contains("function serialize<T extends Serializable>(value: T): string {"));
+    }
+
+    #[test]
+    #[should_panic(expected = "FunSpecBuilder::build() failed: 'name' must not be empty")]
+    fn test_build_empty_name_panics() {
+        FunSpec::<TypeScript>::builder("").build();
     }
 }

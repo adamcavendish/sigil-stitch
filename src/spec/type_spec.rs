@@ -463,7 +463,16 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
     }
 
     /// Consume the builder and produce a [`TypeSpec`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
     pub fn build(self) -> TypeSpec<L> {
+        assert!(
+            !self.name.is_empty(),
+            "TypeSpecBuilder::build() failed: 'name' must not be empty (kind: {:?})",
+            self.kind,
+        );
         TypeSpec {
             name: self.name,
             kind: self.kind,
@@ -603,5 +612,11 @@ mod tests {
                 "export class AdminService extends BaseService implements Serializable {"
             )
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "TypeSpecBuilder::build() failed: 'name' must not be empty")]
+    fn test_build_empty_name_panics() {
+        TypeSpec::<TypeScript>::builder("", TypeKind::Class).build();
     }
 }

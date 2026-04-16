@@ -279,7 +279,15 @@ impl<L: CodeLang> FileSpecBuilder<L> {
     }
 
     /// Build the FileSpec.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `filename` is empty.
     pub fn build(self) -> FileSpec<L> {
+        assert!(
+            !self.filename.is_empty(),
+            "FileSpecBuilder::build() failed: 'filename' must not be empty",
+        );
         FileSpec {
             filename: self.filename,
             header: self.header,
@@ -412,5 +420,11 @@ mod tests {
         // Should appear only once.
         let import_count = output.matches("import type { User }").count();
         assert_eq!(import_count, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "FileSpecBuilder::build() failed: 'filename' must not be empty")]
+    fn test_build_empty_filename_panics() {
+        FileSpec::<TypeScript>::builder("").build();
     }
 }

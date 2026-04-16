@@ -100,7 +100,15 @@ impl<L: CodeLang> ParameterSpecBuilder<L> {
     }
 
     /// Build the [`ParameterSpec`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
     pub fn build(self) -> ParameterSpec<L> {
+        assert!(
+            !self.name.is_empty(),
+            "ParameterSpecBuilder::build() failed: 'name' must not be empty",
+        );
         ParameterSpec {
             name: self.name,
             param_type: self.param_type,
@@ -152,5 +160,11 @@ mod tests {
         let param = pb.build();
         let output = emit_param(&param);
         assert_eq!(output, "count: number = 0");
+    }
+
+    #[test]
+    #[should_panic(expected = "ParameterSpecBuilder::build() failed: 'name' must not be empty")]
+    fn test_build_empty_name_panics() {
+        ParameterSpec::builder("", TypeName::<TypeScript>::primitive("string")).build();
     }
 }

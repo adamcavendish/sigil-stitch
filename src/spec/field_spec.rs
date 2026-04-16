@@ -193,7 +193,15 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
     }
 
     /// Build the [`FieldSpec`] from this builder.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
     pub fn build(self) -> FieldSpec<L> {
+        assert!(
+            !self.name.is_empty(),
+            "FieldSpecBuilder::build() failed: 'name' must not be empty",
+        );
         FieldSpec {
             name: self.name,
             field_type: self.field_type,
@@ -262,5 +270,11 @@ mod tests {
         let field = fb.build();
         let output = emit_field_ts(&field, DeclarationContext::Member);
         assert_eq!(output.trim(), "static readonly MAX: number;");
+    }
+
+    #[test]
+    #[should_panic(expected = "FieldSpecBuilder::build() failed: 'name' must not be empty")]
+    fn test_build_empty_name_panics() {
+        FieldSpec::builder("", TypeName::<TypeScript>::primitive("string")).build();
     }
 }

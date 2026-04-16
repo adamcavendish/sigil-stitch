@@ -23,7 +23,15 @@ pub struct EnumVariantSpec<L: CodeLang> {
 
 impl<L: CodeLang> EnumVariantSpec<L> {
     /// Create a simple variant with just a name.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
     pub fn new(name: &str) -> Self {
+        assert!(
+            !name.is_empty(),
+            "EnumVariantSpec::new() failed: 'name' must not be empty",
+        );
         Self {
             name: name.to_string(),
             doc: Vec::new(),
@@ -81,7 +89,15 @@ impl<L: CodeLang> EnumVariantSpecBuilder<L> {
     }
 
     /// Build the variant spec.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
     pub fn build(self) -> EnumVariantSpec<L> {
+        assert!(
+            !self.name.is_empty(),
+            "EnumVariantSpecBuilder::build() failed: 'name' must not be empty",
+        );
         EnumVariantSpec {
             name: self.name,
             doc: self.doc,
@@ -173,5 +189,17 @@ mod tests {
         // Last variant has no trailing comma in C.
         assert!(output.contains("GREEN\n"));
         assert!(!output.contains("GREEN,"));
+    }
+
+    #[test]
+    #[should_panic(expected = "EnumVariantSpec::new() failed: 'name' must not be empty")]
+    fn test_new_empty_name_panics() {
+        EnumVariantSpec::<TypeScript>::new("");
+    }
+
+    #[test]
+    #[should_panic(expected = "EnumVariantSpecBuilder::build() failed: 'name' must not be empty")]
+    fn test_build_empty_name_panics() {
+        EnumVariantSpec::<TypeScript>::builder("").build();
     }
 }

@@ -310,7 +310,15 @@ impl<L: CodeLang> PropertySpecBuilder<L> {
     }
 
     /// Build the [`PropertySpec`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
     pub fn build(self) -> PropertySpec<L> {
+        assert!(
+            !self.name.is_empty(),
+            "PropertySpecBuilder::build() failed: 'name' must not be empty",
+        );
         PropertySpec {
             name: self.name,
             property_type: self.property_type,
@@ -321,5 +329,17 @@ impl<L: CodeLang> PropertySpecBuilder<L> {
             annotations: self.annotations,
             annotation_specs: self.annotation_specs,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lang::typescript::TypeScript;
+
+    #[test]
+    #[should_panic(expected = "PropertySpecBuilder::build() failed: 'name' must not be empty")]
+    fn test_build_empty_name_panics() {
+        PropertySpec::builder("", TypeName::<TypeScript>::primitive("string")).build();
     }
 }
