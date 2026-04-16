@@ -48,8 +48,29 @@ let body = sigil_quote!(TypeScript {
 }).unwrap();
 ```
 
+Control flow works naturally:
+
+```rust
+use sigil_stitch::prelude::*;
+use sigil_stitch::lang::typescript::TypeScript;
+
+let error_type = TypeName::<TypeScript>::importable_type("./errors", "NotFoundError");
+
+let block = sigil_quote!(TypeScript {
+    if (!user) {
+        throw new $T(error_type)($S("not found"));
+    } else {
+        return user;
+    }
+}).unwrap();
+```
+
 Interpolation markers: `$T(expr)` for types, `$N(expr)` for names, `$S(expr)` for
-string literals, `$L(expr)` for literals, `$C(expr)` for nested code blocks.
+string literals, `$L(expr)` for literals, `$C(expr)` for nested code blocks,
+`$W` for soft line breaks, `$$` for literal `$`.
+
+See [`doc/sigil_quote.md`](doc/sigil_quote.md) for the full guide including
+statement rules, control flow details, and known limitations.
 
 ## Supported Languages
 

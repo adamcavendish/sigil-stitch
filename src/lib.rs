@@ -43,6 +43,31 @@
 //! let output = file.render(80).unwrap();
 //! assert!(output.contains("import type { User } from './models'"));
 //! ```
+//!
+//! ## `sigil_quote!` Macro
+//!
+//! For less ceremony, write target-language code inline with the `sigil_quote!` macro:
+//!
+//! ```
+//! use sigil_stitch::prelude::*;
+//! use sigil_stitch::lang::typescript::TypeScript;
+//!
+//! let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+//!
+//! let block = sigil_quote!(TypeScript {
+//!     const user: $T(user_type) = await getUser($S("id"));
+//!     if (!user) {
+//!         throw new Error($S("not found"));
+//!     }
+//!     return user;
+//! }).unwrap();
+//! ```
+//!
+//! Interpolation markers: `$T` (type), `$N` (name), `$S` (string literal),
+//! `$L` (literal), `$C` (nested code block), `$W` (soft line break), `$$` (escape).
+//!
+//! See the full guide at `doc/sigil_quote.md` for control flow, limitations,
+//! and advanced usage.
 
 /// Composable code fragments with format specifiers (`%T`, `%N`, `%S`, `%L`, etc.).
 pub mod code_block;

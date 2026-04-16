@@ -39,10 +39,39 @@ use proc_macro::TokenStream;
 ///
 /// - Lines ending with `;` become `add_statement()` calls
 /// - Lines ending with `{ ... }` become control flow (`begin/end_control_flow`)
+/// - `{ ... };` (brace group followed by `;`) is treated as a statement, not control flow
 /// - Blank lines become `add_line()` calls
 /// - `$comment("text")` becomes `add_comment("text")`
 ///
+/// ## Control Flow
+///
+/// The macro detects `if`/`else`/`else if` chains, `for`, `while`, `try`/`catch`,
+/// and any other construct that ends with a brace group:
+///
+/// ```ignore
+/// sigil_quote!(TypeScript {
+///     if (x > 0) {
+///         return 1;
+///     } else if (x < 0) {
+///         return -1;
+///     } else {
+///         return 0;
+///     }
+/// })
+/// ```
+///
+/// ## Limitations
+///
+/// - `//` comments are invisible to proc macros; use `$comment("text")` instead
+/// - Single-quoted strings (`'hello'`) tokenize as Rust lifetimes; use `$S("hello")`
+/// - No space is inserted before `(` after identifiers: `if(x)` not `if (x)`
+/// - Template literals (`` `${expr}` ``) aren't supported; use `$L(expr)`
+///
+/// See the full guide at `doc/sigil_quote.md` for more details and examples.
+///
 /// # Examples
+///
+/// Basic statements with type interpolation:
 ///
 /// ```ignore
 /// use sigil_stitch::prelude::*;
@@ -53,6 +82,18 @@ use proc_macro::TokenStream;
 /// let block = sigil_quote!(TypeScript {
 ///     const user: $T(user_type) = await getUser($S("id"));
 ///     return user;
+/// })?;
+/// ```
+///
+/// Control flow with interpolation:
+///
+/// ```ignore
+/// let error_type = TypeName::<TypeScript>::importable_type("./errors", "NotFoundError");
+///
+/// let block = sigil_quote!(TypeScript {
+///     if (!user) {
+///         throw new $T(error_type)($S("not found"));
+///     }
 /// })?;
 /// ```
 #[proc_macro]
