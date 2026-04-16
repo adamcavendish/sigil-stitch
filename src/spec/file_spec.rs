@@ -457,8 +457,7 @@ mod tests {
 
     #[test]
     fn test_aliased_type_in_codeblock() {
-        let user =
-            TypeName::<TypeScript>::importable("./models", "User").with_alias("UserModel");
+        let user = TypeName::<TypeScript>::importable("./models", "User").with_alias("UserModel");
 
         let mut b = CodeBlock::<TypeScript>::builder();
         b.add_statement("const u: %T = getUser()", (user,));

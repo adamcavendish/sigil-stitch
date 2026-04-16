@@ -335,9 +335,7 @@ impl CodeLang for Kotlin {
         "get()"
     }
 
-    fn constructor_delegation_style(
-        &self,
-    ) -> crate::spec::modifiers::ConstructorDelegationStyle {
+    fn constructor_delegation_style(&self) -> crate::spec::modifiers::ConstructorDelegationStyle {
         crate::spec::modifiers::ConstructorDelegationStyle::Signature
     }
 

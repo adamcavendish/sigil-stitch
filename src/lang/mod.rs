@@ -289,9 +289,7 @@ pub trait CodeLang: Sized + Clone + 'static {
     ///
     /// Kotlin overrides to `Signature` — the delegation call appears between the
     /// parameter list and the body: `constructor(x: Int) : this(x, 0) { ... }`.
-    fn constructor_delegation_style(
-        &self,
-    ) -> crate::spec::modifiers::ConstructorDelegationStyle {
+    fn constructor_delegation_style(&self) -> crate::spec::modifiers::ConstructorDelegationStyle {
         crate::spec::modifiers::ConstructorDelegationStyle::Body
     }
 

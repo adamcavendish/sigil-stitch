@@ -3,7 +3,9 @@
 use crate::code_block::{Arg, CodeBlock};
 use crate::lang::CodeLang;
 use crate::spec::annotation_spec::AnnotationSpec;
-use crate::spec::modifiers::{ConstructorDelegationStyle, DeclarationContext, Modifiers, Visibility};
+use crate::spec::modifiers::{
+    ConstructorDelegationStyle, DeclarationContext, Modifiers, Visibility,
+};
 use crate::spec::parameter_spec::ParameterSpec;
 use crate::type_name::TypeName;
 
@@ -280,9 +282,7 @@ impl<L: CodeLang> FunSpec<L> {
                 cb.add_line();
             }
             // Constructor delegation — body style (TS/Java/Dart/Swift).
-            if delegation_in_body
-                && let Some(deleg) = &self.delegation
-            {
+            if delegation_in_body && let Some(deleg) = &self.delegation {
                 cb.add_statement("%L", deleg.clone());
             }
             cb.add_code(body.clone());
@@ -309,9 +309,7 @@ impl<L: CodeLang> FunSpec<L> {
                     cb.add_line();
                 }
                 // Constructor delegation — body style.
-                if delegation_in_body
-                    && let Some(deleg) = &self.delegation
-                {
+                if delegation_in_body && let Some(deleg) = &self.delegation {
                     cb.add_statement("%L", deleg.clone());
                 }
                 cb.add_statement(empty, ());

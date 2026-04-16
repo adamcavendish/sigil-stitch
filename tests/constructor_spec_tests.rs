@@ -427,7 +427,10 @@ fn test_cpp_constructor_with_super_delegation() {
     let cpp = CppLang::new();
     let mut fb = FunSpec::<CppLang>::builder("Dog");
     fb.is_constructor();
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("std::string")));
+    fb.add_param(ParameterSpec::new(
+        "name",
+        TypeName::primitive("std::string"),
+    ));
     fb.delegation(CodeBlock::of("Animal(name)", ()).unwrap());
     fb.body(CodeBlock::of("// extra init", ()).unwrap());
     let output = render_fun(&fb.build(), &cpp, DeclarationContext::Member);
@@ -488,10 +491,7 @@ fn test_kotlin_primary_constructor() {
         "val name",
         TypeName::primitive("String"),
     ));
-    tb.add_primary_constructor_param(ParameterSpec::new(
-        "val age",
-        TypeName::primitive("Int"),
-    ));
+    tb.add_primary_constructor_param(ParameterSpec::new("val age", TypeName::primitive("Int")));
 
     let output = render_type(&tb.build(), &kt);
     assert!(output.contains("class Person(val name: String, val age: Int) {"));
@@ -505,10 +505,7 @@ fn test_kotlin_primary_constructor_with_super() {
         "val name",
         TypeName::primitive("String"),
     ));
-    tb.add_primary_constructor_param(ParameterSpec::new(
-        "val grade",
-        TypeName::primitive("Int"),
-    ));
+    tb.add_primary_constructor_param(ParameterSpec::new("val grade", TypeName::primitive("Int")));
     tb.extends(TypeName::primitive("Person"));
 
     let output = render_type(&tb.build(), &kt);
@@ -534,10 +531,7 @@ fn test_kotlin_primary_constructor_with_secondary() {
         "val name",
         TypeName::primitive("String"),
     ));
-    tb.add_primary_constructor_param(ParameterSpec::new(
-        "val value",
-        TypeName::primitive("Int"),
-    ));
+    tb.add_primary_constructor_param(ParameterSpec::new("val value", TypeName::primitive("Int")));
 
     // Secondary constructor delegates to primary
     let mut ctor = FunSpec::builder("constructor");
