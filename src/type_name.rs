@@ -16,7 +16,7 @@ use crate::lang::CodeLang;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::type_name::TypeName;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///

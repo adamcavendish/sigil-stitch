@@ -27,7 +27,7 @@ use crate::type_name::TypeName;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::spec::annotation_spec::AnnotationSpec;
 /// use sigil_stitch::lang::rust_lang::RustLang;
 ///
@@ -57,7 +57,7 @@ pub(crate) enum AnnotationName<L: CodeLang> {
 impl<L: CodeLang> AnnotationSpec<L> {
     /// Create an annotation with a simple (non-imported) name.
     ///
-    /// ```ignore
+    /// ```text
     /// AnnotationSpec::<TypeScript>::new("deprecated")
     /// // TS: @deprecated
     /// // Rust: #[deprecated]
@@ -73,7 +73,7 @@ impl<L: CodeLang> AnnotationSpec<L> {
     ///
     /// The `TypeName` is rendered via `%T` so the import collector picks it up.
     ///
-    /// ```ignore
+    /// ```text
     /// AnnotationSpec::<JavaLang>::importable(
     ///     TypeName::importable("javax.annotation", "Nullable")
     /// )
@@ -90,7 +90,7 @@ impl<L: CodeLang> AnnotationSpec<L> {
     ///
     /// Arguments are joined with `", "` inside parentheses.
     ///
-    /// ```ignore
+    /// ```text
     /// AnnotationSpec::<RustLang>::new("allow")
     ///     .arg("dead_code")
     /// // Rust: #[allow(dead_code)]

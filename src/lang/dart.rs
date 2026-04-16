@@ -24,7 +24,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Import conventions
 ///
 /// Use [`crate::type_name::TypeName::importable`] with the import URI as module:
-/// ```ignore
+/// ```text
 /// TypeName::importable("dart:async", "Future")              // import 'dart:async';
 /// TypeName::importable("package:http/http.dart", "Client")   // import 'package:http/http.dart';
 /// TypeName::importable("../models/user.dart", "User")        // import '../models/user.dart';
@@ -36,7 +36,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Dart's `with` keyword for mixin application is not directly in the trait.
 /// Include mixins via `TypeName::raw`:
-/// ```ignore
+/// ```text
 /// tb.extends(TypeName::raw("BaseClass with Mixin1, Mixin2"));
 /// // Emits: class Foo extends BaseClass with Mixin1, Mixin2 {
 /// ```
@@ -45,7 +45,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Dart's `async` is a body modifier (`Future<int> foo() async { ... }`),
 /// not a signature prefix. Use `Future<T>` as the return type:
-/// ```ignore
+/// ```text
 /// fb.returns(TypeName::primitive("Future<User>"));
 /// ```
 #[derive(Debug, Clone)]

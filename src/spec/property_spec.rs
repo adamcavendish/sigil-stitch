@@ -31,7 +31,7 @@ pub struct SetterSpec<L: CodeLang> {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::spec::property_spec::PropertySpec;
 /// use sigil_stitch::lang::typescript::TypeScript;
@@ -40,7 +40,7 @@ pub struct SetterSpec<L: CodeLang> {
 ///
 /// let mut pb = PropertySpec::builder("name", TypeName::<TypeScript>::primitive("string"));
 /// pb.getter(getter_body);
-/// let prop = pb.build();
+/// let prop = pb.build().unwrap();
 /// ```
 #[derive(Debug, Clone)]
 pub struct PropertySpec<L: CodeLang> {
@@ -353,7 +353,7 @@ impl<L: CodeLang> PropertySpecBuilder<L> {
     ///
     /// # Errors
     ///
-    /// Returns [`SigilStitchError::EmptyName`] if `name` is empty.
+    /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
     pub fn build(self) -> Result<PropertySpec<L>, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),

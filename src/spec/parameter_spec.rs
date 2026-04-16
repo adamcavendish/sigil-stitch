@@ -13,18 +13,18 @@ use crate::type_name::TypeName;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
 /// // Simple parameter:
-/// let param = ParameterSpec::<TypeScript>::new("id", TypeName::primitive("string"));
+/// let param = ParameterSpec::<TypeScript>::new("id", TypeName::primitive("string")).unwrap();
 ///
 /// // Parameter with default value:
 /// let default_val = CodeBlock::<TypeScript>::of("0", ()).unwrap();
 /// let mut pb = ParameterSpec::builder("count", TypeName::<TypeScript>::primitive("number"));
 /// pb.default_value(default_val);
-/// let param = pb.build();
+/// let param = pb.build().unwrap();
 /// ```
 #[derive(Debug, Clone)]
 pub struct ParameterSpec<L: CodeLang> {
@@ -127,7 +127,7 @@ impl<L: CodeLang> ParameterSpecBuilder<L> {
     ///
     /// # Errors
     ///
-    /// Returns [`SigilStitchError::EmptyName`] if `name` is empty.
+    /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
     pub fn build(self) -> Result<ParameterSpec<L>, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),

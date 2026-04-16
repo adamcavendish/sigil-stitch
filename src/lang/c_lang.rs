@@ -18,7 +18,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Import conventions
 ///
 /// Use [`crate::type_name::TypeName::importable`] with the header path as the module:
-/// ```ignore
+/// ```text
 /// TypeName::importable("stdio.h", "printf")    // #include <stdio.h>
 /// TypeName::importable("./config.h", "Config")  // #include "config.h"
 /// ```
@@ -29,7 +29,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Header guards
 ///
 /// Use `FileSpec::header` for `#pragma once` or include guards:
-/// ```ignore
+/// ```text
 /// fb.header(CodeBlock::<CLang>::of("#pragma once", ()).unwrap());
 /// ```
 #[derive(Debug, Clone)]

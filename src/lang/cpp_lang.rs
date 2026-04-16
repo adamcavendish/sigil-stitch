@@ -23,7 +23,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Import conventions
 ///
 /// Same as C — use [`crate::type_name::TypeName::importable`] with the header path as the module:
-/// ```ignore
+/// ```text
 /// TypeName::importable("iostream", "std::cout")  // #include <iostream>
 /// TypeName::importable("vector", "std::vector")   // #include <vector>
 /// TypeName::importable("./myclass.hpp", "MyClass") // #include "myclass.hpp"
@@ -32,7 +32,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Access specifiers
 ///
 /// C++ uses section-header access specifiers. Add them as `extra_member`:
-/// ```ignore
+/// ```text
 /// let mut access = CodeBlock::<CppLang>::builder();
 /// access.add("%<", ());          // dedent
 /// access.add("public:", ());
@@ -44,14 +44,14 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Templates
 ///
 /// Use annotations for `template<typename T>`:
-/// ```ignore
+/// ```text
 /// fb.annotation(CodeBlock::<CppLang>::of("template<typename T>", ()).unwrap());
 /// ```
 ///
 /// # Virtual / pure virtual
 ///
 /// Use `is_abstract()` for `virtual` prefix, and `suffix("= 0")` for pure virtual:
-/// ```ignore
+/// ```text
 /// fb.is_abstract();        // emits "virtual"
 /// fb.suffix("= 0");       // emits "= 0" after params
 /// ```

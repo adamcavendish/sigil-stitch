@@ -18,14 +18,14 @@ use crate::type_name::TypeName;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
 /// let mut fb = FieldSpec::builder("name", TypeName::<TypeScript>::primitive("string"));
 /// fb.visibility(Visibility::Private);
 /// fb.is_readonly();
-/// let field = fb.build();
+/// let field = fb.build().unwrap();
 /// ```
 #[derive(Debug, Clone)]
 pub struct FieldSpec<L: CodeLang> {
@@ -220,7 +220,7 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
     ///
     /// # Errors
     ///
-    /// Returns [`SigilStitchError::EmptyName`] if `name` is empty.
+    /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
     pub fn build(self) -> Result<FieldSpec<L>, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),

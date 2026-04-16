@@ -46,7 +46,7 @@ pub enum FileMember<L: CodeLang> {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
@@ -58,7 +58,7 @@ pub enum FileMember<L: CodeLang> {
 ///
 /// let mut fb = FileSpec::<TypeScript>::builder("user.ts");
 /// fb.add_code(body);
-/// let file = fb.build();
+/// let file = fb.build().unwrap();
 ///
 /// let output = file.render(80).unwrap();
 /// // output contains: import type { User } from './models'

@@ -22,7 +22,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Import conventions
 ///
 /// Use [`crate::type_name::TypeName::importable`] with the package as module and class name as name:
-/// ```ignore
+/// ```text
 /// TypeName::importable("kotlin.collections", "List")       // import kotlin.collections.List
 /// TypeName::importable("java.util", "UUID")                // import java.util.UUID
 /// TypeName::importable("com.example.model", "User")        // import com.example.model.User
@@ -32,7 +32,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Kotlin uses `:` for both superclass and interfaces. Put all supertypes
 /// into `super_types()` (not `impl_types()`):
-/// ```ignore
+/// ```text
 /// tb.super_type(TypeName::primitive("Base"));
 /// tb.super_type(TypeName::primitive("Serializable"));
 /// // Emits: class Foo : Base, Serializable {
@@ -41,7 +41,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # `sealed class` / `object`
 ///
 /// Use annotations for modifier-like keywords:
-/// ```ignore
+/// ```text
 /// tb.annotation(CodeBlock::<Kotlin>::of("sealed", ()).unwrap());
 /// // Combined with TypeKind::Class → "sealed\nclass Foo {"
 /// ```
@@ -49,7 +49,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Primary constructors
 ///
 /// Use `add_primary_constructor_param()` on `TypeSpecBuilder`:
-/// ```ignore
+/// ```text
 /// let mut tb = TypeSpec::<Kotlin>::builder("Person", TypeKind::Class);
 /// tb.add_primary_constructor_param(ParameterSpec::new("val name", TypeName::primitive("String")));
 /// tb.add_primary_constructor_param(ParameterSpec::new("val age", TypeName::primitive("Int")));
@@ -60,7 +60,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Use `delegation()` on `FunSpecBuilder` for `super(...)` / `this(...)` calls.
 /// Kotlin places delegation in the signature (after params, before body):
-/// ```ignore
+/// ```text
 /// let mut ctor = FunSpec::<Kotlin>::builder("constructor");
 /// ctor.is_constructor();
 /// ctor.add_param(ParameterSpec::new("name", TypeName::primitive("String")));

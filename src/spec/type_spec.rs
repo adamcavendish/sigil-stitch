@@ -24,21 +24,21 @@ use crate::type_name::TypeName;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
 /// let mut tb = TypeSpec::<TypeScript>::builder("UserService", TypeKind::Class);
 /// tb.visibility(Visibility::Public);
 /// tb.add_field(
-///     FieldSpec::builder("name", TypeName::primitive("string")).build(),
+///     FieldSpec::builder("name", TypeName::primitive("string")).build().unwrap(),
 /// );
 /// let body = CodeBlock::<TypeScript>::of("return this.name", ()).unwrap();
 /// let mut fb = FunSpec::builder("getName");
 /// fb.returns(TypeName::primitive("string"));
 /// fb.body(body);
-/// tb.add_method(fb.build());
-/// let type_spec = tb.build();
+/// tb.add_method(fb.build().unwrap());
+/// let type_spec = tb.build().unwrap();
 /// ```
 #[derive(Debug, Clone)]
 pub struct TypeSpec<L: CodeLang> {
@@ -612,7 +612,7 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
     ///
     /// # Errors
     ///
-    /// Returns [`SigilStitchError::EmptyName`] if `name` is empty.
+    /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
     pub fn build(self) -> Result<TypeSpec<L>, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),

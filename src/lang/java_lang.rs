@@ -22,7 +22,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Import conventions
 ///
 /// Use [`crate::type_name::TypeName::importable`] with the package as module and class name as name:
-/// ```ignore
+/// ```text
 /// TypeName::importable("java.util", "List")            // import java.util.List;
 /// TypeName::importable("java.util", "Map")             // import java.util.Map;
 /// TypeName::importable("com.example.model", "User")    // import com.example.model.User;
@@ -31,7 +31,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Annotations
 ///
 /// Use `annotation()` on builders for Java annotations:
-/// ```ignore
+/// ```text
 /// fb.annotation(CodeBlock::<JavaLang>::of("@Override", ()).unwrap());
 /// fb.annotation(CodeBlock::<JavaLang>::of("@Nullable", ()).unwrap());
 /// ```

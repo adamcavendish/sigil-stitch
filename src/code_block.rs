@@ -67,7 +67,7 @@ pub enum Arg<L: CodeLang> {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::code_block::CodeBlock;
 /// use sigil_stitch::lang::typescript::TypeScript;
 /// use sigil_stitch::type_name::TypeName;
@@ -130,7 +130,7 @@ impl<L: CodeLang> CodeBlock<L> {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::code_block::CodeBlock;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
@@ -409,7 +409,7 @@ impl<L: CodeLang> IntoArgs<L> for Vec<Arg<L>> {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::code_block::{CodeBlock, NameArg};
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
@@ -432,7 +432,7 @@ impl<L: CodeLang> IntoArgs<L> for NameArg {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::code_block::{CodeBlock, StringLitArg};
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///

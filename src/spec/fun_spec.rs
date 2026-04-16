@@ -17,7 +17,7 @@ use crate::type_name::TypeName;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
@@ -96,7 +96,7 @@ pub fn render_type_params<L: CodeLang>(
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
@@ -105,7 +105,7 @@ pub fn render_type_params<L: CodeLang>(
 /// let mut fb = FunSpec::<TypeScript>::builder("getName");
 /// fb.returns(TypeName::primitive("string"));
 /// fb.body(body);
-/// let fun = fb.build();
+/// let fun = fb.build().unwrap();
 /// ```
 #[derive(Debug, Clone)]
 pub struct FunSpec<L: CodeLang> {
@@ -470,7 +470,7 @@ impl<L: CodeLang> FunSpecBuilder<L> {
     ///
     /// # Errors
     ///
-    /// Returns [`SigilStitchError::EmptyName`] if `name` is empty.
+    /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
     pub fn build(self) -> Result<FunSpec<L>, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),

@@ -107,7 +107,7 @@ struct TemplateParam {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::code_template::CodeTemplate;
 /// use sigil_stitch::code_block::NameArg;
 /// use sigil_stitch::lang::typescript::TypeScript;

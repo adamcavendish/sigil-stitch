@@ -18,7 +18,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Multiple return values
 ///
 /// Go functions commonly return `(T, error)`. Use [`crate::type_name::TypeName::raw`] for this:
-/// ```ignore
+/// ```text
 /// fb.returns(TypeName::raw("(int, error)"));
 /// ```
 #[derive(Debug, Clone)]

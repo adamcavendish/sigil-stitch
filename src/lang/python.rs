@@ -21,7 +21,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Python uses `[]` for generic type hints. Use [`crate::type_name::TypeName::generic`] for
 /// parameterized types:
-/// ```ignore
+/// ```text
 /// TypeName::generic("list", vec![TypeName::primitive("int")])   // list[int]
 /// TypeName::generic("dict", vec![                               // dict[str, int]
 ///     TypeName::primitive("str"),
@@ -33,7 +33,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Decorators
 ///
 /// Use the `annotation()` builder method on `FunSpec` or `TypeSpec`:
-/// ```ignore
+/// ```text
 /// fb.annotation(CodeBlock::of("@staticmethod", ()).unwrap());
 /// tb.annotation(CodeBlock::of("@dataclass", ()).unwrap());
 /// ```

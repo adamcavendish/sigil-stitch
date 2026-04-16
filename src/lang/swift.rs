@@ -23,7 +23,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Import conventions
 ///
 /// Use [`crate::type_name::TypeName::importable`] with the module name and symbol:
-/// ```ignore
+/// ```text
 /// TypeName::importable("Foundation", "URL")        // import Foundation
 /// TypeName::importable("UIKit", "UIViewController") // import UIKit
 /// TypeName::importable("MyModule", "MyType")        // import MyModule
@@ -36,7 +36,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Swift uses `:` for both superclass and protocol conformance. Put all supertypes
 /// into `extends()` (not `implements()`):
-/// ```ignore
+/// ```text
 /// tb.extends(TypeName::primitive("NSObject"));
 /// tb.extends(TypeName::primitive("Codable"));
 /// // Emits: class Foo: NSObject, Codable {
@@ -45,7 +45,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # `@` Attributes
 ///
 /// Use `annotation()` for Swift attributes:
-/// ```ignore
+/// ```text
 /// fb.annotation(CodeBlock::<Swift>::of("@objc", ()).unwrap());
 /// fb.annotation(CodeBlock::<Swift>::of("@discardableResult", ()).unwrap());
 /// ```

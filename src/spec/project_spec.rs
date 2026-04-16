@@ -25,16 +25,17 @@ pub struct RenderedFile {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let models = FileSpec::<TypeScript>::builder("src/models.ts")
-///     .add_type(TypeSpec::builder("User", TypeKind::Interface).build())
-///     .build();
-/// let index = FileSpec::<TypeScript>::builder("src/index.ts")
-///     .add_code(CodeBlock::of("export {}", ()).unwrap())
-///     .build();
+/// let mut models_b = FileSpec::<TypeScript>::builder("src/models.ts");
+/// models_b.add_type(TypeSpec::builder("User", TypeKind::Interface).build().unwrap());
+/// let models = models_b.build().unwrap();
+///
+/// let mut index_b = FileSpec::<TypeScript>::builder("src/index.ts");
+/// index_b.add_code(CodeBlock::of("export {}", ()).unwrap());
+/// let index = index_b.build().unwrap();
 ///
 /// let mut pb = ProjectSpec::<TypeScript>::builder();
 /// pb.add_file(models);

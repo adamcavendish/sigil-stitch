@@ -18,7 +18,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// JavaScript has no type annotations. Use `TypeName::primitive("")` for
 /// parameter and field types, and don't call `.returns()` on `FunSpecBuilder`:
-/// ```ignore
+/// ```text
 /// // Parameter without type annotation:
 /// ParameterSpec::new("name", TypeName::primitive(""))
 ///
@@ -34,7 +34,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Private fields
 ///
 /// ES2022 private fields use `#` prefix. Name the field directly:
-/// ```ignore
+/// ```text
 /// FieldSpec::builder("#count", TypeName::primitive("")).build()
 /// ```
 #[derive(Debug, Clone)]

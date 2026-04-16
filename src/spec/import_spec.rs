@@ -17,7 +17,7 @@ use crate::lang::CodeLang;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::spec::import_spec::ImportSpec;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///

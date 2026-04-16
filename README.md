@@ -26,11 +26,30 @@ let body = cb.build().unwrap();
 
 let mut fb = FileSpec::<TypeScript>::builder("user.ts");
 fb.add_code(body);
-let file = fb.build();
+let file = fb.build().unwrap();
 
 let output = file.render(80).unwrap();
 assert!(output.contains("import type { User } from './models'"));
 ```
+
+## With `sigil_quote!`
+
+The `sigil_quote!` macro lets you write target-language code inline:
+
+```rust
+use sigil_stitch::prelude::*;
+use sigil_stitch::lang::typescript::TypeScript;
+
+let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+
+let body = sigil_quote!(TypeScript {
+    const user = await getUser($S("id"));
+    return user as $T(user_type);
+}).unwrap();
+```
+
+Interpolation markers: `$T(expr)` for types, `$N(expr)` for names, `$S(expr)` for
+string literals, `$L(expr)` for literals, `$C(expr)` for nested code blocks.
 
 ## Supported Languages
 

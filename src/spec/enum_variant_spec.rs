@@ -28,19 +28,19 @@ use crate::type_name::TypeName;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
 /// let mut tb = TypeSpec::<TypeScript>::builder("Direction", TypeKind::Enum);
-/// tb.add_variant(EnumVariantSpec::new("Up"));
+/// tb.add_variant(EnumVariantSpec::new("Up").unwrap());
 ///
 /// let mut v = EnumVariantSpec::builder("Down");
 /// v.value(CodeBlock::<TypeScript>::of("'DOWN'", ()).unwrap());
-/// tb.add_variant(v.build());
+/// tb.add_variant(v.build().unwrap());
 ///
-/// let type_spec = tb.build();
+/// let type_spec = tb.build().unwrap();
 /// ```
 #[derive(Debug, Clone)]
 pub struct EnumVariantSpec<L: CodeLang> {
@@ -60,7 +60,7 @@ impl<L: CodeLang> EnumVariantSpec<L> {
     ///
     /// # Errors
     ///
-    /// Returns [`SigilStitchError::EmptyName`] if `name` is empty.
+    /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
     pub fn new(name: &str) -> Result<Self, crate::error::SigilStitchError> {
         snafu::ensure!(
             !name.is_empty(),
@@ -151,7 +151,7 @@ impl<L: CodeLang> EnumVariantSpecBuilder<L> {
     ///
     /// # Errors
     ///
-    /// Returns [`SigilStitchError::EmptyName`] if `name` is empty.
+    /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
     pub fn build(self) -> Result<EnumVariantSpec<L>, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),
