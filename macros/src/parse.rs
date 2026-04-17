@@ -14,6 +14,7 @@ pub(crate) struct ParsedInput {
 }
 
 /// A single statement or directive in the macro body.
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum Statement {
     /// `add_statement(format, args)` — line ending with `;`.
     Statement { format: String, args: Vec<TypedArg> },
@@ -181,21 +182,21 @@ fn parse_one_statement(
         }
 
         // Check for brace group — potential control flow.
-        if let TokenTree::Group(g) = tt {
-            if g.delimiter() == Delimiter::Brace {
-                // Look ahead: if next token is `;`, this is NOT control flow
-                // (it's an object literal or struct init in a statement).
-                let next = pos + 1;
-                if next < tokens.len() && is_semicolon(&tokens[next]) {
-                    // Part of a statement: `const x = { ... };`
-                    collected.push(tt.clone());
-                    pos += 1;
-                    continue;
-                }
-
-                // Control flow detected.
-                return parse_control_flow(tokens, &collected, g, pos);
+        if let TokenTree::Group(g) = tt
+            && g.delimiter() == Delimiter::Brace
+        {
+            // Look ahead: if next token is `;`, this is NOT control flow
+            // (it's an object literal or struct init in a statement).
+            let next = pos + 1;
+            if next < tokens.len() && is_semicolon(&tokens[next]) {
+                // Part of a statement: `const x = { ... };`
+                collected.push(tt.clone());
+                pos += 1;
+                continue;
             }
+
+            // Control flow detected.
+            return parse_control_flow(tokens, &collected, g, pos);
         }
 
         collected.push(tt.clone());
@@ -239,26 +240,26 @@ fn parse_control_flow(
             let mut else_condition_tokens: Vec<TokenTree> = Vec::new();
 
             while pos < tokens.len() {
-                if let TokenTree::Group(g) = &tokens[pos] {
-                    if g.delimiter() == Delimiter::Brace {
-                        let body_toks: Vec<TokenTree> = g.stream().into_iter().collect();
-                        let body = parse_body(&body_toks)?;
+                if let TokenTree::Group(g) = &tokens[pos]
+                    && g.delimiter() == Delimiter::Brace
+                {
+                    let body_toks: Vec<TokenTree> = g.stream().into_iter().collect();
+                    let body = parse_body(&body_toks)?;
 
-                        let (cond_format, cond_args) = if else_condition_tokens.is_empty() {
-                            ("else".to_string(), Vec::new())
-                        } else {
-                            let (fmt, args) = tokens_to_format(&else_condition_tokens)?;
-                            (format!("else {fmt}"), args)
-                        };
+                    let (cond_format, cond_args) = if else_condition_tokens.is_empty() {
+                        ("else".to_string(), Vec::new())
+                    } else {
+                        let (fmt, args) = tokens_to_format(&else_condition_tokens)?;
+                        (format!("else {fmt}"), args)
+                    };
 
-                        branches.push(Branch {
-                            condition_format: cond_format,
-                            condition_args: cond_args,
-                            body,
-                        });
-                        pos += 1;
-                        break;
-                    }
+                    branches.push(Branch {
+                        condition_format: cond_format,
+                        condition_args: cond_args,
+                        body,
+                    });
+                    pos += 1;
+                    break;
                 }
                 else_condition_tokens.push(tokens[pos].clone());
                 pos += 1;
@@ -380,113 +381,113 @@ fn tokens_to_format_inner(
         let tt = &tokens[pos];
 
         // Check for `$` interpolation.
-        if let TokenTree::Punct(p) = tt {
-            if p.as_char() == '$' {
+        if let TokenTree::Punct(p) = tt
+            && p.as_char() == '$'
+        {
+            pos += 1;
+            if pos >= tokens.len() {
+                return Err(CompileError::new(
+                    p.span(),
+                    "unexpected `$` at end of input",
+                ));
+            }
+
+            let next = &tokens[pos];
+
+            // `$$` -> literal `$`
+            if let TokenTree::Punct(p2) = next
+                && p2.as_char() == '$'
+            {
+                maybe_space(format, *prev_kind, PrevTokenKind::Literal);
+                format.push('$');
+                *prev_kind = PrevTokenKind::Literal;
+                pos += 1;
+                continue;
+            }
+
+            // `$W` -> `%W` (no arg, no parens)
+            if is_ident(next, "W") {
+                // %W is a non-arg specifier, no space logic needed.
+                format.push_str("%W");
+                *prev_kind = PrevTokenKind::Specifier;
+                pos += 1;
+                continue;
+            }
+
+            // `$comment(...)` should have been caught earlier.
+            if is_ident(next, "comment") {
+                return Err(CompileError::new(
+                    next.span(),
+                    "$comment() must appear at the start of a line",
+                ));
+            }
+
+            // `$T(expr)`, `$N(expr)`, `$S(expr)`, `$L(expr)`, `$C(expr)`
+            if let TokenTree::Ident(id) = next {
+                let kind_str = id.to_string();
+                let kind = match kind_str.as_str() {
+                    "T" => InterpolationKind::Type,
+                    "N" => InterpolationKind::Name,
+                    "S" => InterpolationKind::StringLit,
+                    "L" => InterpolationKind::Literal,
+                    "C" => InterpolationKind::Code,
+                    _ => {
+                        return Err(CompileError::new(
+                            id.span(),
+                            format!(
+                                "unknown interpolation kind `${kind_str}`. \
+                                     Expected $T, $N, $S, $L, $C, or $W"
+                            ),
+                        ));
+                    }
+                };
+
                 pos += 1;
                 if pos >= tokens.len() {
                     return Err(CompileError::new(
-                        p.span(),
-                        "unexpected `$` at end of input",
+                        id.span(),
+                        format!(
+                            "${kind_str} requires a parenthesized expression: ${kind_str}(expr)"
+                        ),
                     ));
                 }
 
-                let next = &tokens[pos];
-
-                // `$$` -> literal `$`
-                if let TokenTree::Punct(p2) = next {
-                    if p2.as_char() == '$' {
-                        maybe_space(format, *prev_kind, PrevTokenKind::Literal);
-                        format.push('$');
-                        *prev_kind = PrevTokenKind::Literal;
-                        pos += 1;
-                        continue;
-                    }
-                }
-
-                // `$W` -> `%W` (no arg, no parens)
-                if is_ident(next, "W") {
-                    // %W is a non-arg specifier, no space logic needed.
-                    format.push_str("%W");
-                    *prev_kind = PrevTokenKind::Specifier;
-                    pos += 1;
-                    continue;
-                }
-
-                // `$comment(...)` should have been caught earlier.
-                if is_ident(next, "comment") {
-                    return Err(CompileError::new(
-                        next.span(),
-                        "$comment() must appear at the start of a line",
-                    ));
-                }
-
-                // `$T(expr)`, `$N(expr)`, `$S(expr)`, `$L(expr)`, `$C(expr)`
-                if let TokenTree::Ident(id) = next {
-                    let kind_str = id.to_string();
-                    let kind = match kind_str.as_str() {
-                        "T" => InterpolationKind::Type,
-                        "N" => InterpolationKind::Name,
-                        "S" => InterpolationKind::StringLit,
-                        "L" => InterpolationKind::Literal,
-                        "C" => InterpolationKind::Code,
-                        _ => {
-                            return Err(CompileError::new(
-                                id.span(),
-                                format!(
-                                    "unknown interpolation kind `${kind_str}`. \
-                                     Expected $T, $N, $S, $L, $C, or $W"
-                                ),
-                            ));
-                        }
-                    };
-
-                    pos += 1;
-                    if pos >= tokens.len() {
+                let group = match &tokens[pos] {
+                    TokenTree::Group(g) if g.delimiter() == Delimiter::Parenthesis => g,
+                    _ => {
                         return Err(CompileError::new(
-                            id.span(),
+                            tokens[pos].span(),
                             format!(
                                 "${kind_str} requires a parenthesized expression: ${kind_str}(expr)"
                             ),
                         ));
                     }
+                };
 
-                    let group = match &tokens[pos] {
-                        TokenTree::Group(g) if g.delimiter() == Delimiter::Parenthesis => g,
-                        _ => {
-                            return Err(CompileError::new(
-                                tokens[pos].span(),
-                                format!(
-                                    "${kind_str} requires a parenthesized expression: ${kind_str}(expr)"
-                                ),
-                            ));
-                        }
-                    };
+                let specifier = match kind {
+                    InterpolationKind::Type => "%T",
+                    InterpolationKind::Name => "%N",
+                    InterpolationKind::StringLit => "%S",
+                    InterpolationKind::Literal | InterpolationKind::Code => "%L",
+                };
 
-                    let specifier = match kind {
-                        InterpolationKind::Type => "%T",
-                        InterpolationKind::Name => "%N",
-                        InterpolationKind::StringLit => "%S",
-                        InterpolationKind::Literal | InterpolationKind::Code => "%L",
-                    };
+                maybe_space(format, *prev_kind, PrevTokenKind::Specifier);
+                format.push_str(specifier);
+                *prev_kind = PrevTokenKind::Specifier;
 
-                    maybe_space(format, *prev_kind, PrevTokenKind::Specifier);
-                    format.push_str(specifier);
-                    *prev_kind = PrevTokenKind::Specifier;
+                args.push(TypedArg {
+                    kind,
+                    expr: group.stream(),
+                });
 
-                    args.push(TypedArg {
-                        kind,
-                        expr: group.stream(),
-                    });
-
-                    pos += 1;
-                    continue;
-                }
-
-                return Err(CompileError::new(
-                    next.span(),
-                    "expected interpolation kind after `$`: $T, $N, $S, $L, $C, $W, or $$",
-                ));
+                pos += 1;
+                continue;
             }
+
+            return Err(CompileError::new(
+                next.span(),
+                "expected interpolation kind after `$`: $T, $N, $S, $L, $C, $W, or $$",
+            ));
         }
 
         // Regular tokens.
@@ -568,39 +569,36 @@ fn maybe_space(format: &mut String, prev: PrevTokenKind, current: PrevTokenKind)
     }
 
     // No space after opening punctuation.
-    if let PrevTokenKind::Punct(ch, _) = prev {
-        match ch {
-            '(' | '[' | '.' | '!' | '~' | '@' | '#' => return,
-            _ => {}
-        }
+    if let PrevTokenKind::Punct('(' | '[' | '.' | '!' | '~' | '@' | '#', _) = prev {
+        return;
     }
 
     // No space before `(` when preceded by ident or specifier (function call).
-    if let PrevTokenKind::GroupOpen = current {
-        if matches!(
+    if let PrevTokenKind::GroupOpen = current
+        && matches!(
             prev,
             PrevTokenKind::Ident | PrevTokenKind::Specifier | PrevTokenKind::Literal
-        ) {
-            // This handles function calls like `getUser(...)`, but also control flow like `if (...)`.
-            // For code gen, `if(x)` and `if (x)` are both valid, but the user's source tokens
-            // preserve the original spacing via proc_macro2 span locations. Since we can't
-            // reliably use span locations for spacing in all cases, we take a pragmatic approach:
-            // no space before `(` after ident (function call style).
-            // For `if (x)`, the user can write `if(x)` which is valid in JS/TS/etc.
-            // BUT: in practice, `if` followed by `(` should have a space.
-            // We'll handle this by NOT suppressing space when prev is a keyword.
-            // Actually, we can't distinguish keywords from identifiers in proc macros.
-            // Let's always insert space before `(` after an ident for now.
-            // This gives `console.log (x)` which is wrong for function calls...
-            //
-            // Trade-off: we can't have it both ways. Since the user writes the code,
-            // they'll see the output and can adjust. Most target languages accept both forms.
-            // For function calls, the slight extra space is cosmetically imperfect but functional.
-            //
-            // Actually, a better heuristic: use Spacing from proc_macro2.
-            // But idents don't have Spacing. Let's just not add space.
-            return;
-        }
+        )
+    {
+        // This handles function calls like `getUser(...)`, but also control flow like `if (...)`.
+        // For code gen, `if(x)` and `if (x)` are both valid, but the user's source tokens
+        // preserve the original spacing via proc_macro2 span locations. Since we can't
+        // reliably use span locations for spacing in all cases, we take a pragmatic approach:
+        // no space before `(` after ident (function call style).
+        // For `if (x)`, the user can write `if(x)` which is valid in JS/TS/etc.
+        // BUT: in practice, `if` followed by `(` should have a space.
+        // We'll handle this by NOT suppressing space when prev is a keyword.
+        // Actually, we can't distinguish keywords from identifiers in proc macros.
+        // Let's always insert space before `(` after an ident for now.
+        // This gives `console.log (x)` which is wrong for function calls...
+        //
+        // Trade-off: we can't have it both ways. Since the user writes the code,
+        // they'll see the output and can adjust. Most target languages accept both forms.
+        // For function calls, the slight extra space is cosmetically imperfect but functional.
+        //
+        // Actually, a better heuristic: use Spacing from proc_macro2.
+        // But idents don't have Spacing. Let's just not add space.
+        return;
     }
 
     // Default: add a space between tokens.
@@ -612,5 +610,5 @@ fn is_semicolon(tt: &TokenTree) -> bool {
 }
 
 fn is_ident(tt: &TokenTree, name: &str) -> bool {
-    matches!(tt, TokenTree::Ident(id) if id.to_string() == name)
+    matches!(tt, TokenTree::Ident(id) if *id == name)
 }
