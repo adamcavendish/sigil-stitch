@@ -1,10 +1,15 @@
 [package]
 name = "sigil-stitch-macros"
-version = "0.1.0"
-edition = "2024"
-rust-version = "1.88.0"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "Proc macros for sigil-stitch code generation"
-license = "MIT OR Apache-2.0"
+keywords = ["codegen", "macros", "sigil-stitch"]
+categories = ["development-tools"]
 
 [lib]
 proc-macro = true
