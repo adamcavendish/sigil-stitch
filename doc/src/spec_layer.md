@@ -85,6 +85,33 @@ let field = fb.build().unwrap();
 // Go: Name string `json:"name" db:"name"`
 ```
 
+### Optional fields
+
+`is_optional()` marks a field whose key may be absent (distinct from a value that
+can be `null`). Rendering is language-specific, delegated to
+`CodeLang::optional_field_style()`:
+
+```rust,ignore
+let mut fb = FieldSpec::builder("email", TypeName::<TypeScript>::primitive("string"));
+fb.is_optional();
+let field = fb.build().unwrap();
+// TypeScript:  email?: string;
+// JavaScript:  email;                (marker stripped — no optionality in JS)
+// Rust:        email: Option<String>,
+// Go:          Email *string
+// Python:      email: str | None
+// Java:        Optional<String> email;   (caller must import java.util.Optional)
+// Kotlin:      name: String?
+// Swift:       name: String?
+// Dart:        String? name;
+// C:           string *email;
+// C++:         std::optional<string> email;   (caller must #include <optional>)
+```
+
+Use `is_optional()` for "the key might not be there" (e.g., an OpenAPI property
+not listed in `required`). Use `TypeName::optional(...)` for "the value might be
+null" at the type level.
+
 ## FunSpec
 
 A function or method: parameters, return type, body, modifiers (async, static, abstract, constructor, override), type parameters, annotations, and doc comments.

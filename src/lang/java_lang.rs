@@ -44,12 +44,15 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct JavaLang {
     /// Indent with this string (default: "    " — 4 spaces).
     pub indent: String,
+    /// File extension (default: "java").
+    pub extension: String,
 }
 
 impl Default for JavaLang {
     fn default() -> Self {
         Self {
             indent: "    ".to_string(),
+            extension: "java".to_string(),
         }
     }
 }
@@ -58,6 +61,18 @@ impl JavaLang {
     /// Create a new Java language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the indent string (e.g., `"    "` for 4-space, `"\t"` for tabs).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (default: `"java"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -87,7 +102,7 @@ fn import_group_order(module: &str) -> u8 {
 
 impl CodeLang for JavaLang {
     fn file_extension(&self) -> &str {
-        "java"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -263,6 +278,16 @@ impl CodeLang for JavaLang {
 
     fn readonly_keyword(&self) -> &str {
         "final "
+    }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        // Note: callers must ensure `java.util.Optional` is imported. The
+        // wrapping text itself is emitted literally and does not trigger
+        // automatic import tracking.
+        crate::lang::config::OptionalFieldStyle::TypeWrap {
+            open: "Optional<",
+            close: ">",
+        }
     }
 }
 
@@ -504,5 +529,12 @@ mod tests {
         assert_eq!(import_group_order("javax.persistence"), 1);
         assert_eq!(import_group_order("com.example.model"), 2);
         assert_eq!(import_group_order("org.springframework"), 2);
+    }
+
+    #[test]
+    fn test_java_builder_fluent() {
+        let java = JavaLang::new().with_indent("\t").with_extension("jav");
+        assert_eq!(java.file_extension(), "jav");
+        assert_eq!(java.indent_unit(), "\t");
     }
 }

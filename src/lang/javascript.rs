@@ -2,6 +2,7 @@
 
 use crate::import::{ImportEntry, ImportGroup};
 use crate::lang::CodeLang;
+use crate::lang::config::QuoteStyle;
 use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 
 /// JavaScript language implementation.
@@ -39,8 +40,8 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// ```
 #[derive(Debug, Clone)]
 pub struct JavaScript {
-    /// Use single quotes for string literals (default: true).
-    pub single_quotes: bool,
+    /// Quote style for string literals and import paths.
+    pub quote_style: QuoteStyle,
     /// Indent with this string (default: "  ").
     pub indent: String,
     /// File extension (default: "js"). Set to "mjs" or "cjs" for explicit module type.
@@ -52,7 +53,7 @@ pub struct JavaScript {
 impl Default for JavaScript {
     fn default() -> Self {
         Self {
-            single_quotes: true,
+            quote_style: QuoteStyle::Single,
             indent: "  ".to_string(),
             extension: "js".to_string(),
             semicolons: true,
@@ -80,6 +81,30 @@ impl JavaScript {
             extension: "cjs".to_string(),
             ..Self::default()
         }
+    }
+
+    /// Set the quote style used for string literals and import paths.
+    pub fn with_quote_style(mut self, qs: QuoteStyle) -> Self {
+        self.quote_style = qs;
+        self
+    }
+
+    /// Set the indent string (e.g., `"  "`, `"    "`, `"\t"`).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Control whether statements are terminated with `;`.
+    pub fn with_semicolons(mut self, b: bool) -> Self {
+        self.semicolons = b;
+        self
+    }
+
+    /// Set the file extension (e.g., `"js"`, `"mjs"`, `"cjs"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -109,7 +134,7 @@ impl CodeLang for JavaScript {
 
     fn render_imports(&self, imports: &ImportGroup) -> String {
         let mut lines = Vec::new();
-        let quote = if self.single_quotes { '\'' } else { '"' };
+        let quote = self.quote_style.char();
         let semi = if self.semicolons { ";" } else { "" };
 
         // Group entries by module path.
@@ -159,10 +184,13 @@ impl CodeLang for JavaScript {
     }
 
     fn render_string_literal(&self, s: &str) -> String {
-        if self.single_quotes {
-            format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
-        } else {
-            format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+        match self.quote_style {
+            QuoteStyle::Single => {
+                format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
+            }
+            QuoteStyle::Double => {
+                format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+            }
         }
     }
 
@@ -447,11 +475,21 @@ mod tests {
 
     #[test]
     fn test_string_literal_double_quotes() {
-        let js = JavaScript {
-            single_quotes: false,
-            ..Default::default()
-        };
+        let js = JavaScript::new().with_quote_style(QuoteStyle::Double);
         assert_eq!(js.render_string_literal("hello"), "\"hello\"");
+    }
+
+    #[test]
+    fn test_javascript_builder_fluent() {
+        let js = JavaScript::new()
+            .with_semicolons(false)
+            .with_quote_style(QuoteStyle::Double)
+            .with_extension("mjs")
+            .with_indent("    ");
+        assert!(!js.uses_semicolons());
+        assert_eq!(js.file_extension(), "mjs");
+        assert_eq!(js.indent_unit(), "    ");
+        assert_eq!(js.render_string_literal("hi"), "\"hi\"");
     }
 
     #[test]

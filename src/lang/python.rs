@@ -2,6 +2,7 @@
 
 use crate::import::{ImportEntry, ImportGroup};
 use crate::lang::CodeLang;
+use crate::lang::config::QuoteStyle;
 use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 
 /// Python language implementation.
@@ -41,12 +42,19 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct Python {
     /// Indent with this string (default: "    " — 4 spaces per PEP 8).
     pub indent: String,
+    /// Quote style for string literals. Python accepts both; `Single` is the
+    /// community default (Black defaults to `Double`).
+    pub quote_style: QuoteStyle,
+    /// File extension (default: "py"). Set to "pyi" for stub files.
+    pub extension: String,
 }
 
 impl Default for Python {
     fn default() -> Self {
         Self {
             indent: "    ".to_string(),
+            quote_style: QuoteStyle::Single,
+            extension: "py".to_string(),
         }
     }
 }
@@ -55,6 +63,24 @@ impl Python {
     /// Create a new Python language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the quote style used for string literals.
+    pub fn with_quote_style(mut self, qs: QuoteStyle) -> Self {
+        self.quote_style = qs;
+        self
+    }
+
+    /// Set the indent string (e.g., `"    "` for 4-space PEP 8, `"  "` for 2-space).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (e.g., `"py"` or `"pyi"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -153,7 +179,7 @@ fn is_stdlib(module: &str) -> bool {
 
 impl CodeLang for Python {
     fn file_extension(&self) -> &str {
-        "py"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -217,14 +243,22 @@ impl CodeLang for Python {
     }
 
     fn render_string_literal(&self, s: &str) -> String {
-        // Python prefers single quotes by convention (both are valid).
-        format!(
-            "'{}'",
-            s.replace('\\', "\\\\")
-                .replace('\'', "\\'")
-                .replace('\n', "\\n")
-                .replace('\t', "\\t")
-        )
+        match self.quote_style {
+            QuoteStyle::Single => format!(
+                "'{}'",
+                s.replace('\\', "\\\\")
+                    .replace('\'', "\\'")
+                    .replace('\n', "\\n")
+                    .replace('\t', "\\t")
+            ),
+            QuoteStyle::Double => format!(
+                "\"{}\"",
+                s.replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n")
+                    .replace('\t', "\\t")
+            ),
+        }
     }
 
     fn render_doc_comment(&self, lines: &[&str]) -> String {
@@ -332,6 +366,10 @@ impl CodeLang for Python {
 
     fn constructor_keyword(&self) -> &str {
         "def"
+    }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::UnionWithNone(" | ")
     }
 }
 
@@ -509,5 +547,16 @@ mod tests {
     fn test_empty_body() {
         let py = Python::new();
         assert_eq!(py.empty_body(), "...");
+    }
+
+    #[test]
+    fn test_python_builder_fluent() {
+        let py = Python::new()
+            .with_quote_style(QuoteStyle::Double)
+            .with_extension("pyi")
+            .with_indent("  ");
+        assert_eq!(py.file_extension(), "pyi");
+        assert_eq!(py.indent_unit(), "  ");
+        assert_eq!(py.render_string_literal("hi"), "\"hi\"");
     }
 }

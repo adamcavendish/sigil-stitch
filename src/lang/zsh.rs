@@ -30,12 +30,15 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct Zsh {
     /// Indent with this string (default: "    " -- 4 spaces).
     pub indent: String,
+    /// File extension (default: "zsh").
+    pub extension: String,
 }
 
 impl Default for Zsh {
     fn default() -> Self {
         Self {
             indent: "    ".to_string(),
+            extension: "zsh".to_string(),
         }
     }
 }
@@ -44,6 +47,18 @@ impl Zsh {
     /// Create a new Zsh language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the indent string (e.g., `"    "` for 4-space default, `"  "` for 2 spaces, `"\t"` for tabs).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (default: `"zsh"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -57,7 +72,7 @@ const ZSH_RESERVED: &[&str] = &[
 
 impl CodeLang for Zsh {
     fn file_extension(&self) -> &str {
-        "zsh"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -285,5 +300,12 @@ mod tests {
             zsh.function_keyword(DeclarationContext::TopLevel),
             "function"
         );
+    }
+
+    #[test]
+    fn test_zsh_builder_fluent() {
+        let zsh = Zsh::new().with_indent("\t").with_extension("sh");
+        assert_eq!(zsh.file_extension(), "sh");
+        assert_eq!(zsh.indent_unit(), "\t");
     }
 }

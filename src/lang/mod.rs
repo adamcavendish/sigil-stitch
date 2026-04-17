@@ -2,6 +2,8 @@
 pub mod bash;
 /// C language support.
 pub mod c_lang;
+/// Shared configuration types (quote style, optional-field rendering).
+pub mod config;
 /// C++ language support.
 pub mod cpp_lang;
 /// Dart language support.
@@ -235,6 +237,17 @@ pub trait CodeLang: Sized + Clone + 'static {
     /// Kotlin overrides to `"var "`.
     fn mutable_field_keyword(&self) -> &str {
         ""
+    }
+
+    /// How this language expresses that a field is optional (key may be absent).
+    ///
+    /// Consulted by `FieldSpec::emit()` when `is_optional` is set. Languages
+    /// that can't express optional fields return `OptionalFieldStyle::Ignored`
+    /// and the field is rendered as if it were required.
+    ///
+    /// Default: `OptionalFieldStyle::Ignored`.
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::Ignored
     }
 
     // --- Phase 3: enum variant support ---

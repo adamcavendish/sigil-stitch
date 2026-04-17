@@ -93,6 +93,18 @@ impl CppLang {
             extension: "h".to_string(),
         }
     }
+
+    /// Set the indent string (e.g., `"    "` for 4-space default, `"\t"` for tabs).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (e.g., `"cpp"`, `"cxx"`, `"cc"`, `"hpp"`, `"hxx"`, `"h"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
+    }
 }
 
 #[rustfmt::skip]
@@ -297,6 +309,14 @@ impl CodeLang for CppLang {
 
     fn render_annotation_prefix(&self) -> (&str, &str) {
         ("[[", "]]")
+    }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        // Note: callers must `#include <optional>` to use `std::optional<T>`.
+        crate::lang::config::OptionalFieldStyle::TypeWrap {
+            open: "std::optional<",
+            close: ">",
+        }
     }
 }
 
@@ -513,5 +533,12 @@ mod tests {
         assert!(is_system_header("string"));
         assert!(!is_system_header("./myclass.hpp"));
         assert!(!is_system_header("../utils/helper.h"));
+    }
+
+    #[test]
+    fn test_cpp_builder_fluent() {
+        let cpp = CppLang::new().with_indent("  ").with_extension("cxx");
+        assert_eq!(cpp.file_extension(), "cxx");
+        assert_eq!(cpp.indent_unit(), "  ");
     }
 }

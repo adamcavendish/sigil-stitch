@@ -12,7 +12,7 @@ Or add it directly to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-sigil-stitch = "0.1"
+sigil-stitch = "0.2"
 ```
 
 sigil-stitch requires Rust edition 2024 and MSRV 1.88.0. Runtime dependencies (`pretty`, `serde` with `derive`, and `snafu`) are pulled in automatically. No feature flags are needed -- all spec types implement `serde::Serialize` and `serde::Deserialize` out of the box.
@@ -122,6 +122,43 @@ Every spec type follows the same pattern: you configure it with a builder, call 
 - You can mix specs and raw CodeBlocks freely in a `FileSpec`.
 
 The renderer and import collector only see `CodeBlock` trees. They don't know or care whether a block came from a `FunSpec`, a `TypeSpec`, or a hand-written `CodeBlock::builder()` call.
+
+## Configuring a Language
+
+Each language type (`TypeScript`, `JavaScript`, `Python`, `JavaLang`, and so on)
+is a struct with public fields. The ones you usually want to tweak are exposed
+as fluent `with_*` builders:
+
+```rust,ignore
+use sigil_stitch::lang::typescript::TypeScript;
+use sigil_stitch::lang::config::QuoteStyle;
+
+// Prettier-style: double quotes, no semicolons, .tsx extension.
+let ts = TypeScript::new()
+    .with_quote_style(QuoteStyle::Double)
+    .with_semicolons(false)
+    .with_extension("tsx")
+    .with_indent("    ");
+```
+
+| Language     | `with_quote_style` | `with_indent` | `with_semicolons` | `with_extension` |
+| ------------ | :---: | :---: | :---: | :---: |
+| `TypeScript` | yes | yes | yes | yes |
+| `JavaScript` | yes | yes | yes | yes |
+| `Python`     | yes | yes | n/a | yes (e.g. `pyi`) |
+| `JavaLang`   | n/a | yes | n/a | yes |
+| `RustLang`   | n/a | yes | n/a | yes |
+| `GoLang`     | n/a | yes | n/a | yes |
+| `Kotlin`     | n/a | yes | n/a | yes (e.g. `kts`) |
+| `Swift`      | n/a | yes | n/a | yes |
+| `DartLang`   | n/a | yes | n/a | yes |
+| `CLang`      | n/a | yes | n/a | yes (e.g. `h`) |
+| `CppLang`    | n/a | yes | n/a | yes (e.g. `hpp`, `cxx`) |
+| `Bash`       | n/a | yes | n/a | yes (e.g. `sh`) |
+| `Zsh`        | n/a | yes | n/a | yes |
+
+Language configuration is per-instance, not global: pass the configured language
+into the `FileSpec` / `ProjectSpec` you want rendered with those settings.
 
 ## What's Next
 

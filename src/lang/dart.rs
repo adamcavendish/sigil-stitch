@@ -52,12 +52,15 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct DartLang {
     /// Indent with this string (default: "  " — 2 spaces per Dart style guide).
     pub indent: String,
+    /// File extension (default: "dart").
+    pub extension: String,
 }
 
 impl Default for DartLang {
     fn default() -> Self {
         Self {
             indent: "  ".to_string(),
+            extension: "dart".to_string(),
         }
     }
 }
@@ -66,6 +69,18 @@ impl DartLang {
     /// Create a new Dart language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the indent string (e.g., `"  "` for 2-space default, `"    "` for 4 spaces).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (default: `"dart"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -97,7 +112,7 @@ fn import_group_order(module: &str) -> u8 {
 
 impl CodeLang for DartLang {
     fn file_extension(&self) -> &str {
-        "dart"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -254,6 +269,10 @@ impl CodeLang for DartLang {
 
     fn readonly_keyword(&self) -> &str {
         "final "
+    }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::TypeSuffix("?")
     }
 }
 
@@ -482,5 +501,12 @@ mod tests {
         assert_eq!(import_group_order("package:flutter/material.dart"), 1);
         assert_eq!(import_group_order("../models/user.dart"), 2);
         assert_eq!(import_group_order("./config.dart"), 2);
+    }
+
+    #[test]
+    fn test_dart_builder_fluent() {
+        let d = DartLang::new().with_indent("    ").with_extension("g.dart");
+        assert_eq!(d.file_extension(), "g.dart");
+        assert_eq!(d.indent_unit(), "    ");
     }
 }

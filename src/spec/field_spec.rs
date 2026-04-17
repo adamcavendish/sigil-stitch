@@ -2,6 +2,7 @@
 
 use crate::code_block::{Arg, CodeBlock};
 use crate::lang::CodeLang;
+use crate::lang::config::OptionalFieldStyle;
 use crate::spec::annotation_spec::AnnotationSpec;
 use crate::spec::modifiers::{DeclarationContext, Modifiers, Visibility};
 use crate::type_name::TypeName;
@@ -39,6 +40,12 @@ pub struct FieldSpec<L: CodeLang> {
     pub(crate) annotation_specs: Vec<AnnotationSpec<L>>,
     /// Struct tag (e.g., Go: `` `json:"name"` ``). Emitted inline after the type.
     pub(crate) tag: Option<String>,
+    /// Whether this field is optional (key may be absent from the containing value).
+    ///
+    /// Distinct from nullability (value may be `null`), which is expressed via
+    /// [`TypeName::Optional`]. Rendering is delegated to
+    /// [`CodeLang::optional_field_style`].
+    pub(crate) is_optional: bool,
 }
 
 impl<L: CodeLang> FieldSpec<L> {
@@ -53,6 +60,7 @@ impl<L: CodeLang> FieldSpec<L> {
             annotations: Vec::new(),
             annotation_specs: Vec::new(),
             tag: None,
+            is_optional: false,
         }
     }
 
@@ -104,17 +112,49 @@ impl<L: CodeLang> FieldSpec<L> {
             fmt.push_str("static ");
         }
 
-        if lang.type_before_name() {
+        // Resolve the optional-field style (only applied when `is_optional` is set).
+        let opt_style = if self.is_optional {
+            lang.optional_field_style()
+        } else {
+            OptionalFieldStyle::Ignored
+        };
+        let type_before = lang.type_before_name();
+
+        let name_suffix: &str = match opt_style {
+            OptionalFieldStyle::NameSuffix(s) => s,
+            _ => "",
+        };
+        let name_prefix: &str = match opt_style {
+            // In type-before-name languages the prefix attaches to the name
+            // position (C: `T *name`).
+            OptionalFieldStyle::TypePrefix(s) if type_before => s,
+            _ => "",
+        };
+        let (type_pre, type_post): (String, String) = match opt_style {
+            OptionalFieldStyle::TypeSuffix(s) => (String::new(), s.to_string()),
+            OptionalFieldStyle::TypeWrap { open, close } => (open.to_string(), close.to_string()),
+            // In name-before-type languages the prefix attaches to the type
+            // position (Go: `name *T`).
+            OptionalFieldStyle::TypePrefix(s) if !type_before => (s.to_string(), String::new()),
+            OptionalFieldStyle::UnionWithNone(sep) => (String::new(), format!("{sep}None")),
+            _ => (String::new(), String::new()),
+        };
+
+        if type_before {
             // C-style: type name
             if self.modifiers.is_readonly {
                 fmt.push_str(lang.readonly_keyword());
             }
             if !self.field_type.is_empty() {
+                fmt.push_str(&type_pre);
                 fmt.push_str("%T");
+                fmt.push_str(&type_post);
                 args.push(Arg::TypeName(self.field_type.clone()));
                 fmt.push(' ');
             }
+            fmt.push_str(name_prefix);
             fmt.push_str(&lang.escape_reserved(&self.name));
+            fmt.push_str(name_suffix);
         } else {
             // TS/Rust/Go/Python-style: name sep type
             if self.modifiers.is_readonly {
@@ -126,12 +166,15 @@ impl<L: CodeLang> FieldSpec<L> {
                 }
             }
             fmt.push_str(&lang.escape_reserved(&self.name));
+            fmt.push_str(name_suffix);
 
             // Skip type annotation when the type is empty (e.g., Python enum members).
             if !self.field_type.is_empty() {
                 let sep = lang.type_annotation_separator();
                 fmt.push_str(sep);
+                fmt.push_str(&type_pre);
                 fmt.push_str("%T");
+                fmt.push_str(&type_post);
                 args.push(Arg::TypeName(self.field_type.clone()));
             }
         }
@@ -166,6 +209,7 @@ pub struct FieldSpecBuilder<L: CodeLang> {
     annotations: Vec<CodeBlock<L>>,
     annotation_specs: Vec<AnnotationSpec<L>>,
     tag: Option<String>,
+    is_optional: bool,
 }
 
 impl<L: CodeLang> FieldSpecBuilder<L> {
@@ -184,6 +228,18 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
     /// Mark this field as readonly.
     pub fn is_readonly(&mut self) -> &mut Self {
         self.modifiers.is_readonly = true;
+        self
+    }
+
+    /// Mark this field as optional (the key may be absent from the containing value).
+    ///
+    /// Rendering is language-specific and delegates to
+    /// [`CodeLang::optional_field_style`]: TypeScript emits `name?: T`, Rust
+    /// emits `Option<T>`, Go emits `*T`, etc. Languages that cannot express
+    /// optionality (JavaScript, Bash, Zsh) render the field as if it were
+    /// required.
+    pub fn is_optional(&mut self) -> &mut Self {
+        self.is_optional = true;
         self
     }
 
@@ -238,6 +294,7 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
             annotations: self.annotations,
             annotation_specs: self.annotation_specs,
             tag: self.tag,
+            is_optional: self.is_optional,
         })
     }
 }
@@ -310,6 +367,120 @@ mod tests {
                 .unwrap_err()
                 .to_string()
                 .contains("'name' must not be empty")
+        );
+    }
+
+    // --- Optional field rendering across languages ---
+
+    fn emit_for<L: CodeLang>(lang: &L, spec: &FieldSpec<L>, ctx: DeclarationContext) -> String {
+        let block = spec.emit(lang, ctx).unwrap();
+        let imports = crate::import::ImportGroup::new();
+        let mut renderer = crate::code_renderer::CodeRenderer::new(lang, &imports, 80);
+        renderer.render(&block).unwrap()
+    }
+
+    fn optional_field<L: CodeLang>(type_name: TypeName<L>) -> FieldSpec<L> {
+        let mut fb = FieldSpec::builder("name", type_name);
+        fb.is_optional();
+        fb.build().unwrap()
+    }
+
+    #[test]
+    fn test_ts_optional_field_uses_name_suffix() {
+        let field = optional_field(TypeName::<TypeScript>::primitive("string"));
+        let out = emit_for(&TypeScript::new(), &field, DeclarationContext::Member);
+        assert_eq!(out.trim(), "name?: string;");
+    }
+
+    #[test]
+    fn test_rust_optional_field_wraps_with_option() {
+        let field = optional_field(TypeName::<RustLang>::primitive("String"));
+        let out = emit_for(&RustLang::new(), &field, DeclarationContext::Member);
+        assert_eq!(out.trim(), "name: Option<String>,");
+    }
+
+    #[test]
+    fn test_go_optional_field_prefixes_type_with_pointer() {
+        use crate::lang::go_lang::GoLang;
+        let field = optional_field(TypeName::<GoLang>::primitive("string"));
+        let out = emit_for(&GoLang::new(), &field, DeclarationContext::Member);
+        assert_eq!(out.trim(), "name *string");
+    }
+
+    #[test]
+    fn test_python_optional_field_unions_with_none() {
+        use crate::lang::python::Python;
+        let field = optional_field(TypeName::<Python>::primitive("str"));
+        let out = emit_for(&Python::new(), &field, DeclarationContext::Member);
+        assert_eq!(out.trim(), "name: str | None");
+    }
+
+    #[test]
+    fn test_java_optional_field_wraps_with_optional() {
+        use crate::lang::java_lang::JavaLang;
+        let field = optional_field(TypeName::<JavaLang>::primitive("String"));
+        let out = emit_for(&JavaLang::new(), &field, DeclarationContext::Member);
+        assert_eq!(out.trim(), "Optional<String> name;");
+    }
+
+    #[test]
+    fn test_kotlin_optional_field_suffixes_type() {
+        use crate::lang::kotlin::Kotlin;
+        let field = optional_field(TypeName::<Kotlin>::primitive("String"));
+        let out = emit_for(&Kotlin::new(), &field, DeclarationContext::Member);
+        // Kotlin renders a mutable `var` and its default visibility keyword.
+        assert!(
+            out.contains("name: String?"),
+            "expected type suffix '?', got {out:?}"
+        );
+    }
+
+    #[test]
+    fn test_swift_optional_field_suffixes_type() {
+        use crate::lang::swift::Swift;
+        let field = optional_field(TypeName::<Swift>::primitive("String"));
+        let out = emit_for(&Swift::new(), &field, DeclarationContext::Member);
+        // Swift prepends `var` for mutable stored properties.
+        assert!(
+            out.contains("name: String?"),
+            "expected type suffix '?', got {out:?}"
+        );
+    }
+
+    #[test]
+    fn test_dart_optional_field_suffixes_type() {
+        use crate::lang::dart::DartLang;
+        let field = optional_field(TypeName::<DartLang>::primitive("String"));
+        let out = emit_for(&DartLang::new(), &field, DeclarationContext::Member);
+        assert_eq!(out.trim(), "String? name;");
+    }
+
+    #[test]
+    fn test_c_optional_field_prefixes_name_with_pointer() {
+        use crate::lang::c_lang::CLang;
+        let field = optional_field(TypeName::<CLang>::primitive("int"));
+        let out = emit_for(&CLang::new(), &field, DeclarationContext::Member);
+        assert_eq!(out.trim(), "int *name;");
+    }
+
+    #[test]
+    fn test_cpp_optional_field_wraps_with_std_optional() {
+        use crate::lang::cpp_lang::CppLang;
+        let field = optional_field(TypeName::<CppLang>::primitive("int"));
+        let out = emit_for(&CppLang::new(), &field, DeclarationContext::Member);
+        assert_eq!(out.trim(), "std::optional<int> name;");
+    }
+
+    #[test]
+    fn test_javascript_optional_field_is_ignored() {
+        use crate::lang::javascript::JavaScript;
+        let field = optional_field(TypeName::<JavaScript>::primitive("any"));
+        let out = emit_for(&JavaScript::new(), &field, DeclarationContext::Member);
+        // JavaScript cannot express optional fields, so renders as required.
+        assert!(out.contains("name"), "expected name in output, got {out:?}");
+        assert!(
+            !out.contains("?"),
+            "JS output must not contain '?': {out:?}"
         );
     }
 }

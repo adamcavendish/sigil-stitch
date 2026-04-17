@@ -87,12 +87,15 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct Bash {
     /// Indent with this string (default: "    " -- 4 spaces).
     pub indent: String,
+    /// File extension (default: "bash"). Set to "sh" for POSIX-ish scripts.
+    pub extension: String,
 }
 
 impl Default for Bash {
     fn default() -> Self {
         Self {
             indent: "    ".to_string(),
+            extension: "bash".to_string(),
         }
     }
 }
@@ -101,6 +104,18 @@ impl Bash {
     /// Create a new Bash language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the indent string (e.g., `"    "` for 4-space default, `"  "` for 2 spaces, `"\t"` for tabs).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (e.g., `"bash"` or `"sh"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -112,7 +127,7 @@ const BASH_RESERVED: &[&str] = &[
 
 impl CodeLang for Bash {
     fn file_extension(&self) -> &str {
-        "bash"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -390,5 +405,12 @@ mod tests {
         let bash = Bash::new();
         assert_eq!(bash.block_open(), " {");
         assert_eq!(bash.block_close(), "}");
+    }
+
+    #[test]
+    fn test_bash_builder_fluent() {
+        let bash = Bash::new().with_indent("  ").with_extension("sh");
+        assert_eq!(bash.file_extension(), "sh");
+        assert_eq!(bash.indent_unit(), "  ");
     }
 }

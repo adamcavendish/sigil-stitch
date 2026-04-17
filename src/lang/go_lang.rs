@@ -25,12 +25,15 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct GoLang {
     /// Indent with this string (default: "\t").
     pub indent: String,
+    /// File extension (default: "go").
+    pub extension: String,
 }
 
 impl Default for GoLang {
     fn default() -> Self {
         Self {
             indent: "\t".to_string(),
+            extension: "go".to_string(),
         }
     }
 }
@@ -39,6 +42,18 @@ impl GoLang {
     /// Create a new Go language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the indent string (e.g., `"\t"` for gofmt-style tabs, `"    "` for 4 spaces).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (default: `"go"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -88,7 +103,7 @@ fn is_stdlib(module: &str) -> bool {
 
 impl CodeLang for GoLang {
     fn file_extension(&self) -> &str {
-        "go"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -281,6 +296,10 @@ impl CodeLang for GoLang {
     fn enum_variant_separator(&self) -> &str {
         ""
     }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::TypePrefix("*")
+    }
 }
 
 #[cfg(test)]
@@ -444,5 +463,12 @@ mod tests {
         assert_eq!(go.type_kind_suffix(TypeKind::Struct), "struct");
         assert_eq!(go.type_kind_suffix(TypeKind::Interface), "interface");
         assert_eq!(go.type_kind_suffix(TypeKind::Enum), "");
+    }
+
+    #[test]
+    fn test_go_builder_fluent() {
+        let go = GoLang::new().with_indent("    ").with_extension("go2");
+        assert_eq!(go.file_extension(), "go2");
+        assert_eq!(go.indent_unit(), "    ");
     }
 }

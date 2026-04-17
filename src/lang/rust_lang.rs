@@ -7,12 +7,15 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct RustLang {
     /// Indent with this string (default: "    ").
     pub indent: String,
+    /// File extension (default: "rs").
+    pub extension: String,
 }
 
 impl Default for RustLang {
     fn default() -> Self {
         Self {
             indent: "    ".to_string(),
+            extension: "rs".to_string(),
         }
     }
 }
@@ -21,6 +24,18 @@ impl RustLang {
     /// Create a new Rust language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the indent string (e.g., `"    "` for 4-space rustfmt default, `"\t"` for tabs).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (default: `"rs"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -37,7 +52,7 @@ const RUST_RESERVED: &[&str] = &[
 
 impl CodeLang for RustLang {
     fn file_extension(&self) -> &str {
-        "rs"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -241,6 +256,13 @@ impl CodeLang for RustLang {
     fn constructor_keyword(&self) -> &str {
         "fn"
     }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::TypeWrap {
+            open: "Option<",
+            close: ">",
+        }
+    }
 }
 
 #[cfg(test)]
@@ -346,5 +368,12 @@ mod tests {
         let rs = RustLang::new();
         assert_eq!(rs.render_string_literal("hello"), "\"hello\"");
         assert_eq!(rs.render_string_literal("it\"s"), "\"it\\\"s\"");
+    }
+
+    #[test]
+    fn test_rust_builder_fluent() {
+        let rs = RustLang::new().with_indent("\t").with_extension("rsi");
+        assert_eq!(rs.file_extension(), "rsi");
+        assert_eq!(rs.indent_unit(), "\t");
     }
 }

@@ -1,29 +1,63 @@
 use crate::import::{ImportEntry, ImportGroup};
 use crate::lang::CodeLang;
+use crate::lang::config::QuoteStyle;
 use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 
 /// TypeScript language implementation.
+///
+/// Construct with [`TypeScript::new()`] and customize via the `with_*`
+/// methods, e.g. `TypeScript::new().with_quote_style(QuoteStyle::Double)`.
 #[derive(Debug, Clone)]
 pub struct TypeScript {
-    /// Use single quotes for string literals (default: true).
-    pub single_quotes: bool,
+    /// Quote style for string literals and import paths.
+    pub quote_style: QuoteStyle,
     /// Indent with this string (default: "  ").
     pub indent: String,
+    /// Whether to terminate statements with `;` (default: true).
+    pub uses_semicolons: bool,
+    /// File extension (default: "ts"). Set to "tsx" for JSX/TSX projects.
+    pub extension: String,
 }
 
 impl Default for TypeScript {
     fn default() -> Self {
         Self {
-            single_quotes: true,
+            quote_style: QuoteStyle::Single,
             indent: "  ".to_string(),
+            uses_semicolons: true,
+            extension: "ts".to_string(),
         }
     }
 }
 
 impl TypeScript {
-    /// Create a new TypeScript language instance.
+    /// Create a new TypeScript language instance with default settings.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the quote style used for string literals and import paths.
+    pub fn with_quote_style(mut self, qs: QuoteStyle) -> Self {
+        self.quote_style = qs;
+        self
+    }
+
+    /// Set the indent string (e.g., `"  "`, `"    "`, `"\t"`).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Control whether statements are terminated with `;`.
+    pub fn with_semicolons(mut self, b: bool) -> Self {
+        self.uses_semicolons = b;
+        self
+    }
+
+    /// Set the file extension (e.g., `"ts"` or `"tsx"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -121,7 +155,7 @@ const TS_RESERVED: &[&str] = &[
 
 impl CodeLang for TypeScript {
     fn file_extension(&self) -> &str {
-        "ts"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -130,14 +164,15 @@ impl CodeLang for TypeScript {
 
     fn render_imports(&self, imports: &ImportGroup) -> String {
         let mut lines = Vec::new();
-        let quote = if self.single_quotes { '\'' } else { '"' };
+        let quote = self.quote_style.char();
+        let term = if self.uses_semicolons { ";" } else { "" };
 
         // Group entries by module path.
         let mut by_module: std::collections::BTreeMap<&str, Vec<&ImportEntry>> =
             std::collections::BTreeMap::new();
         for entry in &imports.entries {
             if entry.is_side_effect {
-                lines.push(format!("import {quote}{}{quote};", entry.module));
+                lines.push(format!("import {quote}{}{quote}{term}", entry.module));
                 continue;
             }
             if entry.is_wildcard {
@@ -145,7 +180,7 @@ impl CodeLang for TypeScript {
                 // Use module_to_alias to generate a reasonable namespace name.
                 let alias = super::module_to_alias(&entry.module);
                 lines.push(format!(
-                    "import * as {} from {quote}{}{quote};",
+                    "import * as {} from {quote}{}{quote}{term}",
                     alias, entry.module,
                 ));
                 continue;
@@ -176,14 +211,14 @@ impl CodeLang for TypeScript {
 
             if !type_names.is_empty() {
                 lines.push(format!(
-                    "import type {{ {} }} from {quote}{}{quote};",
+                    "import type {{ {} }} from {quote}{}{quote}{term}",
                     type_names.join(", "),
                     module,
                 ));
             }
             if !value_names.is_empty() {
                 lines.push(format!(
-                    "import {{ {} }} from {quote}{}{quote};",
+                    "import {{ {} }} from {quote}{}{quote}{term}",
                     value_names.join(", "),
                     module,
                 ));
@@ -194,10 +229,13 @@ impl CodeLang for TypeScript {
     }
 
     fn render_string_literal(&self, s: &str) -> String {
-        if self.single_quotes {
-            format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
-        } else {
-            format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+        match self.quote_style {
+            QuoteStyle::Single => {
+                format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
+            }
+            QuoteStyle::Double => {
+                format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+            }
         }
     }
 
@@ -226,7 +264,7 @@ impl CodeLang for TypeScript {
     }
 
     fn uses_semicolons(&self) -> bool {
-        true
+        self.uses_semicolons
     }
 
     fn render_visibility(&self, vis: Visibility, ctx: DeclarationContext) -> &str {
@@ -294,6 +332,10 @@ impl CodeLang for TypeScript {
     fn enum_variant_trailing_separator(&self) -> bool {
         true
     }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::NameSuffix("?")
+    }
 }
 
 #[cfg(test)]
@@ -309,11 +351,33 @@ mod tests {
 
     #[test]
     fn test_string_literal_double_quotes() {
-        let ts = TypeScript {
-            single_quotes: false,
-            ..Default::default()
-        };
+        let ts = TypeScript::new().with_quote_style(QuoteStyle::Double);
         assert_eq!(ts.render_string_literal("hello"), "\"hello\"");
+    }
+
+    #[test]
+    fn test_typescript_builder_semicolons_and_extension() {
+        let ts = TypeScript::new()
+            .with_semicolons(false)
+            .with_extension("tsx")
+            .with_indent("    ");
+        assert!(!ts.uses_semicolons());
+        assert_eq!(ts.file_extension(), "tsx");
+        assert_eq!(ts.indent_unit(), "    ");
+
+        let imports = ImportGroup {
+            entries: vec![ImportEntry {
+                module: "./models".to_string(),
+                name: "User".to_string(),
+                alias: None,
+                is_type_only: false,
+                is_side_effect: false,
+                is_wildcard: false,
+            }],
+        };
+        let output = ts.render_imports(&imports);
+        assert!(output.contains("import { User } from './models'"));
+        assert!(!output.contains(";"));
     }
 
     #[test]

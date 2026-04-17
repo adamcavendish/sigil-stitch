@@ -53,12 +53,15 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct Swift {
     /// Indent with this string (default: "    " — 4 spaces).
     pub indent: String,
+    /// File extension (default: "swift").
+    pub extension: String,
 }
 
 impl Default for Swift {
     fn default() -> Self {
         Self {
             indent: "    ".to_string(),
+            extension: "swift".to_string(),
         }
     }
 }
@@ -67,6 +70,18 @@ impl Swift {
     /// Create a new Swift language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the indent string (e.g., `"    "` for 4-space default, `"\t"` for tabs).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (default: `"swift"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -149,7 +164,7 @@ fn is_apple_framework(module: &str) -> bool {
 
 impl CodeLang for Swift {
     fn file_extension(&self) -> &str {
-        "swift"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -326,6 +341,10 @@ impl CodeLang for Swift {
 
     fn property_style(&self) -> crate::spec::modifiers::PropertyStyle {
         crate::spec::modifiers::PropertyStyle::Field
+    }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::TypeSuffix("?")
     }
 }
 
@@ -538,5 +557,14 @@ mod tests {
     fn test_abstract_keyword_empty() {
         let sw = Swift::new();
         assert_eq!(sw.abstract_keyword(), "");
+    }
+
+    #[test]
+    fn test_swift_builder_fluent() {
+        let sw = Swift::new()
+            .with_indent("  ")
+            .with_extension("swiftinterface");
+        assert_eq!(sw.file_extension(), "swiftinterface");
+        assert_eq!(sw.indent_unit(), "  ");
     }
 }

@@ -72,12 +72,15 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 pub struct Kotlin {
     /// Indent with this string (default: "    " — 4 spaces).
     pub indent: String,
+    /// File extension (default: "kt"). Set to "kts" for Kotlin script files.
+    pub extension: String,
 }
 
 impl Default for Kotlin {
     fn default() -> Self {
         Self {
             indent: "    ".to_string(),
+            extension: "kt".to_string(),
         }
     }
 }
@@ -86,6 +89,18 @@ impl Kotlin {
     /// Create a new Kotlin language instance.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the indent string (e.g., `"    "` for 4-space default, `"\t"` for tabs).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (e.g., `"kt"` or `"kts"` for scripts).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
     }
 }
 
@@ -126,7 +141,7 @@ fn import_group_order(module: &str) -> u8 {
 
 impl CodeLang for Kotlin {
     fn file_extension(&self) -> &str {
-        "kt"
+        &self.extension
     }
 
     fn reserved_words(&self) -> &[&str] {
@@ -341,6 +356,10 @@ impl CodeLang for Kotlin {
 
     fn supports_primary_constructor(&self) -> bool {
         true
+    }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::TypeSuffix("?")
     }
 }
 
@@ -588,5 +607,12 @@ mod tests {
         assert_eq!(import_group_order("javax.inject"), 3);
         assert_eq!(import_group_order("com.example.model"), 4);
         assert_eq!(import_group_order("io.ktor.server"), 4);
+    }
+
+    #[test]
+    fn test_kotlin_builder_fluent() {
+        let kt = Kotlin::new().with_indent("  ").with_extension("kts");
+        assert_eq!(kt.file_extension(), "kts");
+        assert_eq!(kt.indent_unit(), "  ");
     }
 }

@@ -62,6 +62,18 @@ impl CLang {
             extension: "h".to_string(),
         }
     }
+
+    /// Set the indent string (e.g., `"    "` for 4-space default, `"\t"` for tabs).
+    pub fn with_indent(mut self, s: &str) -> Self {
+        self.indent = s.to_string();
+        self
+    }
+
+    /// Set the file extension (e.g., `"c"` or `"h"`).
+    pub fn with_extension(mut self, s: &str) -> Self {
+        self.extension = s.to_string();
+        self
+    }
 }
 
 const C_RESERVED: &[&str] = &[
@@ -282,6 +294,10 @@ impl CodeLang for CLang {
     fn render_annotation_prefix(&self) -> (&str, &str) {
         ("__attribute__((", "))")
     }
+
+    fn optional_field_style(&self) -> crate::lang::config::OptionalFieldStyle {
+        crate::lang::config::OptionalFieldStyle::TypePrefix("*")
+    }
 }
 
 #[cfg(test)]
@@ -458,5 +474,12 @@ mod tests {
         assert!(is_system_header("string.h"));
         assert!(!is_system_header("./config.h"));
         assert!(!is_system_header("../utils/helper.h"));
+    }
+
+    #[test]
+    fn test_c_builder_fluent() {
+        let c = CLang::new().with_indent("\t").with_extension("h");
+        assert_eq!(c.file_extension(), "h");
+        assert_eq!(c.indent_unit(), "\t");
     }
 }
