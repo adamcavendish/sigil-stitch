@@ -17,7 +17,7 @@ tracks every import for you, resolves naming conflicts, and emits width-aware fo
 cargo add sigil-stitch
 ```
 
-Requires Rust edition 2024, MSRV 1.88.0.
+Requires Rust edition 2024, MSRV 1.88.0. Runtime dependencies: `pretty` (Wadler-Lindig formatting), `serde` with `derive` (every spec type implements `Serialize`/`Deserialize` out of the box, so you can round-trip specs as JSON or YAML), and `snafu` (structured errors).
 
 ## Builder vs Macro
 

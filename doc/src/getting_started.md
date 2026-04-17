@@ -15,7 +15,7 @@ Or add it directly to your `Cargo.toml`:
 sigil-stitch = "0.1"
 ```
 
-sigil-stitch requires Rust edition 2024 and MSRV 1.88.0.
+sigil-stitch requires Rust edition 2024 and MSRV 1.88.0. Runtime dependencies (`pretty`, `serde` with `derive`, and `snafu`) are pulled in automatically. No feature flags are needed -- all spec types implement `serde::Serialize` and `serde::Deserialize` out of the box.
 
 ## Your First CodeBlock
 

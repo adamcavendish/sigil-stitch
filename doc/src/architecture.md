@@ -45,7 +45,7 @@ The trait is `Sized + Clone + 'static` to allow language instances to be stored 
 
 Every variant that contains other types recursively collects imports via `collect_imports()`. This means `Generic(Promise, [Importable(User)])` tracks the `User` import even though `Promise` is a primitive.
 
-TypeName also renders to `pretty::RcDoc` for width-aware output of complex type signatures.
+TypeName also renders to `pretty::BoxDoc` for width-aware output of complex type signatures. `BoxDoc` is used (rather than `RcDoc`) so rendered documents are `Send + Sync` and can cross thread boundaries.
 
 ### Layer 3: CodeBlock
 
@@ -116,7 +116,7 @@ Go's `qualify_import_name()` adds another layer: instead of importing `Server` d
 | `BlockClose` | Emit `lang.block_close()` (`}` or nothing) |
 | `Wrap` | Pretty-print decision point (see below) |
 
-**Width-aware rendering**: When a CodeBlock contains `%W` (Wrap) parts, the renderer builds a `pretty::RcDoc` tree instead of doing direct string concatenation. The Wadler-Lindig algorithm then decides at each `%W` point whether to insert a line break or a space, based on the target width. CodeBlocks without `%W` use the simpler direct-concat path for efficiency.
+**Width-aware rendering**: When a CodeBlock contains `%W` (Wrap) parts, the renderer builds a `pretty::BoxDoc` tree (Send + Sync) instead of doing direct string concatenation. The Wadler-Lindig algorithm then decides at each `%W` point whether to insert a line break or a space, based on the target width. CodeBlocks without `%W` use the simpler direct-concat path for efficiency.
 
 ## Import Conflict Resolution
 

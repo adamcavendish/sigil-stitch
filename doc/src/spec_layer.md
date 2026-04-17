@@ -18,6 +18,8 @@ let fun = fb.build().unwrap();
 // Wrong -- .build() consumes self, so you can't chain it after &mut Self setters
 ```
 
+Every spec type (including `CodeBlock`, `TypeName`, `FileSpec`, and `ProjectSpec`) derives `serde::Serialize` and `serde::Deserialize`, so you can round-trip specs through JSON, YAML, or any other serde format. This is useful for caching materialized specs, shipping them across process boundaries, or diffing them in tests.
+
 ## ParameterSpec
 
 A single function parameter: name, type, optional default value, and variadic flag.
@@ -172,6 +174,8 @@ let fun = fb.build().unwrap();
 ## TypeSpec
 
 The largest spec. Models type declarations: struct, class, interface, trait, or enum. Takes a `TypeKind` to select the declaration form.
+
+`.build()` returns `Err(SigilStitchError::DuplicateFieldName { type_name, field_name })` when two fields in the same type share a name.
 
 ### Single-block output (TypeScript class)
 

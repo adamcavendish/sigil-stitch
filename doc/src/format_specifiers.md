@@ -129,7 +129,7 @@ let block = cb.build().unwrap();
 //       arg4);
 ```
 
-Without any `%W` in a CodeBlock, the renderer does direct string concatenation with indent tracking. When `%W` is present, it builds a `pretty::RcDoc` tree for width-aware layout.
+Without any `%W` in a CodeBlock, the renderer does direct string concatenation with indent tracking. When `%W` is present, it builds a `pretty::BoxDoc` tree for width-aware layout. `BoxDoc` (not `RcDoc`) is used so rendered documents are `Send + Sync`.
 
 ## `%>` and `%<` -- Indent / Dedent
 
@@ -251,12 +251,18 @@ let block = cb.build().unwrap();
 
 ### Argument Count Validation
 
-The builder checks that the number of argument-consuming specifiers (`%T`, `%N`, `%S`, `%L`) matches the number of arguments provided. A mismatch records a `FormatArgCount` error, surfaced when `build()` is called.
+The builder checks that the number of argument-consuming specifiers (`%T`, `%N`, `%S`, `%L`) matches the number of arguments provided. A mismatch records a `FormatArgCount` error, surfaced when `build()` is called. The error carries the expected specifier list and the actual argument kinds so you can see exactly which slot is wrong.
 
 ```rust,ignore
 // This will fail: format has 2 specifiers but only 1 argument
 let mut cb = CodeBlock::<TypeScript>::builder();
 cb.add_statement("const %N: %T = null", "x");  // &str gives one Arg::Literal
 let result = cb.build();
-// Err(FormatArgCount { format: "const %N: %T = null", expected: 2, actual: 1 })
+// Err(FormatArgCount {
+//     format: "const %N: %T = null",
+//     expected_specifiers: vec!["%N", "%T"],
+//     actual_arg_kinds:   vec!["Literal"],
+// })
 ```
+
+An unrecognised specifier character (anything after `%` that isn't `T`, `N`, `S`, `L`, `W`, `>`, `<`, `[`, `]`, or `%`) produces `Err(SigilStitchError::InvalidFormatSpecifier { format, specifier })` instead.

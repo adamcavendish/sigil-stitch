@@ -56,9 +56,11 @@ ever see `CodeBlock` trees. This means you can add new spec types -- or build yo
 own -- without touching the renderer or import collector. The format-specifier system
 and the spec system are fully decoupled.
 
-**Single dependency.** The only runtime dependency is the `pretty` crate (v0.12) for
-Wadler-Lindig formatting. Everything else -- parsing format strings, collecting
-imports, resolving conflicts, rendering output -- is implemented in sigil-stitch itself.
+**Minimal dependencies.** The runtime dependencies are `pretty` (v0.12) for
+Wadler-Lindig formatting, `serde` (v1, with `derive`) so every spec can round-trip
+to JSON or YAML, and `snafu` for structured errors. Everything else -- parsing
+format strings, collecting imports, resolving conflicts, rendering output -- is
+implemented in sigil-stitch itself.
 
 **Builder pattern with `&mut Self` returns.** Builders use `&mut Self` for chaining
 setter calls, and `self` for the final `.build()`. This means you should *not* chain
