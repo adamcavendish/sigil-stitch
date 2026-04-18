@@ -170,3 +170,29 @@ fn test_ts_enum() {
 
     golden::assert_golden("typescript/enum.ts", &output);
 }
+
+#[test]
+fn test_ts_readonly_array_field() {
+    let mut tb = TypeSpec::<TypeScript>::builder("Pet", TypeKind::Interface);
+    tb.visibility(Visibility::Public);
+
+    let mut name = FieldSpec::builder("name", TypeName::<TypeScript>::primitive("string"));
+    name.is_readonly();
+    tb.add_field(name.build().unwrap());
+
+    let mut tags = FieldSpec::builder(
+        "tags",
+        TypeName::<TypeScript>::readonly_array(TypeName::primitive("string")),
+    );
+    tags.is_readonly();
+    tb.add_field(tags.build().unwrap());
+
+    let mut file = FileSpec::<TypeScript>::builder("Pet.ts");
+    file.add_type(tb.build().unwrap());
+    let output = file.build().unwrap().render(80).unwrap();
+
+    assert!(
+        output.contains("readonly tags: readonly string[];"),
+        "expected readonly array field; got:\n{output}"
+    );
+}
