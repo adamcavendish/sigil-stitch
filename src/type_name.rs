@@ -53,6 +53,9 @@ pub enum TypeName<L: CodeLang> {
     Primitive(String),
     /// Array type. TS: `T[]`, Go: `[]T`, Rust: `Vec<T>`.
     Array(Box<TypeName<L>>),
+    /// Readonly array type. TS: `readonly T[]`. Other languages fall back to
+    /// their `Array` rendering since they lack a direct readonly-array form.
+    ReadonlyArray(Box<TypeName<L>>),
     /// Generic type. e.g., `Promise<User>`, `HashMap<String, User>`.
     Generic {
         /// The base type (e.g., `Promise`, `HashMap`).
@@ -147,6 +150,16 @@ impl<L: CodeLang> TypeName<L> {
         TypeName::Array(Box::new(inner))
     }
 
+    /// Create a readonly array type (TypeScript: `readonly T[]`).
+    ///
+    /// In languages without a direct readonly-array form (Go, most C-family),
+    /// this renders identically to [`TypeName::array`]. Use this variant only
+    /// when the readonly distinction carries information the output should
+    /// preserve (e.g. TypeScript interface fields).
+    pub fn readonly_array(inner: TypeName<L>) -> Self {
+        TypeName::ReadonlyArray(Box::new(inner))
+    }
+
     /// Create a generic type (e.g., `Promise<User>`).
     pub fn generic(base: TypeName<L>, params: Vec<TypeName<L>>) -> Self {
         TypeName::Generic {
@@ -229,6 +242,7 @@ impl<L: CodeLang> TypeName<L> {
                 });
             }
             TypeName::Array(inner)
+            | TypeName::ReadonlyArray(inner)
             | TypeName::Pointer(inner)
             | TypeName::Slice(inner)
             | TypeName::Optional(inner) => {
@@ -280,6 +294,13 @@ impl<L: CodeLang> TypeName<L> {
             TypeName::Array(inner) => {
                 // Default: TypeScript-style T[]
                 inner.to_doc(resolve).append(BoxDoc::text("[]"))
+            }
+            TypeName::ReadonlyArray(inner) => {
+                // Default: TypeScript-style `readonly T[]`; languages without
+                // a direct readonly-array form fall through here too.
+                BoxDoc::text("readonly ")
+                    .append(inner.to_doc(resolve))
+                    .append(BoxDoc::text("[]"))
             }
             TypeName::Generic { base, params } => {
                 let base_doc = base.to_doc(resolve);
@@ -376,6 +397,9 @@ impl<L: CodeLang> TypeName<L> {
             // For variants with recursive sub-types, thread lang through.
             TypeName::Array(inner) => inner
                 .to_doc_with_lang(resolve, lang)
+                .append(BoxDoc::text("[]")),
+            TypeName::ReadonlyArray(inner) => BoxDoc::text("readonly ")
+                .append(inner.to_doc_with_lang(resolve, lang))
                 .append(BoxDoc::text("[]")),
             TypeName::Union(members) => {
                 let docs: Vec<_> = members
