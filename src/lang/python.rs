@@ -405,6 +405,10 @@ impl CodeLang for Python {
             wrapper_close: "]",
         }
     }
+
+    fn present_tuple(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::GenericWrap { name: "tuple" }
+    }
 }
 
 /// Render a `from module import name1, name2` line.

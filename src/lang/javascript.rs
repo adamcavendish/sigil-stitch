@@ -291,6 +291,14 @@ impl CodeLang for JavaScript {
     fn enum_variant_trailing_separator(&self) -> bool {
         true
     }
+
+    fn present_tuple(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Delimited {
+            open: "[",
+            sep: ", ",
+            close: "]",
+        }
+    }
 }
 
 #[cfg(test)]

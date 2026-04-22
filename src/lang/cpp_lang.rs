@@ -358,6 +358,12 @@ impl CodeLang for CppLang {
             wrapper_close: ">",
         }
     }
+
+    fn present_tuple(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::GenericWrap {
+            name: "std::tuple",
+        }
+    }
 }
 
 #[cfg(test)]
