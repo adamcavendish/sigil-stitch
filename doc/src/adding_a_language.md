@@ -1,6 +1,6 @@
 # Adding a Language
 
-sigil-stitch supports new languages by implementing the `CodeLang` trait. The trait has 45 methods: 17 required (no default implementation) and 28 with sensible defaults. You only need to override the defaults when your language diverges from the common patterns.
+sigil-stitch supports new languages by implementing the `CodeLang` trait. The trait has 63 methods: 18 required (no default implementation) and 45 with sensible defaults. You only need to override the defaults when your language diverges from the common patterns.
 
 This guide walks through the process using a hypothetical language, with references to real implementations you can study.
 
@@ -34,7 +34,7 @@ These are enough for CodeBlock-level code generation:
 
 `render_imports()` is the most complex. It receives an `ImportGroup` (deduplicated, with aliases resolved) and must emit the full import header string. Study `src/lang/typescript.rs` for ES module imports or `src/lang/rust_lang.rs` for `use` paths.
 
-### Spec Support Methods (9 required)
+### Spec Support Methods (10 required)
 
 These enable TypeSpec, FunSpec, and FieldSpec rendering:
 
@@ -60,7 +60,7 @@ This is the most important method for structural correctness. It determines whet
 
 The method takes a `TypeKind` parameter, so you can vary by type. Rust returns `true` for `TypeKind::Trait` (trait methods go inside) but `false` for `TypeKind::Struct` and `TypeKind::Enum`.
 
-### Default Methods (28 methods)
+### Default Methods (45 methods)
 
 These have defaults that work for most C-family languages. Override when your language differs.
 
@@ -102,6 +102,10 @@ These have defaults that work for most C-family languages. Override when your la
 **Property support:**
 - `property_style()` -- default `Accessor` (TS/JS: `get name()`). Swift/Kotlin: `Field` (inline get/set).
 - `property_getter_keyword()` -- default `"get"`. Kotlin: `"get()"`.
+
+**Type alias and newtype support:**
+- `type_alias_target_first()` -- default `false`. C overrides to `true` for `typedef target name;` syntax (target comes before name).
+- `render_newtype_line()` -- default emits Rust tuple struct `struct Name(Inner);`. Go overrides to `type Name Inner`, Kotlin to `value class Name(val value: Inner)`, Python to `Name = NewType("Name", Inner)`, C to `typedef Inner Name;`.
 
 ## Step-by-Step Walkthrough
 
@@ -170,9 +174,11 @@ impl CodeLang for YourLang {
     fn type_keyword(&self, kind: TypeKind) -> &str {
         match kind {
             TypeKind::Class => "class",
-            TypeKind::Interface => "interface",
+            TypeKind::Interface | TypeKind::Trait => "interface",
             TypeKind::Enum => "enum",
-            _ => "class",
+            TypeKind::Struct => "class",
+            TypeKind::TypeAlias => "type",
+            TypeKind::Newtype => "class",
         }
     }
     fn field_terminator(&self) -> &str { ";" }
@@ -262,6 +268,7 @@ Each `TypeName` variant (Array, Optional, Map, etc.) asks your language for a `T
 - `GenericWrap { name }` — `name<P1, P2>` using your `generic_open()`/`generic_close()`
 - `Prefix { prefix }` — `prefix inner` (e.g., Go `[]T`, Rust `*const T`)
 - `Postfix { suffix }` — `inner suffix` (e.g., TypeScript `T[]`, Kotlin `T?`)
+- `Surround { prefix, suffix }` — `prefix inner suffix` (e.g., C++ `const T&`, C `const T*`)
 - `Delimited { open, sep, close }` — `open P1 sep P2 close` (e.g., Swift `[K: V]`, Go `map[K]V`)
 - `Infix { sep }` — `P1 sep P2` (e.g., TypeScript `A | B`, Rust `A + B`)
 
@@ -287,6 +294,24 @@ impl CodeLang for YourLang {
     // Override for Go-style map[K]V:
     fn present_map(&self) -> TypePresentation<'_> {
         TypePresentation::Delimited { open: "map[", sep: "]", close: "" }
+    }
+
+    // Tuple: default is Delimited { open: "[", sep: ", ", close: "]" } (TS: [A, B])
+    // Override for Rust-style (A, B):
+    fn present_tuple(&self) -> TypePresentation<'_> {
+        TypePresentation::Delimited { open: "(", sep: ", ", close: ")" }
+    }
+
+    // Reference: default is Prefix { prefix: "" } (identity — for GC languages)
+    // Override for Rust-style &T:
+    fn present_reference(&self) -> TypePresentation<'_> {
+        TypePresentation::Prefix { prefix: "&" }
+    }
+
+    // Mutable reference: default is Prefix { prefix: "" } (identity)
+    // Override for C++-style T&:
+    fn present_reference_mut(&self) -> TypePresentation<'_> {
+        TypePresentation::Postfix { suffix: "&" }
     }
 
     // Function types: default is TypeScript (A, B) => R

@@ -96,7 +96,7 @@ Build structured declarations with the spec builders:
 | **ParameterSpec** | Function parameter (name + type + default + variadic) |
 | **FieldSpec** | Struct field / class property (visibility, static, readonly) |
 | **FunSpec** | Function or method (params, return type, body, async, abstract) |
-| **TypeSpec** | Class, struct, interface, trait, or enum |
+| **TypeSpec** | Class, struct, interface, trait, enum, type alias, or newtype |
 | **PropertySpec** | Computed property with getter/setter |
 | **AnnotationSpec** | `@Override`, `#[derive(...)]`, `[[nodiscard]]` |
 | **EnumVariantSpec** | Enum variant with optional value, tuple, or struct fields |

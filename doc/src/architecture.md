@@ -20,7 +20,7 @@ The library is organized in four layers, each building on the one below:
 
 ### Layer 1: CodeLang
 
-`src/lang/mod.rs` defines the `CodeLang` trait with 45 methods covering syntax, formatting, and import rendering. Each supported language implements this trait in its own module (`src/lang/typescript.rs`, etc.).
+`src/lang/mod.rs` defines the `CodeLang` trait with 63 methods covering syntax, formatting, and import rendering. Each supported language implements this trait in its own module (`src/lang/typescript.rs`, etc.).
 
 All types in the library are parameterized by `L: CodeLang`. This phantom type parameter prevents cross-language mixing at compile time. You can't accidentally pass a `TypeName<TypeScript>` to a `CodeBlock<RustLang>`.
 
@@ -36,8 +36,12 @@ The trait is `Sized + Clone + 'static` to allow language instances to be stored 
 | `Importable` | `User` from `./models` | Yes |
 | `Generic` | `Promise<User>` | Recursively |
 | `Array` | `User[]`, `Vec<User>` | Inner type tracked |
+| `ReadonlyArray` | `readonly User[]` | Inner type tracked |
 | `Optional` | `User?`, `Option<User>` | Inner type tracked |
 | `Union` | `string \| number` | All members tracked |
+| `Intersection` | `A & B`, `A + B` | All members tracked |
+| `Tuple` | `[A, B]`, `(A, B)` | All members tracked |
+| `Reference` | `&T`, `const T&` | Inner type tracked |
 | `Function` | `(x: string) => void` | Params + return tracked |
 | `Map` | `Map<string, User>` | Key + value tracked |
 | `Pointer` / `Slice` | `*const T`, `&[T]` | Inner type tracked |
@@ -51,7 +55,7 @@ TypeName also renders to `pretty::BoxDoc` for width-aware output of complex type
 
 `TypeName` variants are *semantic* — `Array(T)` means "array of T" regardless of language. Cross-language rendering is handled by a **data-driven presentation layer**:
 
-1. Each `TypeName` variant asks the language for a `TypePresentation` — a data enum describing the syntactic pattern (e.g., `GenericWrap`, `Prefix`, `Postfix`, `Delimited`, `Infix`).
+1. Each `TypeName` variant asks the language for a `TypePresentation` — a data enum describing the syntactic pattern (e.g., `GenericWrap`, `Prefix`, `Postfix`, `Surround`, `Delimited`, `Infix`).
 2. A single rendering engine in `type_name.rs` interprets the pattern into `BoxDoc` output.
 
 `BoxDoc` never appears in the `CodeLang` trait. Languages return pure data; the engine does all rendering. See [Type Presentation](type_presentation.md) for the full design.
