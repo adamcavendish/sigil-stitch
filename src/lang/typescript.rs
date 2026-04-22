@@ -349,6 +349,28 @@ impl CodeLang for TypeScript {
             close: "]",
         }
     }
+
+    fn present_associated_type(&self) -> crate::type_name::AssociatedTypeStyle<'_> {
+        crate::type_name::AssociatedTypeStyle::IndexAccess {
+            open: "[\"",
+            close: "\"]",
+        }
+    }
+
+    fn present_impl_trait(&self) -> crate::type_name::BoundsPresentation<'_> {
+        crate::type_name::BoundsPresentation {
+            keyword: "",
+            separator: " & ",
+        }
+    }
+
+    fn present_wildcard(&self) -> crate::type_name::WildcardPresentation<'_> {
+        crate::type_name::WildcardPresentation {
+            unbounded: "unknown",
+            upper_keyword: "unknown ",
+            lower_keyword: "unknown ",
+        }
+    }
 }
 
 #[cfg(test)]

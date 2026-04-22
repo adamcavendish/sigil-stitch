@@ -132,6 +132,13 @@ pub trait CodeLang: Sized + Clone + 'static {
         ">"
     }
 
+    /// How `TypeName::Generic` application is rendered.
+    ///
+    /// Default: `Delimited` — `Base<P1, P2>` using `generic_open()`/`generic_close()`.
+    fn generic_application_style(&self) -> crate::type_name::GenericApplicationStyle {
+        crate::type_name::GenericApplicationStyle::Delimited
+    }
+
     // --- Type presentation (data-driven, no BoxDoc) ---
 
     /// How `TypeName::Array(T)` renders.
@@ -239,6 +246,49 @@ pub trait CodeLang: Sized + Clone + 'static {
             curried: false,
             wrapper_open: "",
             wrapper_close: "",
+        }
+    }
+
+    /// How `TypeName::AssociatedType` renders.
+    ///
+    /// Default: Rust-style `<Base as Qual>::Member` / `Base::Member`.
+    fn present_associated_type(&self) -> crate::type_name::AssociatedTypeStyle<'_> {
+        crate::type_name::AssociatedTypeStyle::QualifiedPath {
+            open: "<",
+            as_kw: " as ",
+            close_sep: ">::",
+            simple_sep: "::",
+        }
+    }
+
+    /// How `TypeName::ImplTrait` bounds render.
+    ///
+    /// Default: Rust-style `impl Bound1 + Bound2`.
+    fn present_impl_trait(&self) -> crate::type_name::BoundsPresentation<'_> {
+        crate::type_name::BoundsPresentation {
+            keyword: "impl ",
+            separator: " + ",
+        }
+    }
+
+    /// How `TypeName::DynTrait` bounds render.
+    ///
+    /// Default: Rust-style `dyn Bound1 + Bound2`.
+    fn present_dyn_trait(&self) -> crate::type_name::BoundsPresentation<'_> {
+        crate::type_name::BoundsPresentation {
+            keyword: "dyn ",
+            separator: " + ",
+        }
+    }
+
+    /// How `TypeName::Wildcard` renders.
+    ///
+    /// Default: Java-style `?`, `? extends T`, `? super T`.
+    fn present_wildcard(&self) -> crate::type_name::WildcardPresentation<'_> {
+        crate::type_name::WildcardPresentation {
+            unbounded: "?",
+            upper_keyword: "? extends ",
+            lower_keyword: "? super ",
         }
     }
 

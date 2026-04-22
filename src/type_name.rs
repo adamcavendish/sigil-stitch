@@ -48,6 +48,18 @@ pub enum TypePresentation<'a> {
     },
 }
 
+/// Controls how `TypeName::Generic { base, params }` renders.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum GenericApplicationStyle {
+    /// `Base<P1, P2>` or `Base[P1, P2]` — uses `generic_open()`/`generic_close()`.
+    Delimited,
+    /// `Base P1 P2` — Haskell-style prefix juxtaposition.
+    /// Compound params are parenthesized: `Either String (Maybe Int)`.
+    PrefixJuxtaposition,
+    /// `P1 Base` (single) or `(P1, P2) Base` (multi) — OCaml-style postfix.
+    PostfixJuxtaposition,
+}
+
 /// Syntactic pattern for rendering a function type expression.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionPresentation<'a> {
@@ -69,6 +81,51 @@ pub struct FunctionPresentation<'a> {
     pub wrapper_open: &'a str,
     /// Outer wrapper closing (e.g., C++ `">"`).
     pub wrapper_close: &'a str,
+}
+
+/// How `TypeName::AssociatedType` renders across languages.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AssociatedTypeStyle<'a> {
+    /// Rust-style: `<Base as Qual>::Member` or `Base::Member`.
+    QualifiedPath {
+        /// Opening delimiter for qualified path (e.g., `"<"`).
+        open: &'a str,
+        /// Keyword between base and qualifier (e.g., `" as "`).
+        as_kw: &'a str,
+        /// Closing delimiter + separator to member for qualified path (e.g., `">::"`).
+        close_sep: &'a str,
+        /// Separator to member for simple (non-qualified) path (e.g., `"::"`).
+        simple_sep: &'a str,
+    },
+    /// Dot access: `Base.Member` (Java, Kotlin, Python).
+    DotAccess,
+    /// Index access: `Base["Member"]` (TypeScript).
+    IndexAccess {
+        /// Opening delimiter (e.g., `"[\"`).
+        open: &'a str,
+        /// Closing delimiter (e.g., `"\"]"`).
+        close: &'a str,
+    },
+}
+
+/// How `impl Trait` / `dyn Trait` bounds render.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BoundsPresentation<'a> {
+    /// Keyword prefix (e.g., `"impl "`, `"dyn "`).
+    pub keyword: &'a str,
+    /// Separator between bounds (e.g., `" + "`).
+    pub separator: &'a str,
+}
+
+/// How wildcard types render.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WildcardPresentation<'a> {
+    /// Unbounded wildcard (e.g., `"?"`, `"*"`, `"_"`, `"any"`).
+    pub unbounded: &'a str,
+    /// Upper-bound prefix (e.g., `"? extends "`, `"out "`).
+    pub upper_keyword: &'a str,
+    /// Lower-bound prefix (e.g., `"? super "`, `"in "`).
+    pub lower_keyword: &'a str,
 }
 
 /// A type name reference in generated code.
@@ -156,6 +213,32 @@ pub enum TypeName<L: CodeLang> {
         inner: Box<TypeName<L>>,
         /// Whether the reference is mutable.
         mutable: bool,
+    },
+    /// Associated/path-dependent type. Rust: `<T as Iterator>::Item`, TS: `T["key"]`.
+    AssociatedType {
+        /// The base type (e.g., `T`, `Vec<i32>`).
+        base: Box<TypeName<L>>,
+        /// Optional qualifier trait (Rust: `Iterator` in `<T as Iterator>::Item`).
+        qualifier: Option<Box<TypeName<L>>>,
+        /// The projected member name (e.g., `"Item"`, `"key"`).
+        member: String,
+    },
+    /// `impl Trait` bounds. Rust: `impl Display + Debug`.
+    ImplTrait {
+        /// The trait bounds.
+        bounds: Vec<TypeName<L>>,
+    },
+    /// `dyn Trait` bounds. Rust: `dyn Error + Send`.
+    DynTrait {
+        /// The trait bounds.
+        bounds: Vec<TypeName<L>>,
+    },
+    /// Wildcard type. Java: `?`, `? extends T`, `? super T`. Kotlin: `*`, `out T`, `in T`.
+    Wildcard {
+        /// Upper bound (Java: `? extends T`, Kotlin: `out T`).
+        upper_bound: Option<Box<TypeName<L>>>,
+        /// Lower bound (Java: `? super T`, Kotlin: `in T`).
+        lower_bound: Option<Box<TypeName<L>>>,
     },
     /// Function type. TS: `(a: A, b: B) => R`.
     Function {
@@ -261,6 +344,17 @@ fn render_function_presentation(
             .append(signature)
             .append(BoxDoc::text(pres.wrapper_close.to_string()))
     }
+}
+
+fn is_compound_type<L: CodeLang>(t: &TypeName<L>) -> bool {
+    matches!(
+        t,
+        TypeName::Generic { .. }
+            | TypeName::Union(_)
+            | TypeName::Intersection(_)
+            | TypeName::Function { .. }
+            | TypeName::Tuple(_)
+    )
 }
 
 impl<L: CodeLang> TypeName<L> {
@@ -408,6 +502,66 @@ impl<L: CodeLang> TypeName<L> {
         TypeName::Raw(s.to_string())
     }
 
+    /// Create an associated/path-dependent type with a qualifier.
+    ///
+    /// Rust: `<base as qualifier>::member` (e.g., `<T as Iterator>::Item`).
+    pub fn associated_type(
+        base: TypeName<L>,
+        qualifier: Option<TypeName<L>>,
+        member: &str,
+    ) -> Self {
+        TypeName::AssociatedType {
+            base: Box::new(base),
+            qualifier: qualifier.map(Box::new),
+            member: member.to_string(),
+        }
+    }
+
+    /// Create a simple member type (no qualifier).
+    ///
+    /// Rust: `base::member` (e.g., `Self::Output`).
+    pub fn member_type(base: TypeName<L>, member: &str) -> Self {
+        TypeName::AssociatedType {
+            base: Box::new(base),
+            qualifier: None,
+            member: member.to_string(),
+        }
+    }
+
+    /// Create an `impl Trait` type (Rust: `impl Display + Debug`).
+    pub fn impl_trait(bounds: Vec<TypeName<L>>) -> Self {
+        TypeName::ImplTrait { bounds }
+    }
+
+    /// Create a `dyn Trait` type (Rust: `dyn Error + Send`).
+    pub fn dyn_trait(bounds: Vec<TypeName<L>>) -> Self {
+        TypeName::DynTrait { bounds }
+    }
+
+    /// Create an unbounded wildcard type (Java: `?`, Kotlin: `*`).
+    pub fn wildcard() -> Self {
+        TypeName::Wildcard {
+            upper_bound: None,
+            lower_bound: None,
+        }
+    }
+
+    /// Create a wildcard with an upper bound (Java: `? extends T`, Kotlin: `out T`).
+    pub fn wildcard_extends(bound: TypeName<L>) -> Self {
+        TypeName::Wildcard {
+            upper_bound: Some(Box::new(bound)),
+            lower_bound: None,
+        }
+    }
+
+    /// Create a wildcard with a lower bound (Java: `? super T`, Kotlin: `in T`).
+    pub fn wildcard_super(bound: TypeName<L>) -> Self {
+        TypeName::Wildcard {
+            upper_bound: None,
+            lower_bound: Some(Box::new(bound)),
+        }
+    }
+
     /// Get the simple name of this type (for import resolution lookups).
     pub fn simple_name(&self) -> Option<&str> {
         match self {
@@ -470,6 +624,30 @@ impl<L: CodeLang> TypeName<L> {
                     p.collect_imports(out);
                 }
                 return_type.collect_imports(out);
+            }
+            TypeName::AssociatedType {
+                base, qualifier, ..
+            } => {
+                base.collect_imports(out);
+                if let Some(q) = qualifier {
+                    q.collect_imports(out);
+                }
+            }
+            TypeName::ImplTrait { bounds } | TypeName::DynTrait { bounds } => {
+                for b in bounds {
+                    b.collect_imports(out);
+                }
+            }
+            TypeName::Wildcard {
+                upper_bound,
+                lower_bound,
+            } => {
+                if let Some(ub) = upper_bound {
+                    ub.collect_imports(out);
+                }
+                if let Some(lb) = lower_bound {
+                    lb.collect_imports(out);
+                }
             }
             TypeName::Primitive(_) | TypeName::Raw(_) | TypeName::_Phantom(_) => {}
         }
@@ -561,6 +739,50 @@ impl<L: CodeLang> TypeName<L> {
                     .append(BoxDoc::text(") => "))
                     .append(return_type.to_doc(resolve))
             }
+            TypeName::AssociatedType {
+                base,
+                qualifier,
+                member,
+            } => {
+                if let Some(qual) = qualifier {
+                    // Default: Rust-style <Base as Qual>::Member
+                    BoxDoc::text("<")
+                        .append(base.to_doc(resolve))
+                        .append(BoxDoc::text(" as "))
+                        .append(qual.to_doc(resolve))
+                        .append(BoxDoc::text(">::"))
+                        .append(BoxDoc::text(member.clone()))
+                } else {
+                    // Default: Base::Member
+                    base.to_doc(resolve)
+                        .append(BoxDoc::text("::"))
+                        .append(BoxDoc::text(member.clone()))
+                }
+            }
+            TypeName::ImplTrait { bounds } => {
+                let docs: Vec<_> = bounds.iter().map(|b| b.to_doc(resolve)).collect();
+                let sep = BoxDoc::text(" + ");
+                BoxDoc::text("impl ")
+                    .append(BoxDoc::intersperse(docs, sep))
+            }
+            TypeName::DynTrait { bounds } => {
+                let docs: Vec<_> = bounds.iter().map(|b| b.to_doc(resolve)).collect();
+                let sep = BoxDoc::text(" + ");
+                BoxDoc::text("dyn ")
+                    .append(BoxDoc::intersperse(docs, sep))
+            }
+            TypeName::Wildcard {
+                upper_bound,
+                lower_bound,
+            } => {
+                if let Some(ub) = upper_bound {
+                    BoxDoc::text("? extends ").append(ub.to_doc(resolve))
+                } else if let Some(lb) = lower_bound {
+                    BoxDoc::text("? super ").append(lb.to_doc(resolve))
+                } else {
+                    BoxDoc::text("?")
+                }
+            }
             TypeName::_Phantom(_) => BoxDoc::nil(),
         }
     }
@@ -600,12 +822,48 @@ impl<L: CodeLang> TypeName<L> {
                     .iter()
                     .map(|p| p.to_doc_with_lang(resolve, lang))
                     .collect();
-                let sep = BoxDoc::text(",").append(BoxDoc::softline());
-                let params_doc = BoxDoc::intersperse(params_docs, sep);
-                base_doc
-                    .append(BoxDoc::text(lang.generic_open().to_string()))
-                    .append(params_doc.nest(2).group())
-                    .append(BoxDoc::text(lang.generic_close().to_string()))
+                match lang.generic_application_style() {
+                    GenericApplicationStyle::Delimited => {
+                        let sep = BoxDoc::text(",").append(BoxDoc::softline());
+                        let params_doc = BoxDoc::intersperse(params_docs, sep);
+                        base_doc
+                            .append(BoxDoc::text(lang.generic_open().to_string()))
+                            .append(params_doc.nest(2).group())
+                            .append(BoxDoc::text(lang.generic_close().to_string()))
+                    }
+                    GenericApplicationStyle::PrefixJuxtaposition => {
+                        let mut doc = base_doc;
+                        for (i, param_doc) in params_docs.into_iter().enumerate() {
+                            doc = doc.append(BoxDoc::text(" "));
+                            if is_compound_type(&params[i]) {
+                                doc = doc
+                                    .append(BoxDoc::text("("))
+                                    .append(param_doc)
+                                    .append(BoxDoc::text(")"));
+                            } else {
+                                doc = doc.append(param_doc);
+                            }
+                        }
+                        doc
+                    }
+                    GenericApplicationStyle::PostfixJuxtaposition => {
+                        if params_docs.len() == 1 {
+                            params_docs
+                                .into_iter()
+                                .next()
+                                .unwrap()
+                                .append(BoxDoc::text(" "))
+                                .append(base_doc)
+                        } else {
+                            let sep = BoxDoc::text(",").append(BoxDoc::softline());
+                            let params_doc = BoxDoc::intersperse(params_docs, sep);
+                            BoxDoc::text("(")
+                                .append(params_doc.nest(2).group())
+                                .append(BoxDoc::text(") "))
+                                .append(base_doc)
+                        }
+                    }
+                }
             }
             TypeName::Array(inner) => {
                 let inner_doc = inner.to_doc_with_lang(resolve, lang);
@@ -686,6 +944,76 @@ impl<L: CodeLang> TypeName<L> {
                     .collect();
                 let return_doc = return_type.to_doc_with_lang(resolve, lang);
                 render_function_presentation(&lang.present_function(), param_docs, return_doc)
+            }
+            TypeName::AssociatedType {
+                base,
+                qualifier,
+                member,
+            } => {
+                let base_doc = base.to_doc_with_lang(resolve, lang);
+                let style = lang.present_associated_type();
+                match style {
+                    AssociatedTypeStyle::QualifiedPath {
+                        open,
+                        as_kw,
+                        close_sep,
+                        simple_sep,
+                    } => {
+                        if let Some(qual) = qualifier {
+                            let qual_doc = qual.to_doc_with_lang(resolve, lang);
+                            BoxDoc::text(open.to_string())
+                                .append(base_doc)
+                                .append(BoxDoc::text(as_kw.to_string()))
+                                .append(qual_doc)
+                                .append(BoxDoc::text(close_sep.to_string()))
+                                .append(BoxDoc::text(member.clone()))
+                        } else {
+                            base_doc
+                                .append(BoxDoc::text(simple_sep.to_string()))
+                                .append(BoxDoc::text(member.clone()))
+                        }
+                    }
+                    AssociatedTypeStyle::DotAccess => base_doc
+                        .append(BoxDoc::text("."))
+                        .append(BoxDoc::text(member.clone())),
+                    AssociatedTypeStyle::IndexAccess { open, close } => base_doc
+                        .append(BoxDoc::text(open.to_string()))
+                        .append(BoxDoc::text(member.clone()))
+                        .append(BoxDoc::text(close.to_string())),
+                }
+            }
+            TypeName::ImplTrait { bounds } => {
+                let docs: Vec<_> = bounds
+                    .iter()
+                    .map(|b| b.to_doc_with_lang(resolve, lang))
+                    .collect();
+                let pres = lang.present_impl_trait();
+                let sep = BoxDoc::text(pres.separator.to_string());
+                BoxDoc::text(pres.keyword.to_string()).append(BoxDoc::intersperse(docs, sep))
+            }
+            TypeName::DynTrait { bounds } => {
+                let docs: Vec<_> = bounds
+                    .iter()
+                    .map(|b| b.to_doc_with_lang(resolve, lang))
+                    .collect();
+                let pres = lang.present_dyn_trait();
+                let sep = BoxDoc::text(pres.separator.to_string());
+                BoxDoc::text(pres.keyword.to_string()).append(BoxDoc::intersperse(docs, sep))
+            }
+            TypeName::Wildcard {
+                upper_bound,
+                lower_bound,
+            } => {
+                let pres = lang.present_wildcard();
+                if let Some(ub) = upper_bound {
+                    let ub_doc = ub.to_doc_with_lang(resolve, lang);
+                    BoxDoc::text(pres.upper_keyword.to_string()).append(ub_doc)
+                } else if let Some(lb) = lower_bound {
+                    let lb_doc = lb.to_doc_with_lang(resolve, lang);
+                    BoxDoc::text(pres.lower_keyword.to_string()).append(lb_doc)
+                } else {
+                    BoxDoc::text(pres.unbounded.to_string())
+                }
             }
             // Leaf variants delegate to to_doc (no recursion needed).
             _ => self.to_doc(resolve),
@@ -1107,5 +1435,322 @@ mod tests {
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
         assert_eq!(String::from_utf8(buf).unwrap(), "int*");
+    }
+
+    #[test]
+    fn test_generic_prefix_juxtaposition() {
+        use crate::lang::typescript::TypeScript;
+        let lang = TypeScript::new();
+        let t = TypeName::<TypeScript>::generic(
+            TypeName::primitive("Maybe"),
+            vec![TypeName::primitive("Int")],
+        );
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "Maybe<Int>");
+    }
+
+    #[test]
+    fn test_is_compound_type() {
+        assert!(is_compound_type(&TypeName::<TypeScript>::generic(
+            TypeName::primitive("A"),
+            vec![TypeName::primitive("B")],
+        )));
+        assert!(is_compound_type(&TypeName::<TypeScript>::union(vec![
+            TypeName::primitive("A"),
+            TypeName::primitive("B"),
+        ])));
+        assert!(is_compound_type(
+            &TypeName::<TypeScript>::intersection(vec![
+                TypeName::primitive("A"),
+                TypeName::primitive("B"),
+            ])
+        ));
+        assert!(is_compound_type(&TypeName::<TypeScript>::function(
+            vec![TypeName::primitive("A")],
+            TypeName::primitive("B"),
+        )));
+        assert!(is_compound_type(&TypeName::<TypeScript>::tuple(vec![
+            TypeName::primitive("A"),
+            TypeName::primitive("B"),
+        ])));
+        assert!(!is_compound_type(&TypeName::<TypeScript>::primitive("Int")));
+        assert!(!is_compound_type(&TypeName::<TypeScript>::array(
+            TypeName::primitive("Int"),
+        )));
+    }
+
+    // --- Feature 07: Associated Types ---
+
+    #[test]
+    fn test_associated_type_rust_qualified() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::associated_type(
+            TypeName::primitive("T"),
+            Some(TypeName::primitive("Iterator")),
+            "Item",
+        );
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "<T as Iterator>::Item");
+    }
+
+    #[test]
+    fn test_associated_type_rust_simple() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::member_type(TypeName::primitive("Self"), "Output");
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "Self::Output");
+    }
+
+    #[test]
+    fn test_associated_type_ts_index_access() {
+        let lang = TypeScript::new();
+        let t = TypeName::<TypeScript>::associated_type(
+            TypeName::primitive("T"),
+            Some(TypeName::primitive("Qual")),
+            "key",
+        );
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "T[\"key\"]");
+    }
+
+    #[test]
+    fn test_associated_type_java_dot() {
+        use crate::lang::java_lang::JavaLang;
+        let lang = JavaLang::new();
+        let t = TypeName::<JavaLang>::member_type(TypeName::primitive("Map"), "Entry");
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "Map.Entry");
+    }
+
+    #[test]
+    fn test_associated_type_collect_imports() {
+        let t = TypeName::<TypeScript>::associated_type(
+            TypeName::importable("./models", "User"),
+            Some(TypeName::importable("./traits", "Serializable")),
+            "Output",
+        );
+        let mut imports = Vec::new();
+        t.collect_imports(&mut imports);
+        assert_eq!(imports.len(), 2);
+    }
+
+    // --- Feature 08: Existential Types ---
+
+    #[test]
+    fn test_impl_trait_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::impl_trait(vec![
+            TypeName::primitive("Display"),
+            TypeName::primitive("Debug"),
+        ]);
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "impl Display + Debug");
+    }
+
+    #[test]
+    fn test_dyn_trait_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::dyn_trait(vec![TypeName::primitive("Error")]);
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "dyn Error");
+    }
+
+    #[test]
+    fn test_impl_trait_ts_intersection() {
+        let lang = TypeScript::new();
+        let t = TypeName::<TypeScript>::impl_trait(vec![
+            TypeName::primitive("Serializable"),
+            TypeName::primitive("Loggable"),
+        ]);
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "Serializable & Loggable");
+    }
+
+    #[test]
+    fn test_wildcard_java_unbounded() {
+        use crate::lang::java_lang::JavaLang;
+        let lang = JavaLang::new();
+        let t = TypeName::<JavaLang>::wildcard();
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "?");
+    }
+
+    #[test]
+    fn test_wildcard_java_extends() {
+        use crate::lang::java_lang::JavaLang;
+        let lang = JavaLang::new();
+        let t = TypeName::<JavaLang>::wildcard_extends(TypeName::primitive("Comparable"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "? extends Comparable");
+    }
+
+    #[test]
+    fn test_wildcard_java_super() {
+        use crate::lang::java_lang::JavaLang;
+        let lang = JavaLang::new();
+        let t = TypeName::<JavaLang>::wildcard_super(TypeName::primitive("Number"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "? super Number");
+    }
+
+    #[test]
+    fn test_wildcard_kotlin() {
+        use crate::lang::kotlin::Kotlin;
+        let lang = Kotlin::new();
+        let t = TypeName::<Kotlin>::wildcard();
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "*");
+    }
+
+    #[test]
+    fn test_wildcard_kotlin_out() {
+        use crate::lang::kotlin::Kotlin;
+        let lang = Kotlin::new();
+        let t = TypeName::<Kotlin>::wildcard_extends(TypeName::primitive("Number"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "out Number");
+    }
+
+    #[test]
+    fn test_wildcard_kotlin_in() {
+        use crate::lang::kotlin::Kotlin;
+        let lang = Kotlin::new();
+        let t = TypeName::<Kotlin>::wildcard_super(TypeName::primitive("Number"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "in Number");
+    }
+
+    #[test]
+    fn test_wildcard_go() {
+        use crate::lang::go_lang::GoLang;
+        let lang = GoLang::new();
+        let t = TypeName::<GoLang>::wildcard();
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "any");
+    }
+
+    #[test]
+    fn test_wildcard_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::wildcard();
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "_");
+    }
+
+    #[test]
+    fn test_impl_trait_collect_imports() {
+        let t = TypeName::<TypeScript>::impl_trait(vec![
+            TypeName::importable("./traits", "Serializable"),
+            TypeName::primitive("Debug"),
+        ]);
+        let mut imports = Vec::new();
+        t.collect_imports(&mut imports);
+        assert_eq!(imports.len(), 1);
+    }
+
+    #[test]
+    fn test_dyn_trait_collect_imports() {
+        let t = TypeName::<TypeScript>::dyn_trait(vec![
+            TypeName::importable("./errors", "AppError"),
+        ]);
+        let mut imports = Vec::new();
+        t.collect_imports(&mut imports);
+        assert_eq!(imports.len(), 1);
+    }
+
+    #[test]
+    fn test_wildcard_collect_imports() {
+        let t = TypeName::<TypeScript>::wildcard_extends(
+            TypeName::importable("./models", "User"),
+        );
+        let mut imports = Vec::new();
+        t.collect_imports(&mut imports);
+        assert_eq!(imports.len(), 1);
+    }
+
+    #[test]
+    fn test_associated_type_default_rendering() {
+        let t = TypeName::<TypeScript>::associated_type(
+            TypeName::primitive("T"),
+            Some(TypeName::primitive("Iter")),
+            "Item",
+        );
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "<T as Iter>::Item");
+    }
+
+    #[test]
+    fn test_member_type_default_rendering() {
+        let t = TypeName::<TypeScript>::member_type(TypeName::primitive("Self"), "Output");
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "Self::Output");
+    }
+
+    #[test]
+    fn test_impl_trait_default_rendering() {
+        let t = TypeName::<TypeScript>::impl_trait(vec![TypeName::primitive("Display")]);
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "impl Display");
+    }
+
+    #[test]
+    fn test_dyn_trait_default_rendering() {
+        let t = TypeName::<TypeScript>::dyn_trait(vec![
+            TypeName::primitive("Error"),
+            TypeName::primitive("Send"),
+        ]);
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "dyn Error + Send");
+    }
+
+    #[test]
+    fn test_wildcard_default_rendering() {
+        assert_eq!(
+            TypeName::<TypeScript>::wildcard().render(80, &identity_resolve).unwrap(),
+            "?"
+        );
+        assert_eq!(
+            TypeName::<TypeScript>::wildcard_extends(TypeName::primitive("T"))
+                .render(80, &identity_resolve).unwrap(),
+            "? extends T"
+        );
+        assert_eq!(
+            TypeName::<TypeScript>::wildcard_super(TypeName::primitive("T"))
+                .render(80, &identity_resolve).unwrap(),
+            "? super T"
+        );
     }
 }

@@ -323,6 +323,14 @@ impl CodeLang for RustLang {
             wrapper_close: "",
         }
     }
+
+    fn present_wildcard(&self) -> crate::type_name::WildcardPresentation<'_> {
+        crate::type_name::WildcardPresentation {
+            unbounded: "_",
+            upper_keyword: "_ ",
+            lower_keyword: "_ ",
+        }
+    }
 }
 
 #[cfg(test)]

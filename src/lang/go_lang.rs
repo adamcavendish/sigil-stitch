@@ -352,6 +352,14 @@ impl CodeLang for GoLang {
             wrapper_close: "",
         }
     }
+
+    fn present_wildcard(&self) -> crate::type_name::WildcardPresentation<'_> {
+        crate::type_name::WildcardPresentation {
+            unbounded: "any",
+            upper_keyword: "any ",
+            lower_keyword: "any ",
+        }
+    }
 }
 
 #[cfg(test)]
