@@ -303,6 +303,17 @@ impl CodeLang for CLang {
         crate::type_name::TypePresentation::Postfix { suffix: "*" }
     }
 
+    fn present_reference(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Surround {
+            prefix: "const ",
+            suffix: "*",
+        }
+    }
+
+    fn present_reference_mut(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Postfix { suffix: "*" }
+    }
+
     fn present_function(&self) -> crate::type_name::FunctionPresentation<'_> {
         crate::type_name::FunctionPresentation {
             keyword: "",

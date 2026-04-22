@@ -25,6 +25,13 @@ pub enum TypePresentation<'a> {
         /// The suffix string (e.g., `"[]"`, `"?"`).
         suffix: &'a str,
     },
+    /// `prefix inner suffix` — `const T&`, `const T*`.
+    Surround {
+        /// The prefix string (e.g., `"const "`).
+        prefix: &'a str,
+        /// The suffix string (e.g., `"&"`, `"*"`).
+        suffix: &'a str,
+    },
     /// `open P1 sep P2 sep ... close` — `(A, B)`, `[T]`, `[K: V]`, `dict[K, V]`.
     Delimited {
         /// Opening delimiter.
@@ -143,6 +150,13 @@ pub enum TypeName<L: CodeLang> {
     Optional(Box<TypeName<L>>),
     /// Tuple type. Rust: `(A, B)`, TS: `[A, B]`, Python: `tuple[A, B]`.
     Tuple(Vec<TypeName<L>>),
+    /// Reference type. Rust: `&T` / `&mut T`, C++: `const T&` / `T&`.
+    Reference {
+        /// The referenced type.
+        inner: Box<TypeName<L>>,
+        /// Whether the reference is mutable.
+        mutable: bool,
+    },
     /// Function type. TS: `(a: A, b: B) => R`.
     Function {
         /// The parameter types.
@@ -181,6 +195,13 @@ fn render_presentation(
             debug_assert_eq!(inner_docs.len(), 1);
             let inner = inner_docs.into_iter().next().unwrap_or_else(BoxDoc::nil);
             inner.append(BoxDoc::text(suffix.to_string()))
+        }
+        TypePresentation::Surround { prefix, suffix } => {
+            debug_assert_eq!(inner_docs.len(), 1);
+            let inner = inner_docs.into_iter().next().unwrap_or_else(BoxDoc::nil);
+            BoxDoc::text(prefix.to_string())
+                .append(inner)
+                .append(BoxDoc::text(suffix.to_string()))
         }
         TypePresentation::Delimited { open, sep, close } => {
             let separator = BoxDoc::text(sep.to_string());
@@ -360,6 +381,22 @@ impl<L: CodeLang> TypeName<L> {
         TypeName::Tuple(Vec::new())
     }
 
+    /// Create a shared reference type (Rust `&T`, C++ `const T&`).
+    pub fn reference(inner: TypeName<L>) -> Self {
+        TypeName::Reference {
+            inner: Box::new(inner),
+            mutable: false,
+        }
+    }
+
+    /// Create a mutable reference type (Rust `&mut T`, C++ `T&`).
+    pub fn reference_mut(inner: TypeName<L>) -> Self {
+        TypeName::Reference {
+            inner: Box::new(inner),
+            mutable: true,
+        }
+    }
+
     /// Create a function type.
     pub fn function(params: Vec<TypeName<L>>, return_type: TypeName<L>) -> Self {
         TypeName::Function {
@@ -405,6 +442,9 @@ impl<L: CodeLang> TypeName<L> {
             | TypeName::Pointer(inner)
             | TypeName::Slice(inner)
             | TypeName::Optional(inner) => {
+                inner.collect_imports(out);
+            }
+            TypeName::Reference { inner, .. } => {
                 inner.collect_imports(out);
             }
             TypeName::Generic { base, params } => {
@@ -506,6 +546,10 @@ impl<L: CodeLang> TypeName<L> {
                 BoxDoc::text("(")
                     .append(BoxDoc::intersperse(docs, sep).nest(2).group())
                     .append(BoxDoc::text(")"))
+            }
+            TypeName::Reference { inner, mutable } => {
+                let prefix = if *mutable { "&mut " } else { "&" };
+                BoxDoc::text(prefix).append(inner.to_doc(resolve))
             }
             TypeName::Function {
                 params,
@@ -625,6 +669,15 @@ impl<L: CodeLang> TypeName<L> {
                     .map(|e| e.to_doc_with_lang(resolve, lang))
                     .collect();
                 render_presentation(&lang.present_tuple(), docs, lang)
+            }
+            TypeName::Reference { inner, mutable } => {
+                let inner_doc = inner.to_doc_with_lang(resolve, lang);
+                let pres = if *mutable {
+                    lang.present_reference_mut()
+                } else {
+                    lang.present_reference()
+                };
+                render_presentation(&pres, vec![inner_doc], lang)
             }
             TypeName::Function {
                 params,
@@ -940,5 +993,91 @@ mod tests {
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
         assert_eq!(String::from_utf8(buf).unwrap(), "()");
+    }
+
+    #[test]
+    fn test_reference() {
+        let t = TypeName::<TypeScript>::reference(TypeName::primitive("str"));
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "&str");
+    }
+
+    #[test]
+    fn test_reference_mut() {
+        let t = TypeName::<TypeScript>::reference_mut(TypeName::primitive("Vec<i32>"));
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "&mut Vec<i32>");
+    }
+
+    #[test]
+    fn test_reference_collect_imports() {
+        let t = TypeName::<TypeScript>::reference(TypeName::importable("./models", "User"));
+        let mut imports = Vec::new();
+        t.collect_imports(&mut imports);
+        assert_eq!(imports.len(), 1);
+        assert_eq!(imports[0].name, "User");
+    }
+
+    #[test]
+    fn test_reference_with_lang_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::reference(TypeName::primitive("String"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "&String");
+    }
+
+    #[test]
+    fn test_reference_mut_with_lang_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::reference_mut(TypeName::primitive("String"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "&mut String");
+    }
+
+    #[test]
+    fn test_reference_with_lang_cpp() {
+        use crate::lang::cpp_lang::CppLang;
+        let lang = CppLang::new();
+        let t = TypeName::<CppLang>::reference(TypeName::primitive("std::string"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "const std::string&");
+    }
+
+    #[test]
+    fn test_reference_mut_with_lang_cpp() {
+        use crate::lang::cpp_lang::CppLang;
+        let lang = CppLang::new();
+        let t = TypeName::<CppLang>::reference_mut(TypeName::primitive("std::string"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "std::string&");
+    }
+
+    #[test]
+    fn test_reference_with_lang_ts() {
+        let lang = TypeScript::new();
+        let t = TypeName::<TypeScript>::reference(TypeName::primitive("string"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "string");
+    }
+
+    #[test]
+    fn test_reference_mut_with_lang_go() {
+        use crate::lang::go_lang::GoLang;
+        let lang = GoLang::new();
+        let t = TypeName::<GoLang>::reference_mut(TypeName::primitive("int"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "*int");
     }
 }
