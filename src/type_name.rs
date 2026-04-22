@@ -1080,4 +1080,37 @@ mod tests {
         doc.render(80, &mut buf).unwrap();
         assert_eq!(String::from_utf8(buf).unwrap(), "*int");
     }
+
+    #[test]
+    fn test_reference_with_lang_go() {
+        use crate::lang::go_lang::GoLang;
+        let lang = GoLang::new();
+        let t = TypeName::<GoLang>::reference(TypeName::primitive("int"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "int");
+    }
+
+    #[test]
+    fn test_reference_with_lang_c() {
+        use crate::lang::c_lang::CLang;
+        let lang = CLang::new();
+        let t = TypeName::<CLang>::reference(TypeName::primitive("int"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "const int*");
+    }
+
+    #[test]
+    fn test_reference_mut_with_lang_c() {
+        use crate::lang::c_lang::CLang;
+        let lang = CLang::new();
+        let t = TypeName::<CLang>::reference_mut(TypeName::primitive("int"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "int*");
+    }
 }
