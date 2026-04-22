@@ -80,8 +80,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --workspace
+      - run: cargo nextest run --workspace --profile ci
       - run: cargo test --doc --workspace
+      - uses: codecov/test-results-action@v1
+        with:
+          files: target/nextest/ci/junit.xml
+          fail_ci_if_error: false
+        if: always()
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   coverage:
     name: Coverage
