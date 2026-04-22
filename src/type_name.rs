@@ -207,12 +207,15 @@ pub enum TypeName<L: CodeLang> {
     Optional(Box<TypeName<L>>),
     /// Tuple type. Rust: `(A, B)`, TS: `[A, B]`, Python: `tuple[A, B]`.
     Tuple(Vec<TypeName<L>>),
-    /// Reference type. Rust: `&T` / `&mut T`, C++: `const T&` / `T&`.
+    /// Reference type. Rust: `&T` / `&mut T` / `&'a T`, C++: `const T&` / `T&`.
     Reference {
         /// The referenced type.
         inner: Box<TypeName<L>>,
         /// Whether the reference is mutable.
         mutable: bool,
+        /// Optional lifetime (Rust only, e.g., `'a`).
+        #[serde(default)]
+        lifetime: Option<String>,
     },
     /// Associated/path-dependent type. Rust: `<T as Iterator>::Item`, TS: `T["key"]`.
     AssociatedType {
@@ -478,6 +481,7 @@ impl<L: CodeLang> TypeName<L> {
         TypeName::Reference {
             inner: Box::new(inner),
             mutable: false,
+            lifetime: None,
         }
     }
 
@@ -486,6 +490,25 @@ impl<L: CodeLang> TypeName<L> {
         TypeName::Reference {
             inner: Box::new(inner),
             mutable: true,
+            lifetime: None,
+        }
+    }
+
+    /// Create a shared reference with a lifetime (Rust `&'a T`).
+    pub fn reference_with_lifetime(inner: TypeName<L>, lifetime: &str) -> Self {
+        TypeName::Reference {
+            inner: Box::new(inner),
+            mutable: false,
+            lifetime: Some(lifetime.to_string()),
+        }
+    }
+
+    /// Create a mutable reference with a lifetime (Rust `&'a mut T`).
+    pub fn reference_mut_with_lifetime(inner: TypeName<L>, lifetime: &str) -> Self {
+        TypeName::Reference {
+            inner: Box::new(inner),
+            mutable: true,
+            lifetime: Some(lifetime.to_string()),
         }
     }
 
@@ -723,8 +746,15 @@ impl<L: CodeLang> TypeName<L> {
                     .append(BoxDoc::intersperse(docs, sep).nest(2).group())
                     .append(BoxDoc::text(")"))
             }
-            TypeName::Reference { inner, mutable } => {
-                let prefix = if *mutable { "&mut " } else { "&" };
+            TypeName::Reference { inner, mutable, lifetime } => {
+                let mut prefix = String::from("&");
+                if let Some(lt) = lifetime {
+                    prefix.push_str(lt);
+                    prefix.push(' ');
+                }
+                if *mutable {
+                    prefix.push_str("mut ");
+                }
                 BoxDoc::text(prefix).append(inner.to_doc(resolve))
             }
             TypeName::Function {
@@ -925,14 +955,24 @@ impl<L: CodeLang> TypeName<L> {
                     .collect();
                 render_presentation(&lang.present_tuple(), docs, lang)
             }
-            TypeName::Reference { inner, mutable } => {
+            TypeName::Reference { inner, mutable, lifetime } => {
                 let inner_doc = inner.to_doc_with_lang(resolve, lang);
-                let pres = if *mutable {
-                    lang.present_reference_mut()
+                if let Some(lt) = lifetime {
+                    let mut prefix = String::from("&");
+                    prefix.push_str(lt);
+                    prefix.push(' ');
+                    if *mutable {
+                        prefix.push_str("mut ");
+                    }
+                    BoxDoc::text(prefix).append(inner_doc)
                 } else {
-                    lang.present_reference()
-                };
-                render_presentation(&pres, vec![inner_doc], lang)
+                    let pres = if *mutable {
+                        lang.present_reference_mut()
+                    } else {
+                        lang.present_reference()
+                    };
+                    render_presentation(&pres, vec![inner_doc], lang)
+                }
             }
             TypeName::Function {
                 params,
@@ -1752,5 +1792,55 @@ mod tests {
                 .render(80, &identity_resolve).unwrap(),
             "? super T"
         );
+    }
+
+    // --- Feature 10: Lifetime Parameters ---
+
+    #[test]
+    fn test_reference_with_lifetime_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::reference_with_lifetime(
+            TypeName::primitive("str"),
+            "'a",
+        );
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "&'a str");
+    }
+
+    #[test]
+    fn test_reference_mut_with_lifetime_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::reference_mut_with_lifetime(
+            TypeName::primitive("String"),
+            "'a",
+        );
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "&'a mut String");
+    }
+
+    #[test]
+    fn test_reference_with_lifetime_default_rendering() {
+        let t = TypeName::<TypeScript>::reference_with_lifetime(
+            TypeName::primitive("str"),
+            "'a",
+        );
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "&'a str");
+    }
+
+    #[test]
+    fn test_reference_without_lifetime_unchanged() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::reference(TypeName::primitive("String"));
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "&String");
     }
 }
