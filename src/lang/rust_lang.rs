@@ -331,6 +331,10 @@ impl CodeLang for RustLang {
             lower_keyword: "_ ",
         }
     }
+
+    fn where_clause_style(&self) -> crate::spec::fun_spec::WhereClauseStyle {
+        crate::spec::fun_spec::WhereClauseStyle::WhereBlock
+    }
 }
 
 #[cfg(test)]

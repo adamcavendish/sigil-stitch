@@ -9,6 +9,25 @@ use crate::spec::modifiers::{
 use crate::spec::parameter_spec::ParameterSpec;
 use crate::type_name::TypeName;
 
+/// A single constraint in a where clause.
+///
+/// Represents `Subject: Bound1 + Bound2` in Rust's `where` block.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(bound = "")]
+pub struct WhereConstraint<L: CodeLang> {
+    pub(crate) subject: TypeName<L>,
+    pub(crate) bounds: Vec<TypeName<L>>,
+}
+
+/// How where-clause constraints are rendered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WhereClauseStyle {
+    /// Bounds stay inline in the type parameter list.
+    Inline,
+    /// Rust-style `where` block after the signature.
+    WhereBlock,
+}
+
 /// A generic type parameter with optional bounds.
 ///
 /// Used with [`FunSpec`] and [`TypeSpec`](crate::spec::type_spec::TypeSpec) for
@@ -131,6 +150,9 @@ pub struct FunSpec<L: CodeLang> {
     /// For signature-style languages (Kotlin): emitted after the parameter list
     /// as ` : super(...)` / ` : this(...)`.
     pub(crate) delegation: Option<CodeBlock<L>>,
+    /// Where-clause constraints (e.g., Rust `where T: Clone + Send`).
+    #[serde(default)]
+    pub(crate) where_constraints: Vec<WhereConstraint<L>>,
 }
 
 impl<L: CodeLang> FunSpec<L> {
@@ -149,6 +171,7 @@ impl<L: CodeLang> FunSpec<L> {
             receiver: None,
             suffixes: Vec::new(),
             delegation: None,
+            where_constraints: Vec::new(),
         }
     }
 
@@ -288,7 +311,7 @@ impl<L: CodeLang> FunSpec<L> {
 
         // Body or abstract.
         if let Some(body) = &self.body {
-            sig.push_str(lang.block_open());
+            self.emit_where_and_open(&mut sig, &mut sig_args, lang);
             cb.add(&sig, sig_args);
             cb.add_line();
             cb.add("%>", ());
@@ -315,7 +338,7 @@ impl<L: CodeLang> FunSpec<L> {
             let empty = lang.empty_body();
             if !empty.is_empty() {
                 // Language requires a body placeholder (e.g., Python `...`).
-                sig.push_str(lang.block_open());
+                self.emit_where_and_open(&mut sig, &mut sig_args, lang);
                 cb.add(&sig, sig_args);
                 cb.add_line();
                 cb.add("%>", ());
@@ -359,6 +382,47 @@ impl<L: CodeLang> FunSpec<L> {
         }
         pb.build()
     }
+
+    fn emit_where_and_open(&self, sig: &mut String, sig_args: &mut Vec<Arg<L>>, lang: &L) {
+        if !self.where_constraints.is_empty()
+            && lang.where_clause_style() == WhereClauseStyle::WhereBlock
+        {
+            emit_where_block(sig, sig_args, &self.where_constraints, lang);
+        }
+        sig.push_str(lang.block_open());
+    }
+}
+
+/// Append a where-clause block to a format string.
+///
+/// Renders Rust-style:
+/// ```text
+/// \nwhere\n    T: Clone + Send,\n    U: Debug,
+/// ```
+pub(crate) fn emit_where_block<L: CodeLang>(
+    fmt: &mut String,
+    args: &mut Vec<Arg<L>>,
+    constraints: &[WhereConstraint<L>],
+    lang: &L,
+) {
+    let constraint_sep = lang.generic_constraint_separator();
+    fmt.push_str("\nwhere\n");
+    for (i, wc) in constraints.iter().enumerate() {
+        if i > 0 {
+            fmt.push('\n');
+        }
+        fmt.push_str("    %T");
+        args.push(Arg::TypeName(wc.subject.clone()));
+        fmt.push_str(lang.generic_constraint_keyword());
+        for (j, bound) in wc.bounds.iter().enumerate() {
+            if j > 0 {
+                fmt.push_str(constraint_sep);
+            }
+            fmt.push_str("%T");
+            args.push(Arg::TypeName(bound.clone()));
+        }
+        fmt.push(',');
+    }
 }
 
 /// Builder for [`FunSpec`].
@@ -376,6 +440,7 @@ pub struct FunSpecBuilder<L: CodeLang> {
     receiver: Option<ParameterSpec<L>>,
     suffixes: Vec<String>,
     delegation: Option<CodeBlock<L>>,
+    where_constraints: Vec<WhereConstraint<L>>,
 }
 
 impl<L: CodeLang> FunSpecBuilder<L> {
@@ -480,6 +545,34 @@ impl<L: CodeLang> FunSpecBuilder<L> {
         self
     }
 
+    /// Add a where-clause constraint (e.g., `T: Clone + Send`).
+    pub fn add_where_constraint(
+        &mut self,
+        subject: TypeName<L>,
+        bounds: Vec<TypeName<L>>,
+    ) -> &mut Self {
+        self.where_constraints.push(WhereConstraint { subject, bounds });
+        self
+    }
+
+    /// Convenience: add a single bound to an existing or new where constraint for
+    /// the named type parameter.
+    pub fn where_bound(&mut self, param_name: &str, bound: TypeName<L>) -> &mut Self {
+        if let Some(wc) = self
+            .where_constraints
+            .iter_mut()
+            .find(|wc| wc.subject.simple_name() == Some(param_name))
+        {
+            wc.bounds.push(bound);
+        } else {
+            self.where_constraints.push(WhereConstraint {
+                subject: TypeName::primitive(param_name),
+                bounds: vec![bound],
+            });
+        }
+        self
+    }
+
     /// Consume the builder and produce a [`FunSpec`].
     ///
     /// # Errors
@@ -505,6 +598,7 @@ impl<L: CodeLang> FunSpecBuilder<L> {
             receiver: self.receiver,
             suffixes: self.suffixes,
             delegation: self.delegation,
+            where_constraints: self.where_constraints,
         })
     }
 }
@@ -612,5 +706,55 @@ mod tests {
                 .to_string()
                 .contains("'name' must not be empty")
         );
+    }
+
+    #[test]
+    fn test_where_clause_rust_function() {
+        let mut fb = FunSpec::<RustLang>::builder("process");
+        fb.add_type_param(TypeParamSpec::new("T"));
+        fb.add_type_param(TypeParamSpec::new("U"));
+        fb.add_where_constraint(
+            TypeName::primitive("T"),
+            vec![TypeName::primitive("Clone"), TypeName::primitive("Send")],
+        );
+        fb.add_where_constraint(
+            TypeName::primitive("U"),
+            vec![TypeName::primitive("Debug")],
+        );
+        fb.add_param(ParameterSpec::new("a", TypeName::primitive("T")).unwrap());
+        fb.add_param(ParameterSpec::new("b", TypeName::primitive("U")).unwrap());
+        fb.body(CodeBlock::<RustLang>::of("todo!()", ()).unwrap());
+        let fun = fb.build().unwrap();
+        let output = emit_fun_rs(&fun, DeclarationContext::TopLevel);
+        assert!(output.contains("fn process<T, U>(a: T, b: U)"), "sig: {output}");
+        assert!(output.contains("where\n    T: Clone + Send,\n    U: Debug,"), "where: {output}");
+        assert!(output.contains(" {"), "block_open: {output}");
+    }
+
+    #[test]
+    fn test_where_clause_ts_inline_ignored() {
+        let mut fb = FunSpec::<TypeScript>::builder("process");
+        fb.add_type_param(TypeParamSpec::new("T"));
+        fb.add_where_constraint(
+            TypeName::primitive("T"),
+            vec![TypeName::primitive("Serializable")],
+        );
+        fb.body(CodeBlock::<TypeScript>::of("return value", ()).unwrap());
+        let fun = fb.build().unwrap();
+        let output = emit_fun_ts(&fun, DeclarationContext::TopLevel);
+        assert!(!output.contains("where"), "TS should not emit where: {output}");
+        assert!(output.contains("function process<T>("), "sig: {output}");
+    }
+
+    #[test]
+    fn test_where_bound_convenience() {
+        let mut fb = FunSpec::<RustLang>::builder("example");
+        fb.add_type_param(TypeParamSpec::new("T"));
+        fb.where_bound("T", TypeName::primitive("Clone"));
+        fb.where_bound("T", TypeName::primitive("Send"));
+        fb.body(CodeBlock::<RustLang>::of("todo!()", ()).unwrap());
+        let fun = fb.build().unwrap();
+        let output = emit_fun_rs(&fun, DeclarationContext::TopLevel);
+        assert!(output.contains("where\n    T: Clone + Send,"), "where: {output}");
     }
 }

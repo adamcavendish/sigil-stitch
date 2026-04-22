@@ -519,6 +519,16 @@ pub trait CodeLang: Sized + Clone + 'static {
     fn property_getter_keyword(&self) -> &str {
         "get"
     }
+
+    // --- Where clause support ---
+
+    /// How where-clause constraints are rendered.
+    ///
+    /// Default: `Inline` — bounds stay in the generic parameter list.
+    /// Rust overrides to `WhereBlock`.
+    fn where_clause_style(&self) -> crate::spec::fun_spec::WhereClauseStyle {
+        crate::spec::fun_spec::WhereClauseStyle::Inline
+    }
 }
 
 /// Derive a PascalCase namespace alias from a module path.
