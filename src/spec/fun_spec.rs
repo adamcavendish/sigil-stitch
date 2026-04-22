@@ -28,6 +28,17 @@ pub enum WhereClauseStyle {
     WhereBlock,
 }
 
+/// The kind of a type parameter (for higher-kinded type support).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum TypeParamKind {
+    /// Type constructor taking one argument: `* -> *` (Haskell), `F[_]` (Scala).
+    Constructor1,
+    /// Type constructor taking two arguments: `* -> * -> *`.
+    Constructor2,
+    /// Arbitrary kind expressed as a raw string.
+    Raw(String),
+}
+
 /// A generic type parameter with optional bounds.
 ///
 /// Used with [`FunSpec`] and [`TypeSpec`](crate::spec::type_spec::TypeSpec) for
@@ -50,6 +61,8 @@ pub enum WhereClauseStyle {
 pub struct TypeParamSpec<L: CodeLang> {
     pub(crate) name: String,
     pub(crate) bounds: Vec<TypeName<L>>,
+    #[serde(default)]
+    pub(crate) kind: Option<TypeParamKind>,
 }
 
 impl<L: CodeLang> TypeParamSpec<L> {
@@ -58,12 +71,19 @@ impl<L: CodeLang> TypeParamSpec<L> {
         Self {
             name: name.to_string(),
             bounds: Vec::new(),
+            kind: None,
         }
     }
 
     /// Add a trait/interface bound to this type parameter.
     pub fn with_bound(mut self, bound: TypeName<L>) -> Self {
         self.bounds.push(bound);
+        self
+    }
+
+    /// Set this parameter as a higher-kinded type constructor.
+    pub fn with_kind(mut self, kind: TypeParamKind) -> Self {
+        self.kind = Some(kind);
         self
     }
 }
@@ -88,6 +108,9 @@ pub fn render_type_params<L: CodeLang>(
             fmt.push_str(", ");
         }
         fmt.push_str(&tp.name);
+        if let Some(ref kind) = tp.kind {
+            fmt.push_str(&lang.render_type_param_kind(kind));
+        }
         if !tp.bounds.is_empty() {
             fmt.push_str(constraint_kw);
             for (j, bound) in tp.bounds.iter().enumerate() {
@@ -756,5 +779,25 @@ mod tests {
         let fun = fb.build().unwrap();
         let output = emit_fun_rs(&fun, DeclarationContext::TopLevel);
         assert!(output.contains("where\n    T: Clone + Send,"), "where: {output}");
+    }
+
+    #[test]
+    fn test_type_param_kind_none_unchanged() {
+        let mut fb = FunSpec::<TypeScript>::builder("foo");
+        fb.add_type_param(TypeParamSpec::new("T"));
+        fb.body(CodeBlock::<TypeScript>::of("return null", ()).unwrap());
+        let fun = fb.build().unwrap();
+        let output = emit_fun_ts(&fun, DeclarationContext::TopLevel);
+        assert!(output.contains("function foo<T>()"), "unchanged: {output}");
+    }
+
+    #[test]
+    fn test_type_param_with_kind_default_no_output() {
+        let mut fb = FunSpec::<RustLang>::builder("apply");
+        fb.add_type_param(TypeParamSpec::new("F").with_kind(TypeParamKind::Constructor1));
+        fb.body(CodeBlock::<RustLang>::of("todo!()", ()).unwrap());
+        let fun = fb.build().unwrap();
+        let output = emit_fun_rs(&fun, DeclarationContext::TopLevel);
+        assert!(output.contains("fn apply<F>()"), "default renders no kind suffix: {output}");
     }
 }
