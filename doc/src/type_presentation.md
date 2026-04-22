@@ -12,6 +12,9 @@ This chapter describes how sigil-stitch renders `TypeName` variants across diffe
 | `Optional(T)` | `T \| null` | `Option<T>` | `*T` | `T \| None` | `std::optional<T>` |
 | `Map(K, V)` | `Record<K, V>` | `HashMap<K, V>` | `map[K]V` | `dict[K, V]` | `std::map<K, V>` |
 | `Pointer(T)` | n/a | `*const T` | `*T` | n/a | `T*` |
+| `Tuple(A, B)` | `[A, B]` | `(A, B)` | n/a | `tuple[A, B]` | `std::tuple<A, B>` |
+| `Reference(T)` | (identity) | `&T` | (identity) | (identity) | `const T&` |
+| `Reference(T, mut)` | (identity) | `&mut T` | `*T` | (identity) | `T&` |
 
 Each variant needs language-specific rendering, but the rendering follows a small set of structural patterns. Rather than writing per-language rendering code for every variant, we identify these patterns and let languages declare which pattern to use.
 
@@ -50,7 +53,7 @@ This separates three concerns that were previously tangled:
 
 ```rust,ignore
 pub enum TypePresentation<'a> {
-    /// `name<P1, P2>` — uses generic_open()/generic_close().
+    /// `name<P1, P2>` — delimiters from generic_open()/generic_close().
     /// Vec<T>, Option<T>, HashMap<K,V>, List<T>.
     GenericWrap { name: &'a str },
 
@@ -59,6 +62,9 @@ pub enum TypePresentation<'a> {
 
     /// `inner suffix` — T[], T?, T*.
     Postfix { suffix: &'a str },
+
+    /// `prefix inner suffix` — const T&, const T*.
+    Surround { prefix: &'a str, suffix: &'a str },
 
     /// `open P1 sep P2 sep ... close` — (A, B), [T], [K: V], dict[K, V].
     Delimited {
@@ -72,7 +78,7 @@ pub enum TypePresentation<'a> {
 }
 ```
 
-Five patterns cover every type rendering need across all supported languages. A language implementation never builds `BoxDoc` — it returns one of these variants with the appropriate strings filled in.
+Six patterns cover every type rendering need across all supported languages. A language implementation never builds `BoxDoc` — it returns one of these variants with the appropriate strings filled in.
 
 ## FunctionPresentation
 
@@ -109,6 +115,9 @@ trait CodeLang {
     fn present_intersection(&self) -> TypePresentation<'_>;
     fn present_pointer(&self) -> TypePresentation<'_>;
     fn present_slice(&self) -> TypePresentation<'_>;
+    fn present_tuple(&self) -> TypePresentation<'_>;
+    fn present_reference(&self) -> TypePresentation<'_>;
+    fn present_reference_mut(&self) -> TypePresentation<'_>;
     fn present_function(&self) -> FunctionPresentation<'_>;
 }
 ```
@@ -134,6 +143,9 @@ fn render_presentation(
         }
         TypePresentation::Postfix { suffix } => {
             // inner suffix
+        }
+        TypePresentation::Surround { prefix, suffix } => {
+            // prefix inner suffix
         }
         TypePresentation::Delimited { open, sep, close } => {
             // open P1 sep P2 close
@@ -181,7 +193,24 @@ fn present_pointer(&self) -> TypePresentation<'_> { Prefix { prefix: "*const " }
 fn present_slice(&self) -> TypePresentation<'_> {
     Delimited { open: "&[", sep: "", close: "]" }
 }
+fn present_reference(&self) -> TypePresentation<'_> { Prefix { prefix: "&" } }
+fn present_reference_mut(&self) -> TypePresentation<'_> { Prefix { prefix: "&mut " } }
 ```
+
+### C++
+
+```rust,ignore
+fn present_array(&self) -> TypePresentation<'_> { GenericWrap { name: "std::vector" } }
+fn present_optional(&self) -> TypePresentation<'_> { GenericWrap { name: "std::optional" } }
+fn present_pointer(&self) -> TypePresentation<'_> { Postfix { suffix: "*" } }
+fn present_reference(&self) -> TypePresentation<'_> {
+    Surround { prefix: "const ", suffix: "&" }
+}
+fn present_reference_mut(&self) -> TypePresentation<'_> { Postfix { suffix: "&" } }
+fn present_tuple(&self) -> TypePresentation<'_> { GenericWrap { name: "std::tuple" } }
+```
+
+The `Surround` variant was introduced specifically for C++'s `const T&` pattern, where a type needs both a prefix and a suffix. C uses it similarly for `const T*`.
 
 ### Go
 
@@ -210,7 +239,7 @@ fn present_map(&self) -> TypePresentation<'_> {
 
 1. **`BoxDoc` never appears in `CodeLang`** — languages declare data, the engine renders.
 2. **Adding a `TypeName` variant** requires one new `present_*` method returning data. No per-language render code needed.
-3. **~10 methods** replace what would otherwise be ~17+ render methods. Each is a 1-line return.
+3. **~13 methods** replace what would otherwise be ~20+ render methods. Each is a 1-line return.
 4. **One rendering engine** in `type_name.rs` handles all patterns uniformly.
 5. **Semantic types are preserved** — `Array(T)` stays `Array(T)`. The language says "render Array as GenericWrap(Vec)" not "rewrite Array to Generic('Vec', [T])".
 6. **`GenericWrap` reuses `generic_open()`/`generic_close()`** — languages that already configure these delimiters get correct rendering automatically.

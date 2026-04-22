@@ -200,7 +200,7 @@ let fun = fb.build().unwrap();
 
 ## TypeSpec
 
-The largest spec. Models type declarations: struct, class, interface, trait, or enum. Takes a `TypeKind` to select the declaration form.
+The largest spec. Models type declarations: struct, class, interface, trait, enum, type alias, or newtype wrapper. Takes a `TypeKind` to select the declaration form.
 
 `.build()` returns `Err(SigilStitchError::DuplicateFieldName { type_name, field_name })` when two fields in the same type share a name.
 
@@ -291,6 +291,78 @@ let type_spec = tb.build().unwrap();
 // export class AdminService extends BaseService implements Serializable {
 // }
 ```
+
+### Type aliases
+
+`TypeKind::TypeAlias` emits a single-line type alias declaration with no body. The aliased target is set via `.extends()` (exactly one required). No fields, methods, or variants are allowed.
+
+```rust,ignore
+use sigil_stitch::prelude::*;
+use sigil_stitch::lang::typescript::TypeScript;
+use sigil_stitch::lang::rust_lang::RustLang;
+
+// TypeScript: export type UserId = string;
+let mut tb = TypeSpec::<TypeScript>::builder("UserId", TypeKind::TypeAlias);
+tb.visibility(Visibility::Public);
+tb.extends(TypeName::primitive("string"));
+let type_spec = tb.build().unwrap();
+
+// Rust: pub type Meters = f64;
+let mut tb = TypeSpec::<RustLang>::builder("Meters", TypeKind::TypeAlias);
+tb.visibility(Visibility::Public);
+tb.extends(TypeName::primitive("f64"));
+let type_spec = tb.build().unwrap();
+```
+
+Per-language rendering is controlled by `type_keyword(TypeKind::TypeAlias)`:
+- TypeScript/Rust: `type Foo = Bar;`
+- C++: `using Foo = Bar;`
+- C: `typedef Bar Foo;` (target-first, via `type_alias_target_first()`)
+- Go: `type Foo = Bar`
+- Kotlin: `typealias Foo = Bar`
+- Python: `type Foo = Bar`
+
+Type aliases support type parameters:
+
+```rust,ignore
+// Rust: pub type Result<T> = std::result::Result<T, MyError>;
+let mut tb = TypeSpec::<RustLang>::builder("Result", TypeKind::TypeAlias);
+tb.visibility(Visibility::Public);
+tb.add_type_param(TypeParamSpec::new("T"));
+tb.extends(TypeName::generic(
+    TypeName::primitive("std::result::Result"),
+    vec![TypeName::primitive("T"), TypeName::primitive("MyError")],
+));
+let type_spec = tb.build().unwrap();
+```
+
+### Newtype wrappers
+
+`TypeKind::Newtype` emits a single-line newtype wrapper. Like type aliases, the inner type is set via `.extends()` (exactly one required).
+
+```rust,ignore
+use sigil_stitch::prelude::*;
+use sigil_stitch::lang::rust_lang::RustLang;
+use sigil_stitch::lang::go_lang::GoLang;
+
+// Rust: pub struct Meters(f64);
+let mut tb = TypeSpec::<RustLang>::builder("Meters", TypeKind::Newtype);
+tb.visibility(Visibility::Public);
+tb.extends(TypeName::primitive("f64"));
+let type_spec = tb.build().unwrap();
+
+// Go: type Meters float64
+let mut tb = TypeSpec::<GoLang>::builder("Meters", TypeKind::Newtype);
+tb.extends(TypeName::primitive("float64"));
+let type_spec = tb.build().unwrap();
+```
+
+Newtype syntax varies across languages and is controlled by `render_newtype_line()`:
+- Rust: `struct Meters(f64);` (tuple struct)
+- Go: `type Meters float64` (distinct type)
+- Kotlin: `value class Meters(val value: f64)` (inline class)
+- Python: `Meters = NewType("Meters", float)` (typing.NewType)
+- C: `typedef float Meters;` (typedef)
 
 ### Enums with EnumVariantSpec
 
