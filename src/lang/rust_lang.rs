@@ -296,6 +296,14 @@ impl CodeLang for RustLang {
         }
     }
 
+    fn present_reference(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Prefix { prefix: "&" }
+    }
+
+    fn present_reference_mut(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Prefix { prefix: "&mut " }
+    }
+
     fn present_function(&self) -> crate::type_name::FunctionPresentation<'_> {
         crate::type_name::FunctionPresentation {
             keyword: "fn",

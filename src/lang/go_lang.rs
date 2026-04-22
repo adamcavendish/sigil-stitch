@@ -329,6 +329,10 @@ impl CodeLang for GoLang {
         crate::type_name::TypePresentation::Prefix { prefix: "[]" }
     }
 
+    fn present_reference_mut(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Prefix { prefix: "*" }
+    }
+
     fn present_function(&self) -> crate::type_name::FunctionPresentation<'_> {
         crate::type_name::FunctionPresentation {
             keyword: "func",

@@ -211,6 +211,20 @@ pub trait CodeLang: Sized + Clone + 'static {
         }
     }
 
+    /// How `TypeName::Reference { mutable: false }` renders.
+    ///
+    /// Default: `Prefix { prefix: "" }` — GC languages render as bare inner type.
+    fn present_reference(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Prefix { prefix: "" }
+    }
+
+    /// How `TypeName::Reference { mutable: true }` renders.
+    ///
+    /// Default: `Prefix { prefix: "" }` — GC languages render as bare inner type.
+    fn present_reference_mut(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Prefix { prefix: "" }
+    }
+
     /// How `TypeName::Function { params, return_type }` renders.
     ///
     /// Default: TypeScript `(A, B) => R`.
