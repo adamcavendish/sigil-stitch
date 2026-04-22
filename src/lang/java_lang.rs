@@ -306,6 +306,10 @@ impl CodeLang for JavaLang {
     fn present_map(&self) -> crate::type_name::TypePresentation<'_> {
         crate::type_name::TypePresentation::GenericWrap { name: "Map" }
     }
+
+    fn present_associated_type(&self) -> crate::type_name::AssociatedTypeStyle<'_> {
+        crate::type_name::AssociatedTypeStyle::DotAccess
+    }
 }
 
 #[cfg(test)]

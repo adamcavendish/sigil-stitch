@@ -397,6 +397,18 @@ impl CodeLang for Kotlin {
             wrapper_close: "",
         }
     }
+
+    fn present_associated_type(&self) -> crate::type_name::AssociatedTypeStyle<'_> {
+        crate::type_name::AssociatedTypeStyle::DotAccess
+    }
+
+    fn present_wildcard(&self) -> crate::type_name::WildcardPresentation<'_> {
+        crate::type_name::WildcardPresentation {
+            unbounded: "*",
+            upper_keyword: "out ",
+            lower_keyword: "in ",
+        }
+    }
 }
 
 #[cfg(test)]

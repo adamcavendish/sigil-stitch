@@ -416,6 +416,10 @@ impl CodeLang for Python {
     fn present_tuple(&self) -> crate::type_name::TypePresentation<'_> {
         crate::type_name::TypePresentation::GenericWrap { name: "tuple" }
     }
+
+    fn present_associated_type(&self) -> crate::type_name::AssociatedTypeStyle<'_> {
+        crate::type_name::AssociatedTypeStyle::DotAccess
+    }
 }
 
 /// Render a `from module import name1, name2` line.
