@@ -200,6 +200,17 @@ pub trait CodeLang: Sized + Clone + 'static {
         crate::type_name::TypePresentation::Prefix { prefix: "[]" }
     }
 
+    /// How `TypeName::Tuple(elements)` renders.
+    ///
+    /// Default: `Delimited { open: "(", sep: ", ", close: ")" }` (Rust/Swift `(A, B, C)`).
+    fn present_tuple(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Delimited {
+            open: "(",
+            sep: ", ",
+            close: ")",
+        }
+    }
+
     /// How `TypeName::Function { params, return_type }` renders.
     ///
     /// Default: TypeScript `(A, B) => R`.

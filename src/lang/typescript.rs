@@ -340,6 +340,14 @@ impl CodeLang for TypeScript {
     fn present_map(&self) -> crate::type_name::TypePresentation<'_> {
         crate::type_name::TypePresentation::GenericWrap { name: "Record" }
     }
+
+    fn present_tuple(&self) -> crate::type_name::TypePresentation<'_> {
+        crate::type_name::TypePresentation::Delimited {
+            open: "[",
+            sep: ", ",
+            close: "]",
+        }
+    }
 }
 
 #[cfg(test)]

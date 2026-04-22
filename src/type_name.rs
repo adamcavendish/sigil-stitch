@@ -141,6 +141,8 @@ pub enum TypeName<L: CodeLang> {
     },
     /// Optional type. TS: `T | null`, Rust: `Option<T>`.
     Optional(Box<TypeName<L>>),
+    /// Tuple type. Rust: `(A, B)`, TS: `[A, B]`, Python: `tuple[A, B]`.
+    Tuple(Vec<TypeName<L>>),
     /// Function type. TS: `(a: A, b: B) => R`.
     Function {
         /// The parameter types.
@@ -348,6 +350,16 @@ impl<L: CodeLang> TypeName<L> {
         TypeName::Optional(Box::new(inner))
     }
 
+    /// Create a tuple type (e.g., Rust `(A, B)`, TS `[A, B]`).
+    pub fn tuple(elements: Vec<TypeName<L>>) -> Self {
+        TypeName::Tuple(elements)
+    }
+
+    /// Create a unit type (empty tuple: Rust `()`).
+    pub fn unit() -> Self {
+        TypeName::Tuple(Vec::new())
+    }
+
     /// Create a function type.
     pub fn function(params: Vec<TypeName<L>>, return_type: TypeName<L>) -> Self {
         TypeName::Function {
@@ -401,7 +413,9 @@ impl<L: CodeLang> TypeName<L> {
                     p.collect_imports(out);
                 }
             }
-            TypeName::Union(members) | TypeName::Intersection(members) => {
+            TypeName::Union(members)
+            | TypeName::Intersection(members)
+            | TypeName::Tuple(members) => {
                 for m in members {
                     m.collect_imports(out);
                 }
@@ -482,6 +496,16 @@ impl<L: CodeLang> TypeName<L> {
                     .append(BoxDoc::softline())
                     .append(BoxDoc::text("| null"))
                     .group()
+            }
+            TypeName::Tuple(elements) => {
+                let docs: Vec<_> = elements.iter().map(|e| e.to_doc(resolve)).collect();
+                if docs.is_empty() {
+                    return BoxDoc::text("()");
+                }
+                let sep = BoxDoc::text(",").append(BoxDoc::softline());
+                BoxDoc::text("(")
+                    .append(BoxDoc::intersperse(docs, sep).nest(2).group())
+                    .append(BoxDoc::text(")"))
             }
             TypeName::Function {
                 params,
@@ -594,6 +618,13 @@ impl<L: CodeLang> TypeName<L> {
                     }
                     _ => render_presentation(&pres, vec![inner_doc], lang),
                 }
+            }
+            TypeName::Tuple(elements) => {
+                let docs: Vec<_> = elements
+                    .iter()
+                    .map(|e| e.to_doc_with_lang(resolve, lang))
+                    .collect();
+                render_presentation(&lang.present_tuple(), docs, lang)
             }
             TypeName::Function {
                 params,
@@ -812,5 +843,102 @@ mod tests {
         // The resolve function should map to the alias.
         let resolve = |_module: &str, _name: &str| "MyUser".to_string();
         assert_eq!(t.render(80, &resolve).unwrap(), "MyUser");
+    }
+
+    #[test]
+    fn test_tuple() {
+        let t = TypeName::<TypeScript>::tuple(vec![
+            TypeName::primitive("string"),
+            TypeName::primitive("number"),
+        ]);
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "(string, number)");
+    }
+
+    #[test]
+    fn test_unit_tuple() {
+        let t = TypeName::<TypeScript>::unit();
+        assert_eq!(t.render(80, &identity_resolve).unwrap(), "()");
+    }
+
+    #[test]
+    fn test_tuple_collect_imports() {
+        let t = TypeName::<TypeScript>::tuple(vec![
+            TypeName::importable("./models", "User"),
+            TypeName::importable("./models", "Tag"),
+        ]);
+        let mut imports = Vec::new();
+        t.collect_imports(&mut imports);
+        assert_eq!(imports.len(), 2);
+        assert_eq!(imports[0].name, "User");
+        assert_eq!(imports[1].name, "Tag");
+    }
+
+    #[test]
+    fn test_tuple_with_lang_ts() {
+        let lang = TypeScript::new();
+        let t = TypeName::<TypeScript>::tuple(vec![
+            TypeName::primitive("string"),
+            TypeName::primitive("number"),
+        ]);
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "[string, number]");
+    }
+
+    #[test]
+    fn test_tuple_with_lang_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::tuple(vec![
+            TypeName::primitive("String"),
+            TypeName::primitive("i32"),
+        ]);
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "(String, i32)");
+    }
+
+    #[test]
+    fn test_tuple_with_lang_python() {
+        use crate::lang::python::Python;
+        let lang = Python::new();
+        let t = TypeName::<Python>::tuple(vec![
+            TypeName::primitive("str"),
+            TypeName::primitive("int"),
+        ]);
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "tuple[str, int]");
+    }
+
+    #[test]
+    fn test_tuple_with_lang_cpp() {
+        use crate::lang::cpp_lang::CppLang;
+        let lang = CppLang::new();
+        let t = TypeName::<CppLang>::tuple(vec![
+            TypeName::primitive("int"),
+            TypeName::primitive("std::string"),
+        ]);
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            "std::tuple<int, std::string>"
+        );
+    }
+
+    #[test]
+    fn test_unit_tuple_with_lang_rust() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::<RustLang>::unit();
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "()");
     }
 }
