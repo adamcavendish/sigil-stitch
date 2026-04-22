@@ -5,7 +5,7 @@ use crate::lang::CodeLang;
 use crate::spec::annotation_spec::AnnotationSpec;
 use crate::spec::enum_variant_spec::EnumVariantSpec;
 use crate::spec::field_spec::FieldSpec;
-use crate::spec::fun_spec::{FunSpec, TypeParamSpec, render_type_params};
+use crate::spec::fun_spec::{FunSpec, TypeParamSpec, WhereConstraint, WhereClauseStyle, emit_where_block, render_type_params};
 use crate::spec::modifiers::{DeclarationContext, Modifiers, TypeKind, Visibility};
 use crate::spec::parameter_spec::ParameterSpec;
 use crate::spec::property_spec::PropertySpec;
@@ -59,6 +59,9 @@ pub struct TypeSpec<L: CodeLang> {
     pub(crate) variants: Vec<EnumVariantSpec<L>>,
     /// Primary constructor parameters (Kotlin: `class Foo(val x: Int, val y: String)`).
     pub(crate) primary_constructor: Vec<ParameterSpec<L>>,
+    /// Where-clause constraints (e.g., Rust `where T: Clone + Send`).
+    #[serde(default)]
+    pub(crate) where_constraints: Vec<WhereConstraint<L>>,
 }
 
 impl<L: CodeLang> TypeSpec<L> {
@@ -80,6 +83,7 @@ impl<L: CodeLang> TypeSpec<L> {
             extra_members: Vec::new(),
             variants: Vec::new(),
             primary_constructor: Vec::new(),
+            where_constraints: Vec::new(),
         }
     }
 
@@ -231,6 +235,12 @@ impl<L: CodeLang> TypeSpec<L> {
                     impl_fmt.push_str(&tp.name);
                 }
                 impl_fmt.push_str(lang.generic_close());
+            }
+            // Where clause on impl block.
+            if !self.where_constraints.is_empty()
+                && lang.where_clause_style() == WhereClauseStyle::WhereBlock
+            {
+                emit_where_block(&mut impl_fmt, &mut impl_args, &self.where_constraints, lang);
             }
             impl_fmt.push_str(lang.block_open());
             impl_cb.add(&impl_fmt, impl_args);
@@ -581,6 +591,13 @@ impl<L: CodeLang> TypeSpec<L> {
             }
         }
 
+        // Where clause (Rust-style).
+        if !self.where_constraints.is_empty()
+            && lang.where_clause_style() == WhereClauseStyle::WhereBlock
+        {
+            emit_where_block(&mut fmt, &mut args, &self.where_constraints, lang);
+        }
+
         fmt.push_str(lang.block_open());
         cb.add(&fmt, args);
         cb.add_line();
@@ -621,6 +638,7 @@ pub struct TypeSpecBuilder<L: CodeLang> {
     extra_members: Vec<CodeBlock<L>>,
     variants: Vec<EnumVariantSpec<L>>,
     primary_constructor: Vec<ParameterSpec<L>>,
+    where_constraints: Vec<WhereConstraint<L>>,
 }
 
 impl<L: CodeLang> TypeSpecBuilder<L> {
@@ -714,6 +732,16 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
         self
     }
 
+    /// Add a where-clause constraint (e.g., `T: Clone + Send`).
+    pub fn add_where_constraint(
+        &mut self,
+        subject: TypeName<L>,
+        bounds: Vec<TypeName<L>>,
+    ) -> &mut Self {
+        self.where_constraints.push(WhereConstraint { subject, bounds });
+        self
+    }
+
     /// Consume the builder and produce a [`TypeSpec`].
     ///
     /// # Errors
@@ -785,6 +813,7 @@ impl<L: CodeLang> TypeSpecBuilder<L> {
             extra_members: self.extra_members,
             variants: self.variants,
             primary_constructor: self.primary_constructor,
+            where_constraints: self.where_constraints,
         })
     }
 }
@@ -1156,5 +1185,32 @@ mod tests {
                 .to_string()
                 .contains("must not have fields")
         );
+    }
+
+    #[test]
+    fn test_where_clause_rust_struct() {
+        let mut tb = TypeSpec::<RustLang>::builder("Container", TypeKind::Struct);
+        tb.visibility(Visibility::Public);
+        tb.add_type_param(TypeParamSpec::new("T"));
+        tb.add_where_constraint(
+            TypeName::primitive("T"),
+            vec![TypeName::primitive("Clone"), TypeName::primitive("Send")],
+        );
+        let mut fb = FieldSpec::builder("value", TypeName::primitive("T"));
+        fb.visibility(Visibility::Public);
+        tb.add_field(fb.build().unwrap());
+        let body = CodeBlock::<RustLang>::of("Self { value }", ()).unwrap();
+        let mut mb = FunSpec::<RustLang>::builder("new");
+        mb.visibility(Visibility::Public);
+        mb.add_param(ParameterSpec::new("value", TypeName::primitive("T")).unwrap());
+        mb.returns(TypeName::primitive("Self"));
+        mb.body(body);
+        tb.add_method(mb.build().unwrap());
+        let type_spec = tb.build().unwrap();
+        let blocks = type_spec.emit(&RustLang::new()).unwrap();
+        let output = render_blocks_rs(&blocks);
+        assert!(output.contains("pub struct Container<T>"), "header: {output}");
+        assert!(output.contains("where\n    T: Clone + Send,"), "where on struct: {output}");
+        assert!(output.contains("impl<T> Container<T>"), "impl: {output}");
     }
 }
