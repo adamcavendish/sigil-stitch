@@ -529,6 +529,13 @@ pub trait CodeLang: Sized + Clone + 'static {
     fn where_clause_style(&self) -> crate::spec::fun_spec::WhereClauseStyle {
         crate::spec::fun_spec::WhereClauseStyle::Inline
     }
+
+    /// Render a type parameter's kind annotation (for higher-kinded types).
+    ///
+    /// Default: empty string (no kind annotation).
+    fn render_type_param_kind(&self, _kind: &crate::spec::fun_spec::TypeParamKind) -> String {
+        String::new()
+    }
 }
 
 /// Derive a PascalCase namespace alias from a module path.
