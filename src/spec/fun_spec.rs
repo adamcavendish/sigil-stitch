@@ -63,6 +63,8 @@ pub struct TypeParamSpec<L: CodeLang> {
     pub(crate) bounds: Vec<TypeName<L>>,
     #[serde(default)]
     pub(crate) kind: Option<TypeParamKind>,
+    #[serde(default)]
+    pub(crate) is_lifetime: bool,
 }
 
 impl<L: CodeLang> TypeParamSpec<L> {
@@ -72,6 +74,19 @@ impl<L: CodeLang> TypeParamSpec<L> {
             name: name.to_string(),
             bounds: Vec::new(),
             kind: None,
+            is_lifetime: false,
+        }
+    }
+
+    /// Create a lifetime parameter (Rust `'a`).
+    ///
+    /// The name should include the tick: `"'a"`, `"'static"`.
+    pub fn lifetime(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            bounds: Vec::new(),
+            kind: None,
+            is_lifetime: true,
         }
     }
 
@@ -103,8 +118,30 @@ pub fn render_type_params<L: CodeLang>(
     let constraint_sep = lang.generic_constraint_separator();
 
     let mut fmt = String::from(lang.generic_open());
-    for (i, tp) in params.iter().enumerate() {
-        if i > 0 {
+    let mut first = true;
+
+    // Lifetimes first (Rust convention: `<'a, 'b, T, U>`).
+    for tp in params.iter().filter(|p| p.is_lifetime) {
+        if !first {
+            fmt.push_str(", ");
+        }
+        fmt.push_str(&tp.name);
+        if !tp.bounds.is_empty() {
+            fmt.push_str(constraint_kw);
+            for (j, bound) in tp.bounds.iter().enumerate() {
+                if j > 0 {
+                    fmt.push_str(constraint_sep);
+                }
+                fmt.push_str("%T");
+                args.push(Arg::TypeName(bound.clone()));
+            }
+        }
+        first = false;
+    }
+
+    // Then type parameters.
+    for tp in params.iter().filter(|p| !p.is_lifetime) {
+        if !first {
             fmt.push_str(", ");
         }
         fmt.push_str(&tp.name);
@@ -121,7 +158,9 @@ pub fn render_type_params<L: CodeLang>(
                 args.push(Arg::TypeName(bound.clone()));
             }
         }
+        first = false;
     }
+
     fmt.push_str(lang.generic_close());
     fmt
 }
@@ -799,5 +838,27 @@ mod tests {
         let fun = fb.build().unwrap();
         let output = emit_fun_rs(&fun, DeclarationContext::TopLevel);
         assert!(output.contains("fn apply<F>()"), "default renders no kind suffix: {output}");
+    }
+
+    #[test]
+    fn test_lifetime_params_before_type_params() {
+        let mut fb = FunSpec::<RustLang>::builder("longest");
+        fb.add_type_param(TypeParamSpec::new("T"));
+        fb.add_type_param(TypeParamSpec::lifetime("'a"));
+        fb.add_param(ParameterSpec::new(
+            "x",
+            TypeName::reference_with_lifetime(TypeName::primitive("str"), "'a"),
+        ).unwrap());
+        fb.add_param(ParameterSpec::new(
+            "y",
+            TypeName::reference_with_lifetime(TypeName::primitive("str"), "'a"),
+        ).unwrap());
+        fb.returns(TypeName::reference_with_lifetime(TypeName::primitive("str"), "'a"));
+        fb.body(CodeBlock::<RustLang>::of("x", ()).unwrap());
+        let fun = fb.build().unwrap();
+        let output = emit_fun_rs(&fun, DeclarationContext::TopLevel);
+        assert!(output.contains("fn longest<'a, T>("), "lifetime first: {output}");
+        assert!(output.contains("x: &'a str"), "lifetime ref param: {output}");
+        assert!(output.contains("-> &'a str"), "lifetime ref return: {output}");
     }
 }
