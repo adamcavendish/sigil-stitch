@@ -28,7 +28,7 @@ exclude = [
     ".github/",
     "coverage/",
     "docs/",
-    "tests/golden/",
+    "test-goldens/",
     "Justfile",
 ]
 
