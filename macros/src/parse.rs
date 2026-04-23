@@ -26,6 +26,10 @@ pub(crate) enum Statement {
     Comment(String),
     /// Control flow: `begin_control_flow` / `next_control_flow` / `end_control_flow`.
     ControlFlow { branches: Vec<Branch> },
+    /// `add("%>", ())` — increase indent.
+    Indent,
+    /// `add("%<", ())` — decrease indent.
+    Dedent,
 }
 
 /// A single branch in a control flow chain.
@@ -36,6 +40,8 @@ pub(crate) struct Branch {
     pub condition_args: Vec<TypedArg>,
     /// Body statements inside the braces.
     pub body: Vec<Statement>,
+    /// Custom block opener override from `$open("...")`, only on the first branch.
+    pub block_open_override: Option<String>,
 }
 
 /// An interpolation argument with its kind for proper wrapping in codegen.
@@ -168,6 +174,11 @@ fn parse_one_statement(
         return Ok((Statement::Comment(comment_text), next));
     }
 
+    // Check for $> or $< at current position.
+    if let Some((stmt, next)) = try_parse_indent_directive(tokens, start) {
+        return Ok((stmt, next));
+    }
+
     // Collect tokens for this statement, looking for `;` or a brace group.
     let mut pos = start;
     let mut collected: Vec<TokenTree> = Vec::new();
@@ -195,8 +206,11 @@ fn parse_one_statement(
                 continue;
             }
 
+            // Check for $open("...") at end of collected tokens.
+            let (condition_tokens, block_open_override) = try_extract_open_override(&collected)?;
+
             // Control flow detected.
-            return parse_control_flow(tokens, &collected, g, pos);
+            return parse_control_flow(tokens, &condition_tokens, g, pos, block_open_override);
         }
 
         collected.push(tt.clone());
@@ -212,12 +226,79 @@ fn parse_one_statement(
     }
 }
 
+/// Check if the last tokens in `collected` form `$open("text")`.
+/// Returns the remaining condition tokens and the optional override string.
+fn try_extract_open_override(
+    collected: &[TokenTree],
+) -> Result<(Vec<TokenTree>, Option<String>), CompileError> {
+    let n = collected.len();
+    if n < 3 {
+        return Ok((collected.to_vec(), None));
+    }
+
+    // Check for pattern: Punct($) Ident(open) Group(Paren containing string literal)
+    let dollar = &collected[n - 3];
+    let ident = &collected[n - 2];
+    let group = &collected[n - 1];
+
+    let is_dollar = matches!(dollar, TokenTree::Punct(p) if p.as_char() == '$');
+    let is_open = is_ident(ident, "open");
+    let paren_group = if let TokenTree::Group(g) = group
+        && g.delimiter() == Delimiter::Parenthesis
+    {
+        Some(g)
+    } else {
+        None
+    };
+
+    if !is_dollar || !is_open || paren_group.is_none() {
+        return Ok((collected.to_vec(), None));
+    }
+
+    let g = paren_group.unwrap();
+    let inner: Vec<TokenTree> = g.stream().into_iter().collect();
+    if inner.len() != 1 {
+        return Err(CompileError::new(
+            g.span(),
+            "$open requires a single string literal: $open(\"text\")",
+        ));
+    }
+
+    let text = match &inner[0] {
+        TokenTree::Literal(lit) => {
+            let s = lit.to_string();
+            if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
+                let raw = &s[1..s.len() - 1];
+                match unescape_string(raw) {
+                    Ok(text) => text,
+                    Err(msg) => return Err(CompileError::new(lit.span(), &msg)),
+                }
+            } else {
+                return Err(CompileError::new(
+                    lit.span(),
+                    "$open requires a string literal",
+                ));
+            }
+        }
+        _ => {
+            return Err(CompileError::new(
+                inner[0].span(),
+                "$open requires a string literal",
+            ));
+        }
+    };
+
+    let condition_tokens = collected[..n - 3].to_vec();
+    Ok((condition_tokens, Some(text)))
+}
+
 /// Parse a control flow chain starting from tokens that lead into a brace group.
 fn parse_control_flow(
     tokens: &[TokenTree],
     condition_tokens: &[TokenTree],
     first_brace: &proc_macro2::Group,
     brace_pos: usize,
+    block_open_override: Option<String>,
 ) -> Result<(Statement, usize), CompileError> {
     let (cond_format, cond_args) = tokens_to_format(condition_tokens)?;
     let body_tokens: Vec<TokenTree> = first_brace.stream().into_iter().collect();
@@ -227,6 +308,7 @@ fn parse_control_flow(
         condition_format: cond_format,
         condition_args: cond_args,
         body,
+        block_open_override,
     }];
 
     let mut pos = brace_pos + 1;
@@ -234,10 +316,12 @@ fn parse_control_flow(
     // Check for else chain.
     while pos < tokens.len() {
         if is_ident(&tokens[pos], "else") {
+            let else_span = tokens[pos].span();
             pos += 1; // consume `else`
 
             // Collect tokens until we find a brace group (handles `else if (...) {`).
             let mut else_condition_tokens: Vec<TokenTree> = Vec::new();
+            let mut found_brace = false;
 
             while pos < tokens.len() {
                 if let TokenTree::Group(g) = &tokens[pos]
@@ -257,12 +341,18 @@ fn parse_control_flow(
                         condition_format: cond_format,
                         condition_args: cond_args,
                         body,
+                        block_open_override: None,
                     });
                     pos += 1;
+                    found_brace = true;
                     break;
                 }
                 else_condition_tokens.push(tokens[pos].clone());
                 pos += 1;
+            }
+
+            if !found_brace {
+                return Err(CompileError::new(else_span, "expected `{` after `else`"));
             }
         } else {
             break;
@@ -270,6 +360,25 @@ fn parse_control_flow(
     }
 
     Ok((Statement::ControlFlow { branches }, pos))
+}
+
+/// Check for `$>` or `$<` at position `start`.
+fn try_parse_indent_directive(tokens: &[TokenTree], start: usize) -> Option<(Statement, usize)> {
+    if start + 1 >= tokens.len() {
+        return None;
+    }
+    let is_dollar = matches!(&tokens[start], TokenTree::Punct(p) if p.as_char() == '$');
+    if !is_dollar {
+        return None;
+    }
+    if let TokenTree::Punct(p2) = &tokens[start + 1] {
+        match p2.as_char() {
+            '>' => return Some((Statement::Indent, start + 2)),
+            '<' => return Some((Statement::Dedent, start + 2)),
+            _ => {}
+        }
+    }
+    None
 }
 
 /// Try to parse `$comment("text")` at position `start`.
@@ -315,9 +424,15 @@ fn try_parse_comment(
     let text = match &inner[0] {
         TokenTree::Literal(lit) => {
             let s = lit.to_string();
-            // Strip surrounding quotes.
+            // Strip surrounding quotes and unescape.
             if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
-                s[1..s.len() - 1].to_string()
+                let raw = &s[1..s.len() - 1];
+                match unescape_string(raw) {
+                    Ok(text) => text,
+                    Err(msg) => {
+                        return Err(CompileError::new(lit.span(), &msg));
+                    }
+                }
             } else {
                 return Err(CompileError::new(
                     lit.span(),
@@ -401,6 +516,26 @@ fn tokens_to_format_inner(
                 maybe_space(format, *prev_kind, PrevTokenKind::Literal);
                 format.push('$');
                 *prev_kind = PrevTokenKind::Literal;
+                pos += 1;
+                continue;
+            }
+
+            // `$>` -> `%>` (indent)
+            if let TokenTree::Punct(p2) = next
+                && p2.as_char() == '>'
+            {
+                format.push_str("%>");
+                *prev_kind = PrevTokenKind::Specifier;
+                pos += 1;
+                continue;
+            }
+
+            // `$<` -> `%<` (dedent)
+            if let TokenTree::Punct(p2) = next
+                && p2.as_char() == '<'
+            {
+                format.push_str("%<");
+                *prev_kind = PrevTokenKind::Specifier;
                 pos += 1;
                 continue;
             }
@@ -573,31 +708,17 @@ fn maybe_space(format: &mut String, prev: PrevTokenKind, current: PrevTokenKind)
         return;
     }
 
-    // No space before `(` when preceded by ident or specifier (function call).
+    // No space before `(` when preceded by ident, specifier, or literal.
+    // Treats all ident-before-paren as function calls: `getUser(...)`.
+    // Keywords like `if`/`for`/`while` would ideally get a space, but proc macros
+    // cannot distinguish keywords from identifiers. Both forms are valid in all
+    // supported target languages.
     if let PrevTokenKind::GroupOpen = current
         && matches!(
             prev,
             PrevTokenKind::Ident | PrevTokenKind::Specifier | PrevTokenKind::Literal
         )
     {
-        // This handles function calls like `getUser(...)`, but also control flow like `if (...)`.
-        // For code gen, `if(x)` and `if (x)` are both valid, but the user's source tokens
-        // preserve the original spacing via proc_macro2 span locations. Since we can't
-        // reliably use span locations for spacing in all cases, we take a pragmatic approach:
-        // no space before `(` after ident (function call style).
-        // For `if (x)`, the user can write `if(x)` which is valid in JS/TS/etc.
-        // BUT: in practice, `if` followed by `(` should have a space.
-        // We'll handle this by NOT suppressing space when prev is a keyword.
-        // Actually, we can't distinguish keywords from identifiers in proc macros.
-        // Let's always insert space before `(` after an ident for now.
-        // This gives `console.log (x)` which is wrong for function calls...
-        //
-        // Trade-off: we can't have it both ways. Since the user writes the code,
-        // they'll see the output and can adjust. Most target languages accept both forms.
-        // For function calls, the slight extra space is cosmetically imperfect but functional.
-        //
-        // Actually, a better heuristic: use Spacing from proc_macro2.
-        // But idents don't have Spacing. Let's just not add space.
         return;
     }
 
@@ -611,4 +732,30 @@ fn is_semicolon(tt: &TokenTree) -> bool {
 
 fn is_ident(tt: &TokenTree, name: &str) -> bool {
     matches!(tt, TokenTree::Ident(id) if *id == name)
+}
+
+fn unescape_string(s: &str) -> Result<String, String> {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some('0') => out.push('\0'),
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some(other) => {
+                    return Err(format!("unknown escape sequence: \\{other}"));
+                }
+                None => {
+                    return Err("unexpected end of string after \\".to_string());
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    Ok(out)
 }

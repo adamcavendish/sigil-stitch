@@ -38,6 +38,9 @@ It returns `Result<CodeBlock<LangType>, SigilStitchError>`.
 | `$L(expr)` | `%L` | `impl Into<Arg<L>>` | Literal value or nested code |
 | `$C(expr)` | `%L` | `CodeBlock<L>` | Nested code block |
 | `$W` | `%W` | (none) | Soft line-break point |
+| `$open("text")` | — | (none) | Custom block opener override |
+| `$>` | `%>` | (none) | Increase indent level |
+| `$<` | `%<` | (none) | Decrease indent level |
 | `$$` | `$` | (none) | Literal dollar sign |
 
 ### Types (`$T`)
@@ -244,6 +247,68 @@ sigil_quote!(TypeScript {
     }
 })
 ```
+
+## Custom Block Openers (`$open`)
+
+By default, `{ ... }` in `sigil_quote!` uses the language's `block_open()`:
+- Brace languages (TypeScript, Go, etc.): `" {"`
+- Python: `":"`
+- Haskell: `" ="`
+
+Use `$open("text")` immediately before `{` to override the opener for that block:
+
+```rust,ignore
+use sigil_stitch::lang::haskell::Haskell;
+
+// Haskell type class needs " where" instead of the default " ="
+sigil_quote!(Haskell {
+    class Functor f $open(" where") {
+        fmap :: (a -> b) -> f a -> f b;
+    }
+})
+// Output: class Functor f where
+//             fmap :: (a -> b) -> f a -> f b
+```
+
+```rust,ignore
+use sigil_stitch::lang::ocaml::OCaml;
+
+// OCaml module block needs " = struct" opener
+sigil_quote!(OCaml {
+    module Foo $open(" = struct") {
+        let x = 42;
+    }
+})
+// Output: module Foo = struct
+//             let x = 42
+```
+
+Pass `$open("")` to suppress the block opener entirely.
+
+## Manual Indent / Dedent (`$>` / `$<`)
+
+Use `$>` and `$<` as standalone directives to control indent level without
+control flow blocks:
+
+```rust,ignore
+use sigil_stitch::lang::typescript::TypeScript;
+
+sigil_quote!(TypeScript {
+    namespace Foo {
+    $>
+    const x = 1;
+    const y = 2;
+    $<
+    }
+})
+// Output:
+// namespace Foo {
+//     const x = 1;
+//     const y = 2;
+// }
+```
+
+These map to the `%>` and `%<` format specifiers in `CodeBlockBuilder`.
 
 ## Multi-Language Support
 

@@ -33,6 +33,9 @@ use proc_macro::TokenStream;
 /// | `$L(expr)` | `%L` | Literal or nested code |
 /// | `$C(expr)` | `%L` | Nested `CodeBlock` |
 /// | `$W` | `%W` | Soft line-break point |
+/// | `$open("text")` | — | Custom block opener (see below) |
+/// | `$>` | `%>` | Increase indent |
+/// | `$<` | `%<` | Decrease indent |
 /// | `$$` | `$` | Literal dollar sign |
 ///
 /// ## Statement Rules
@@ -42,6 +45,7 @@ use proc_macro::TokenStream;
 /// - `{ ... };` (brace group followed by `;`) is treated as a statement, not control flow
 /// - Blank lines become `add_line()` calls
 /// - `$comment("text")` becomes `add_comment("text")`
+/// - `$>` / `$<` increase / decrease indent level
 ///
 /// ## Control Flow
 ///
@@ -56,6 +60,21 @@ use proc_macro::TokenStream;
 ///         return -1;
 ///     } else {
 ///         return 0;
+///     }
+/// })
+/// ```
+///
+/// ## Custom Block Openers (`$open`)
+///
+/// By default, `{ ... }` uses the language's `block_open()` (e.g., `" {"` for
+/// brace languages, `":"` for Python, `" ="` for Haskell). Use `$open("text")`
+/// before `{` to override the opener for that block:
+///
+/// ```ignore
+/// // Haskell type class: "class Functor f where" instead of "class Functor f ="
+/// sigil_quote!(Haskell {
+///     class Functor f $open(" where") {
+///         fmap :: (a -> b) -> f a -> f b;
 ///     }
 /// })
 /// ```
