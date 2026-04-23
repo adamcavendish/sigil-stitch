@@ -30,8 +30,13 @@ pub enum FormatPart {
     /// Block open delimiter — resolved at render time via `lang.block_open()`.
     /// Emitted by control-flow builders; braces for TS/Rust/Go, colon for Python.
     BlockOpen,
+    /// Block open with an overridden delimiter (not resolved via `lang.block_open()`).
+    /// Emitted by `begin_control_flow_with_open` for constructs that need a
+    /// different opener than the language default (e.g., Haskell `where` vs `=`).
+    BlockOpenOverride(String),
     /// Block close delimiter (terminal) — resolved at render time via `lang.block_close()`.
-    /// Emitted by `end_control_flow`. No trailing space.
+    /// Emitted by `end_control_flow`. When non-empty, also emits a trailing newline.
+    /// When empty (indent-only languages like OCaml/Haskell/Python), emits nothing.
     BlockClose,
     /// Block close delimiter (transitional) — resolved at render time via
     /// `lang.block_close()` + `" "`. Used by `next_control_flow` to emit `} else`.
@@ -233,6 +238,28 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
         self
     }
 
+    /// Begin a control flow block with a custom block-open string.
+    ///
+    /// Like [`begin_control_flow`](Self::begin_control_flow), but uses
+    /// `custom_open` instead of the language's `block_open()`. Pass `""`
+    /// to suppress the block opener entirely (e.g., OCaml `match x with`).
+    pub fn begin_control_flow_with_open(
+        &mut self,
+        format: &str,
+        args: impl IntoArgs<L>,
+        custom_open: &str,
+    ) -> &mut Self {
+        self.add(format, args);
+        if !custom_open.is_empty() {
+            self.parts
+                .push(FormatPart::BlockOpenOverride(custom_open.to_string()));
+        }
+        self.parts.push(FormatPart::Newline);
+        self.parts.push(FormatPart::Indent);
+        self.indent_depth += 1;
+        self
+    }
+
     /// Add an else/else-if clause (e.g., "} else {" or "elif ...:" for Python).
     pub fn next_control_flow(&mut self, format: &str, args: impl IntoArgs<L>) -> &mut Self {
         self.parts.push(FormatPart::Dedent);
@@ -251,7 +278,6 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
         self.parts.push(FormatPart::Dedent);
         self.indent_depth -= 1;
         self.parts.push(FormatPart::BlockClose);
-        self.parts.push(FormatPart::Newline);
         self
     }
 
@@ -724,5 +750,50 @@ mod tests {
         assert!(err_msg.contains("%S"));
         assert!(err_msg.contains("%L"));
         assert!(err_msg.contains("TypeName"));
+    }
+
+    #[test]
+    fn test_begin_control_flow_with_open_non_empty() {
+        let mut b = CodeBlock::<TypeScript>::builder();
+        b.begin_control_flow_with_open("class Functor f", (), " where");
+        b.add_statement("fmap :: (a -> b) -> f a -> f b", ());
+        b.end_control_flow();
+        let block = b.build().unwrap();
+        let has_override = block
+            .parts
+            .iter()
+            .any(|p| matches!(p, FormatPart::BlockOpenOverride(s) if s == " where"));
+        assert!(has_override, "should contain BlockOpenOverride(\" where\")");
+        let has_block_open = block
+            .parts
+            .iter()
+            .any(|p| matches!(p, FormatPart::BlockOpen));
+        assert!(
+            !has_block_open,
+            "should NOT contain BlockOpen when override is used"
+        );
+    }
+
+    #[test]
+    fn test_begin_control_flow_with_open_empty() {
+        let mut b = CodeBlock::<TypeScript>::builder();
+        b.begin_control_flow_with_open("match x with", (), "");
+        b.add("| Red -> red", ());
+        b.add_line();
+        b.end_control_flow();
+        let block = b.build().unwrap();
+        let has_override = block
+            .parts
+            .iter()
+            .any(|p| matches!(p, FormatPart::BlockOpenOverride(_)));
+        assert!(
+            !has_override,
+            "empty custom_open should skip BlockOpenOverride"
+        );
+        let has_block_open = block
+            .parts
+            .iter()
+            .any(|p| matches!(p, FormatPart::BlockOpen));
+        assert!(!has_block_open, "should NOT contain BlockOpen either");
     }
 }

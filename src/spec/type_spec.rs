@@ -125,6 +125,14 @@ impl<L: CodeLang> TypeSpec<L> {
 
         // Body.
         cb.add("%>", ());
+        // Type body prefix (e.g., Haskell record braces: "Person {").
+        let body_prefix = lang.type_body_prefix(&self.name, self.kind);
+        let has_body_prefix = !body_prefix.is_empty();
+        if has_body_prefix {
+            cb.add("%L", body_prefix);
+            cb.add_line();
+            cb.add("%>", ());
+        }
         // Docstring inside body (Python).
         if !self.doc.is_empty() && lang.doc_comment_inside_body() {
             let doc_lines: Vec<&str> = self.doc.iter().map(|s| s.as_str()).collect();
@@ -173,11 +181,27 @@ impl<L: CodeLang> TypeSpec<L> {
         for extra in &self.extra_members {
             cb.add_code(extra.clone());
         }
+        // Type body suffix (e.g., Haskell record closing brace: "}").
+        if has_body_prefix {
+            cb.add("%<", ());
+        }
+        let body_suffix = lang.type_body_suffix(&self.name, self.kind);
+        if !body_suffix.is_empty() {
+            cb.add("%L", body_suffix);
+            cb.add_line();
+        }
         cb.add("%<", ());
         let close = lang.block_close();
+        let type_close_suffix = self.render_impl_type_suffix(lang);
         if !close.is_empty() {
             let term = lang.type_close_terminator();
             cb.add(&format!("{close}{term}"), ());
+            if !type_close_suffix.is_empty() {
+                cb.add("%L", type_close_suffix);
+            }
+            cb.add_line();
+        } else if !type_close_suffix.is_empty() {
+            cb.add("%L", type_close_suffix);
             cb.add_line();
         }
 
@@ -194,6 +218,14 @@ impl<L: CodeLang> TypeSpec<L> {
         self.emit_header(&mut cb, lang)?;
 
         cb.add("%>", ());
+        // Type body prefix (e.g., Haskell record braces).
+        let body_prefix = lang.type_body_prefix(&self.name, self.kind);
+        let has_body_prefix = !body_prefix.is_empty();
+        if has_body_prefix {
+            cb.add("%L", body_prefix);
+            cb.add_line();
+            cb.add("%>", ());
+        }
         for field in &self.fields {
             cb.add_code(field.emit(lang, DeclarationContext::Member)?);
         }
@@ -207,11 +239,27 @@ impl<L: CodeLang> TypeSpec<L> {
         for extra in &self.extra_members {
             cb.add_code(extra.clone());
         }
+        // Type body suffix (e.g., Haskell record closing brace).
+        if has_body_prefix {
+            cb.add("%<", ());
+        }
+        let body_suffix = lang.type_body_suffix(&self.name, self.kind);
+        if !body_suffix.is_empty() {
+            cb.add("%L", body_suffix);
+            cb.add_line();
+        }
         cb.add("%<", ());
         let close = lang.block_close();
+        let type_close_suffix = self.render_impl_type_suffix(lang);
         if !close.is_empty() {
             let term = lang.type_close_terminator();
             cb.add(&format!("{close}{term}"), ());
+            if !type_close_suffix.is_empty() {
+                cb.add("%L", type_close_suffix);
+            }
+            cb.add_line();
+        } else if !type_close_suffix.is_empty() {
+            cb.add("%L", type_close_suffix);
             cb.add_line();
         }
         blocks.push(cb.build()?);
@@ -392,7 +440,11 @@ impl<L: CodeLang> TypeSpec<L> {
                 cb.add_line();
             }
 
-            let prefix = lang.enum_variant_prefix();
+            let prefix = if i == 0 {
+                lang.enum_variant_prefix_first()
+            } else {
+                lang.enum_variant_prefix()
+            };
             let mut fmt = String::new();
             let mut args: Vec<Arg<L>> = Vec::new();
             fmt.push_str(prefix);
@@ -474,6 +526,21 @@ impl<L: CodeLang> TypeSpec<L> {
         Ok(())
     }
 
+    /// Render impl_types to strings and pass them to `lang.render_type_close_suffix()`.
+    fn render_impl_type_suffix(&self, lang: &L) -> String {
+        if self.impl_types.is_empty() {
+            let empty: Vec<String> = Vec::new();
+            return lang.render_type_close_suffix(self.kind, &empty);
+        }
+        let resolve = |_module: &str, name: &str| name.to_string();
+        let impl_names: Vec<String> = self
+            .impl_types
+            .iter()
+            .filter_map(|t| t.render(80, &resolve).ok())
+            .collect();
+        lang.render_type_close_suffix(self.kind, &impl_names)
+    }
+
     /// Emit annotations and doc comment.
     fn emit_preamble(
         &self,
@@ -553,9 +620,10 @@ impl<L: CodeLang> TypeSpec<L> {
             if !super_kw.is_empty() {
                 fmt.push_str(super_kw);
                 let sep = lang.super_type_separator();
+                let subsequent_sep = lang.super_type_subsequent_separator();
                 for (i, st) in self.super_types.iter().enumerate() {
                     if i > 0 {
-                        fmt.push_str(sep);
+                        fmt.push_str(subsequent_sep.unwrap_or(sep));
                     }
                     fmt.push_str("%T");
                     args.push(Arg::TypeName(st.clone()));
@@ -600,7 +668,7 @@ impl<L: CodeLang> TypeSpec<L> {
             emit_where_block(&mut fmt, &mut args, &self.where_constraints, lang);
         }
 
-        fmt.push_str(lang.block_open());
+        fmt.push_str(lang.type_header_block_open(self.kind));
         cb.add(&fmt, args);
         cb.add_line();
         Ok(())

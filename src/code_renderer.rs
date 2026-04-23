@@ -73,7 +73,8 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                     if let Some(comment_text) = text.strip_prefix("__COMMENT__") {
                         self.ensure_indent();
                         let prefix = self.lang.line_comment_prefix();
-                        self.emit(&format!("{prefix} {comment_text}"));
+                        let suffix = self.lang.line_comment_suffix();
+                        self.emit(&format!("{prefix} {comment_text}{suffix}"));
                     } else {
                         self.emit_possibly_multiline(text);
                     }
@@ -175,11 +176,15 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                 FormatPart::BlockOpen => {
                     self.emit(self.lang.block_open());
                 }
+                FormatPart::BlockOpenOverride(s) => {
+                    self.emit(s);
+                }
                 FormatPart::BlockClose => {
                     let close = self.lang.block_close();
                     if !close.is_empty() {
                         self.ensure_indent();
                         self.emit(close);
+                        self.emit_newline();
                     }
                 }
                 FormatPart::BlockCloseTransition => {
@@ -240,7 +245,8 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                 FormatPart::Literal(text) => {
                     if let Some(comment_text) = text.strip_prefix("__COMMENT__") {
                         let prefix = self.lang.line_comment_prefix();
-                        BoxDoc::text(format!("{prefix} {comment_text}"))
+                        let suffix = self.lang.line_comment_suffix();
+                        BoxDoc::text(format!("{prefix} {comment_text}{suffix}"))
                     } else {
                         BoxDoc::text(text.clone())
                     }
@@ -308,12 +314,13 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
                 }
                 FormatPart::Newline => BoxDoc::hardline(),
                 FormatPart::BlockOpen => BoxDoc::text(self.lang.block_open().to_string()),
+                FormatPart::BlockOpenOverride(s) => BoxDoc::text(s.clone()),
                 FormatPart::BlockClose => {
                     let close = self.lang.block_close();
                     if close.is_empty() {
                         BoxDoc::nil()
                     } else {
-                        BoxDoc::text(close.to_string())
+                        BoxDoc::text(close.to_string()).append(BoxDoc::hardline())
                     }
                 }
                 FormatPart::BlockCloseTransition => {
@@ -552,6 +559,24 @@ mod tests {
         assert!(
             !output.contains("\nline2"),
             "line2 must not be flush-left, got:\n{output}"
+        );
+    }
+
+    #[test]
+    fn test_block_open_override() {
+        let mut b = CodeBlock::<TypeScript>::builder();
+        b.begin_control_flow_with_open("class Functor f", (), " where");
+        b.add_statement("fmap :: a -> b", ());
+        b.end_control_flow();
+        let block = b.build().unwrap();
+        let output = render_block(&block, 80);
+        assert!(
+            output.contains("class Functor f where"),
+            "should use custom opener, got:\n{output}"
+        );
+        assert!(
+            !output.contains(" {"),
+            "should NOT contain default block_open, got:\n{output}"
         );
     }
 }
