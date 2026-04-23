@@ -28,6 +28,28 @@ pub enum WhereClauseStyle {
     WhereBlock,
 }
 
+/// How function parameter lists are formatted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParamListStyle {
+    /// All params in a single `(name: T, name: T)` list (most languages).
+    Tupled,
+    /// Each param gets its own wrapper: `(name : T) (name : T)` (OCaml).
+    Curried,
+}
+
+/// How function signatures are rendered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FunctionSignatureStyle {
+    /// Single line: `fn add(x: Int, y: Int) -> Int {` (most languages).
+    Merged,
+    /// Separate type signature + definition (Haskell):
+    /// ```text
+    /// add :: Int -> Int -> Int
+    /// add x y =
+    /// ```
+    Split,
+}
+
 /// The kind of a type parameter (for higher-kinded type support).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum TypeParamKind {
@@ -65,6 +87,8 @@ pub struct TypeParamSpec<L: CodeLang> {
     pub(crate) kind: Option<TypeParamKind>,
     #[serde(default)]
     pub(crate) is_lifetime: bool,
+    #[serde(default)]
+    pub(crate) context_bounds: Vec<TypeName<L>>,
 }
 
 impl<L: CodeLang> TypeParamSpec<L> {
@@ -75,6 +99,7 @@ impl<L: CodeLang> TypeParamSpec<L> {
             bounds: Vec::new(),
             kind: None,
             is_lifetime: false,
+            context_bounds: Vec::new(),
         }
     }
 
@@ -87,6 +112,7 @@ impl<L: CodeLang> TypeParamSpec<L> {
             bounds: Vec::new(),
             kind: None,
             is_lifetime: true,
+            context_bounds: Vec::new(),
         }
     }
 
@@ -99,6 +125,12 @@ impl<L: CodeLang> TypeParamSpec<L> {
     /// Set this parameter as a higher-kinded type constructor.
     pub fn with_kind(mut self, kind: TypeParamKind) -> Self {
         self.kind = Some(kind);
+        self
+    }
+
+    /// Add a context bound (e.g., Scala `[T : Ordering]`).
+    pub fn with_context_bound(mut self, bound: TypeName<L>) -> Self {
+        self.context_bounds.push(bound);
         self
     }
 }
@@ -157,6 +189,12 @@ pub fn render_type_params<L: CodeLang>(
                 fmt.push_str("%T");
                 args.push(Arg::TypeName(bound.clone()));
             }
+        }
+        let ctx_kw = lang.context_bound_keyword();
+        for ctx_bound in &tp.context_bounds {
+            fmt.push_str(ctx_kw);
+            fmt.push_str("%T");
+            args.push(Arg::TypeName(ctx_bound.clone()));
         }
         first = false;
     }
@@ -282,6 +320,9 @@ impl<L: CodeLang> FunSpec<L> {
         }
 
         // Build signature.
+        if lang.function_signature_style() == FunctionSignatureStyle::Split {
+            return self.emit_split_signature(cb, lang);
+        }
         let vis = lang.render_visibility(self.modifiers.visibility, ctx);
         let fn_kw = if self.modifiers.is_constructor {
             lang.constructor_keyword()
@@ -337,11 +378,20 @@ impl<L: CodeLang> FunSpec<L> {
         sig.push_str(&tp_str);
 
         // Parameters — build as a sub-block for %W support.
-        sig.push('(');
-        sig.push_str("%L");
-        let params_block = self.build_params_block(lang)?;
-        sig_args.push(Arg::Code(params_block));
-        sig.push(')');
+        if lang.param_list_style() == ParamListStyle::Curried {
+            if !self.params.is_empty() {
+                sig.push(' ');
+                sig.push_str("%L");
+                let params_block = self.build_curried_params_block(lang)?;
+                sig_args.push(Arg::Code(params_block));
+            }
+        } else {
+            sig.push('(');
+            sig.push_str("%L");
+            let params_block = self.build_params_block(lang)?;
+            sig_args.push(Arg::Code(params_block));
+            sig.push(')');
+        }
 
         // Method suffixes (C++: const, override, noexcept, = 0).
         for s in &self.suffixes {
@@ -445,13 +495,106 @@ impl<L: CodeLang> FunSpec<L> {
         pb.build()
     }
 
+    fn build_curried_params_block(
+        &self,
+        lang: &L,
+    ) -> Result<CodeBlock<L>, crate::error::SigilStitchError> {
+        let mut pb = CodeBlock::<L>::builder();
+        for (i, param) in self.params.iter().enumerate() {
+            if i > 0 {
+                pb.add(" ", ());
+            }
+            pb.add("(", ());
+            param.emit_into(&mut pb, lang);
+            pb.add(")", ());
+        }
+        pb.build()
+    }
+
     fn emit_where_and_open(&self, sig: &mut String, sig_args: &mut Vec<Arg<L>>, lang: &L) {
         if !self.where_constraints.is_empty()
             && lang.where_clause_style() == WhereClauseStyle::WhereBlock
         {
             emit_where_block(sig, sig_args, &self.where_constraints, lang);
         }
-        sig.push_str(lang.block_open());
+        sig.push_str(lang.fun_block_open());
+    }
+
+    /// Emit a function with separate type signature and definition (Haskell style).
+    ///
+    /// Renders:
+    /// ```text
+    /// add :: Int -> Int -> Int
+    /// add x y =
+    ///   body
+    /// ```
+    fn emit_split_signature(
+        &self,
+        mut cb: crate::code_block::CodeBlockBuilder<L>,
+        lang: &L,
+    ) -> Result<CodeBlock<L>, crate::error::SigilStitchError> {
+        let resolve = |_module: &str, name: &str| name.to_string();
+
+        // Type context (e.g., "(Show a) => ").
+        let context = lang.render_type_context(&self.type_params);
+
+        // Build type signature: name :: context param1_type -> param2_type -> return_type
+        let mut type_parts: Vec<String> = Vec::new();
+        for param in &self.params {
+            let t = param.param_type.render(80, &resolve).unwrap_or_default();
+            type_parts.push(t);
+        }
+        if let Some(ret) = &self.return_type {
+            let r = ret.render(80, &resolve).unwrap_or_default();
+            type_parts.push(r);
+        }
+
+        if !type_parts.is_empty() {
+            let type_sig = format!("{} :: {}{}", self.name, context, type_parts.join(" -> "));
+            cb.add("%L", type_sig);
+            cb.add_line();
+        }
+
+        // Build definition: name param1_name param2_name block_open
+        let mut def = String::new();
+        def.push_str(&self.name);
+        for param in &self.params {
+            def.push(' ');
+            def.push_str(&lang.escape_reserved(&param.name));
+        }
+        def.push_str(lang.block_open());
+
+        if let Some(body) = &self.body {
+            cb.add(&def, ());
+            cb.add_line();
+            cb.add("%>", ());
+            cb.add_code(body.clone());
+            cb.add_line();
+            cb.add("%<", ());
+            let close = lang.block_close();
+            if !close.is_empty() {
+                cb.add(close, ());
+                cb.add_line();
+            }
+        } else {
+            let empty = lang.empty_body();
+            if !empty.is_empty() {
+                cb.add(&def, ());
+                cb.add_line();
+                cb.add("%>", ());
+                cb.add_statement(empty, ());
+                cb.add("%<", ());
+                let close = lang.block_close();
+                if !close.is_empty() {
+                    cb.add(close, ());
+                    cb.add_line();
+                }
+            } else {
+                // No body and no empty_body placeholder: emit only the type signature.
+            }
+        }
+
+        cb.build()
     }
 }
 

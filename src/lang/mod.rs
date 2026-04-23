@@ -10,16 +10,22 @@ pub mod cpp_lang;
 pub mod dart;
 /// Go language support.
 pub mod go_lang;
+/// Haskell language support.
+pub mod haskell;
 /// Java language support.
 pub mod java_lang;
 /// JavaScript language support.
 pub mod javascript;
 /// Kotlin language support.
 pub mod kotlin;
+/// OCaml language support.
+pub mod ocaml;
 /// Python language support.
 pub mod python;
 /// Rust language support.
 pub mod rust_lang;
+/// Scala language support.
+pub mod scala;
 /// Swift language support.
 pub mod swift;
 /// TypeScript language support.
@@ -58,6 +64,14 @@ pub trait CodeLang: Sized + Clone + 'static {
 
     /// Single-line comment prefix (e.g., "//", "#").
     fn line_comment_prefix(&self) -> &str;
+
+    /// Suffix appended after a single-line comment.
+    ///
+    /// Default: `""` (no suffix — most languages use line comments like `//`).
+    /// OCaml overrides to `" *)"` to close `(* comment *)` block comments.
+    fn line_comment_suffix(&self) -> &str {
+        ""
+    }
 
     /// Indentation unit (e.g., "  " for 2-space, "\t" for tabs).
     fn indent_unit(&self) -> &str;
@@ -328,6 +342,30 @@ pub trait CodeLang: Sized + Clone + 'static {
         " {"
     }
 
+    /// Opening block delimiter for function bodies specifically.
+    ///
+    /// Default: delegates to `block_open()`.
+    /// Scala overrides to `" = {"` since Scala function definitions use `=`.
+    fn fun_block_open(&self) -> &str {
+        self.block_open()
+    }
+
+    /// Opening block delimiter for type headers, parameterized by type kind.
+    ///
+    /// Default: delegates to `block_open()`.
+    /// Haskell overrides: Trait -> `" where"`, others -> `" ="`.
+    fn type_header_block_open(&self, _kind: crate::spec::modifiers::TypeKind) -> &str {
+        self.block_open()
+    }
+
+    /// How function parameter lists are formatted (tupled vs curried).
+    ///
+    /// Default: `Tupled` — `(a: T, b: U)`.
+    /// OCaml overrides to `Curried` — `(a : T) (b : U)`.
+    fn param_list_style(&self) -> crate::spec::fun_spec::ParamListStyle {
+        crate::spec::fun_spec::ParamListStyle::Tupled
+    }
+
     /// Closing block delimiter emitted after a dedent at the end of a block.
     ///
     /// Default: `"}"` (brace languages). Python overrides to `""` (indent-only).
@@ -402,6 +440,72 @@ pub trait CodeLang: Sized + Clone + 'static {
         ", "
     }
 
+    /// Keyword for context bounds on type parameters (e.g., Scala `[T : Ordering]`).
+    ///
+    /// Default: delegates to `generic_constraint_keyword()`.
+    /// Scala overrides to `" : "`.
+    fn context_bound_keyword(&self) -> &str {
+        self.generic_constraint_keyword()
+    }
+
+    /// How function signatures are rendered.
+    ///
+    /// Default: `Merged` — single-line `fn add(x: Int) -> Int {`.
+    /// Haskell overrides to `Split` — separate type signature and definition.
+    fn function_signature_style(&self) -> crate::spec::fun_spec::FunctionSignatureStyle {
+        crate::spec::fun_spec::FunctionSignatureStyle::Merged
+    }
+
+    /// Render a type context / constraint prefix for split function signatures.
+    ///
+    /// Called in the `Split` path of `FunSpec::emit()` when building the type
+    /// signature line. Used for Haskell's `(Show a, Eq a) => ...` prefix.
+    ///
+    /// Default: `""` (no context).
+    fn render_type_context(
+        &self,
+        _type_params: &[crate::spec::fun_spec::TypeParamSpec<Self>],
+    ) -> String {
+        String::new()
+    }
+
+    /// Content emitted after `block_open` but before the first field in a type body.
+    ///
+    /// Default: `""`. Haskell overrides to `"Person {"` for record syntax.
+    fn type_body_prefix(&self, _name: &str, _kind: crate::spec::modifiers::TypeKind) -> String {
+        String::new()
+    }
+
+    /// Content emitted after the last field but before `block_close` in a type body.
+    ///
+    /// Default: `""`. Haskell overrides to `"}"` for record syntax.
+    fn type_body_suffix(&self, _name: &str, _kind: crate::spec::modifiers::TypeKind) -> String {
+        String::new()
+    }
+
+    /// Suffix rendered after the type's closing delimiter (e.g., Haskell `deriving`).
+    ///
+    /// `impl_types` contains rendered type names from `TypeSpecBuilder::implements()`.
+    /// Default: `""`.
+    fn render_type_close_suffix(
+        &self,
+        _kind: crate::spec::modifiers::TypeKind,
+        _impl_types: &[String],
+    ) -> String {
+        String::new()
+    }
+
+    /// Override separator for the 2nd+ super type in an inheritance list.
+    ///
+    /// When `Some(sep)`, the first super type uses `super_type_keyword()` and
+    /// subsequent ones use `sep` instead of `super_type_separator()`.
+    ///
+    /// Default: `None`. Scala overrides to `Some(" with ")` so that
+    /// `class Foo extends Base with Trait1 with Trait2` is emitted.
+    fn super_type_subsequent_separator(&self) -> Option<&str> {
+        None
+    }
+
     /// Keyword emitted for readonly/immutable fields.
     ///
     /// In type-before-name languages (C/C++/Java): appears before the type.
@@ -439,6 +543,15 @@ pub trait CodeLang: Sized + Clone + 'static {
     /// Default: `""`. Swift overrides to `"case "`.
     fn enum_variant_prefix(&self) -> &str {
         ""
+    }
+
+    /// Prefix before the first enum variant only.
+    ///
+    /// Default: delegates to `enum_variant_prefix()`.
+    /// Haskell overrides to `""` (first constructor after `=` has no prefix),
+    /// while subsequent constructors use `"| "` via `enum_variant_prefix()`.
+    fn enum_variant_prefix_first(&self) -> &str {
+        self.enum_variant_prefix()
     }
 
     /// Separator after each enum variant (e.g., `","` for most languages).
