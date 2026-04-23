@@ -3,7 +3,7 @@ use std::path::PathBuf;
 /// Assert that the output matches the golden file.
 /// If BLESS=1 is set, update the golden file instead.
 pub fn assert_golden(name: &str, actual: &str) {
-    let golden_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden");
+    let golden_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test-goldens");
     let golden_path = golden_dir.join(name);
 
     if std::env::var("BLESS").is_ok() {
