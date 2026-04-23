@@ -31,6 +31,16 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
                     __sigil_builder.add_line();
                 });
             }
+            Statement::Indent => {
+                calls.push(quote! {
+                    __sigil_builder.add("%>", ());
+                });
+            }
+            Statement::Dedent => {
+                calls.push(quote! {
+                    __sigil_builder.add("%<", ());
+                });
+            }
             Statement::Comment(text) => {
                 calls.push(quote! {
                     __sigil_builder.add_comment(#text);
@@ -46,7 +56,7 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
                 let args_tuple = build_args_tuple(args);
                 calls.push(quote! {
                     __sigil_builder.add(#format, #args_tuple);
-                    __sigil_builder.add("\n", ());
+                    __sigil_builder.add_line();
                 });
             }
             Statement::ControlFlow { branches } => {
@@ -56,9 +66,15 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
                     let body_calls = generate_statements(&branch.body);
 
                     if i == 0 {
-                        calls.push(quote! {
-                            __sigil_builder.begin_control_flow(#fmt, #args_tuple);
-                        });
+                        if let Some(ref custom_open) = branch.block_open_override {
+                            calls.push(quote! {
+                                __sigil_builder.begin_control_flow_with_open(#fmt, #args_tuple, #custom_open);
+                            });
+                        } else {
+                            calls.push(quote! {
+                                __sigil_builder.begin_control_flow(#fmt, #args_tuple);
+                            });
+                        }
                     } else {
                         calls.push(quote! {
                             __sigil_builder.next_control_flow(#fmt, #args_tuple);

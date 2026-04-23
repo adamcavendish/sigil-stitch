@@ -3,6 +3,8 @@
 use sigil_stitch::code_block::{CodeBlock, NameArg, StringLitArg};
 use sigil_stitch::import_collector;
 use sigil_stitch::lang::go_lang::GoLang;
+use sigil_stitch::lang::haskell::Haskell;
+use sigil_stitch::lang::ocaml::OCaml;
 use sigil_stitch::lang::python::Python;
 use sigil_stitch::lang::rust_lang::RustLang;
 use sigil_stitch::lang::typescript::TypeScript;
@@ -1085,4 +1087,225 @@ fn render_go(block: &CodeBlock<GoLang>) -> String {
     fb.add_code(block.clone());
     let file = fb.build().unwrap();
     file.render(80).unwrap()
+}
+
+fn render_hs(block: &CodeBlock<Haskell>) -> String {
+    let mut fb = FileSpec::builder_with("test.hs", Haskell::new());
+    fb.add_code(block.clone());
+    let file = fb.build().unwrap();
+    file.render(80).unwrap()
+}
+
+fn render_ml(block: &CodeBlock<OCaml>) -> String {
+    let mut fb = FileSpec::builder_with("test.ml", OCaml::new());
+    fb.add_code(block.clone());
+    let file = fb.build().unwrap();
+    file.render(80).unwrap()
+}
+
+// ════════════════════════════════════════════════════════
+// O. Comment escape sequences
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn test_comment_with_newline_escape() {
+    let block = sigil_quote!(TypeScript {
+        $comment("first line\nsecond line");
+        const x = 1;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    // The \n in the comment is unescaped to a real newline.
+    // add_comment renders the prefix only on the first line.
+    assert!(
+        output.contains("// first line\nsecond line"),
+        "got: {output}"
+    );
+}
+
+#[test]
+fn test_comment_with_tab_escape() {
+    let block = sigil_quote!(TypeScript {
+        $comment("indented\ttab");
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("indented\ttab"), "got: {output}");
+}
+
+#[test]
+fn test_comment_with_backslash_escape() {
+    let block = sigil_quote!(TypeScript {
+        $comment("path\\to\\file");
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("path\\to\\file"), "got: {output}");
+}
+
+// ════════════════════════════════════════════════════════
+// P. Manual indent/dedent ($> / $<)
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn test_manual_indent_dedent() {
+    // $> and $< control indent depth around statements.
+    let block = sigil_quote!(TypeScript {
+        namespace Foo {$>
+        const x = 1;
+        const y = 2;
+        $<}
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("namespace Foo {"), "got: {output}");
+    assert!(
+        output.contains("    const x = 1;"),
+        "expected indented x, got: {output}"
+    );
+    assert!(
+        output.contains("    const y = 2;"),
+        "expected indented y, got: {output}"
+    );
+    assert!(output.contains("}"), "got: {output}");
+}
+
+// ════════════════════════════════════════════════════════
+// Q. Custom block openers ($open)
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn test_open_haskell_where() {
+    let block = sigil_quote!(Haskell {
+        class Functor f $open(" where") {
+            fmap :: (a -> b) -> f a -> f b;
+        }
+    })
+    .unwrap();
+
+    let output = render_hs(&block);
+    assert!(output.contains("class Functor f where"), "got: {output}");
+    assert!(output.contains("fmap"), "got: {output}");
+    // Should NOT contain " =" (default Haskell block_open).
+    assert!(!output.contains("class Functor f ="), "got: {output}");
+}
+
+#[test]
+fn test_open_ocaml_module() {
+    let block = sigil_quote!(OCaml {
+        module Foo $open(" = struct") {
+            let x = 42;
+        }
+    })
+    .unwrap();
+
+    let output = render_ml(&block);
+    assert!(output.contains("module Foo = struct"), "got: {output}");
+    assert!(output.contains("let x = 42"), "got: {output}");
+}
+
+#[test]
+fn test_open_empty_suppresses_block_opener() {
+    let block = sigil_quote!(TypeScript {
+        something $open("") {
+            body;
+        }
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("something"), "got: {output}");
+    assert!(output.contains("body;"), "got: {output}");
+    // Should NOT contain " {" after "something" since we suppressed the opener.
+    assert!(!output.contains("something {"), "got: {output}");
+}
+
+// ════════════════════════════════════════════════════════
+// R. Non-brace languages via sigil_quote!
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn test_haskell_basic_statement() {
+    let block = sigil_quote!(Haskell {
+        putStrLn "hello";
+    })
+    .unwrap();
+
+    let output = render_hs(&block);
+    assert!(output.contains("putStrLn \"hello\""), "got: {output}");
+    // Haskell doesn't use semicolons in output.
+    assert!(!output.contains(";"), "got: {output}");
+}
+
+#[test]
+fn test_haskell_control_flow() {
+    let block = sigil_quote!(Haskell {
+        if x > 0 {
+            return True;
+        }
+    })
+    .unwrap();
+
+    let output = render_hs(&block);
+    // Haskell block_open() is " =" so this gets "if x > 0 ="
+    assert!(output.contains("if x > 0 ="), "got: {output}");
+    assert!(output.contains("return True"), "got: {output}");
+}
+
+#[test]
+fn test_ocaml_let_binding() {
+    let block = sigil_quote!(OCaml {
+        let x = 42;
+    })
+    .unwrap();
+
+    let output = render_ml(&block);
+    assert!(output.contains("let x = 42"), "got: {output}");
+}
+
+// ════════════════════════════════════════════════════════
+// S. Import propagation through $C
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn test_nested_code_block_import_propagation() {
+    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+    let inner = CodeBlock::<TypeScript>::of("getUser(): %T", (user_type,)).unwrap();
+
+    let block = sigil_quote!(TypeScript {
+        $C(inner);
+    })
+    .unwrap();
+
+    let refs = import_collector::collect_imports(&block);
+    assert_eq!(refs.len(), 1, "expected 1 import, got: {refs:?}");
+    assert_eq!(refs[0].name, "User");
+}
+
+// ════════════════════════════════════════════════════════
+// T. if/else chain correctness
+// ════════════════════════════════════════════════════════
+
+#[test]
+fn test_if_else_if_else_chain() {
+    let block = sigil_quote!(TypeScript {
+        if(x > 0) {
+            return 1;
+        } else if(x < 0) {
+            return -1;
+        } else {
+            return 0;
+        }
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("if(x > 0) {"), "got: {output}");
+    assert!(output.contains("} else if(x < 0) {"), "got: {output}");
+    assert!(output.contains("} else {"), "got: {output}");
+    assert!(output.contains("return 0;"), "got: {output}");
 }
