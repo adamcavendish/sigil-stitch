@@ -10,7 +10,7 @@ use crate::lang::CodeLang;
 /// interprets these patterns — language implementations never build `BoxDoc`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypePresentation<'a> {
-    /// `name<P1, P2>` — delimiters from `generic_open()`/`generic_close()`.
+    /// `name<P1, P2>` — delimiters from `generic_syntax().open`/`.close`.
     GenericWrap {
         /// The wrapper type name (e.g., `"Vec"`, `"Option"`, `"HashMap"`).
         name: &'a str,
@@ -51,7 +51,7 @@ pub enum TypePresentation<'a> {
 /// Controls how `TypeName::Generic { base, params }` renders.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GenericApplicationStyle {
-    /// `Base<P1, P2>` or `Base[P1, P2]` — uses `generic_open()`/`generic_close()`.
+    /// `Base<P1, P2>` or `Base[P1, P2]` — uses `generic_syntax().open`/`.close`.
     Delimited,
     /// `Base P1 P2` — Haskell-style prefix juxtaposition.
     /// Compound params are parenthesized: `Either String (Maybe Int)`.

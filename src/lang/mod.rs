@@ -37,9 +37,9 @@ use crate::import::ImportGroup;
 
 /// Trait defining language-specific behavior for code generation.
 ///
-/// All types in sigil-stitch are parameterized by `L: CodeLang`, allowing
-/// the same CodeBlock and TypeName structures to generate output for any
-/// supported language.
+/// Concrete language structs (e.g. `TypeScript`, `Rust`, `Python`) implement
+/// this trait so the same CodeBlock and TypeName structures can generate
+/// output for any supported language via `&dyn CodeLang`.
 ///
 /// Language-specific configuration is exposed through six config accessor
 /// methods (`type_presentation`, `generic_syntax`, `block_syntax`,

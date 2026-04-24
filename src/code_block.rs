@@ -28,19 +28,19 @@ pub(crate) enum FormatPart {
     StatementEnd,
     /// Newline.
     Newline,
-    /// Block open delimiter — resolved at render time via `lang.block_open()`.
+    /// Block open delimiter — resolved at render time via `lang.block_syntax().block_open`.
     /// Emitted by control-flow builders; braces for TS/Rust/Go, colon for Python.
     BlockOpen,
-    /// Block open with an overridden delimiter (not resolved via `lang.block_open()`).
+    /// Block open with an overridden delimiter (not resolved via `lang.block_syntax().block_open`).
     /// Emitted by `begin_control_flow_with_open` for constructs that need a
     /// different opener than the language default (e.g., Haskell `where` vs `=`).
     BlockOpenOverride(String),
-    /// Block close delimiter (terminal) — resolved at render time via `lang.block_close()`.
+    /// Block close delimiter (terminal) — resolved at render time via `lang.block_syntax().block_close`.
     /// Emitted by `end_control_flow`. When non-empty, also emits a trailing newline.
     /// When empty (indent-only languages like OCaml/Haskell/Python), emits nothing.
     BlockClose,
     /// Block close delimiter (transitional) — resolved at render time via
-    /// `lang.block_close()` + `" "`. Used by `next_control_flow` to emit `} else`.
+    /// `lang.block_syntax().block_close` + `" "`. Used by `next_control_flow` to emit `} else`.
     /// When `block_close()` is empty, emits nothing (Python: dedent-only transition).
     BlockCloseTransition,
 }

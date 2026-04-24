@@ -112,9 +112,10 @@ impl FileSpec {
     ///
     /// `width` controls the target line width for pretty-printing.
     pub fn render(&self, width: usize) -> Result<String, SigilStitchError> {
-        let lang: &dyn CodeLang = self.lang.as_deref().expect(
-            "FileSpec requires a language — use builder_with() or set lang via deserialization",
-        );
+        let lang: &dyn CodeLang = self
+            .lang
+            .as_deref()
+            .expect("FileSpec requires a language — use builder_with() to set one");
 
         // Phase 0: Materialize specs into CodeBlocks.
         enum Materialized {
