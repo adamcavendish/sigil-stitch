@@ -9,12 +9,11 @@ use crate::parse::{InterpolationKind, ParsedInput, Statement, TypedArg};
 
 /// Generate the output token stream from a parsed `sigil_quote!` input.
 pub(crate) fn generate(input: ParsedInput) -> TokenStream {
-    let lang_type = &input.lang_type;
     let builder_calls = generate_statements(&input.statements);
 
     quote! {
         {
-            let mut __sigil_builder = ::sigil_stitch::code_block::CodeBlock::<#lang_type>::builder();
+            let mut __sigil_builder = ::sigil_stitch::code_block::CodeBlock::builder();
             #(#builder_calls)*
             __sigil_builder.build()
         }
@@ -95,11 +94,11 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
 /// Build the args tuple expression from typed args.
 ///
 /// Wraps each arg according to its interpolation kind:
-/// - `$T(expr)` -> bare expr (must be `TypeName<L>`)
+/// - `$T(expr)` -> bare expr (must be `TypeName`)
 /// - `$N(expr)` -> `NameArg((expr).to_string())`
 /// - `$S(expr)` -> `StringLitArg((expr).to_string())`
-/// - `$L(expr)` -> bare expr (via `Into<Arg<L>>`)
-/// - `$C(expr)` -> bare expr (must be `CodeBlock<L>`)
+/// - `$L(expr)` -> bare expr (via `Into<Arg>`)
+/// - `$C(expr)` -> bare expr (must be `CodeBlock`)
 fn build_args_tuple(args: &[TypedArg]) -> TokenStream {
     if args.is_empty() {
         quote! { () }

@@ -10,36 +10,41 @@ use super::golden;
 
 #[test]
 fn test_top_level_function() {
-    let tp =
-        TypeParamSpec::<RustLang>::new("T").with_bound(TypeName::primitive("std::fmt::Display"));
+    let tp = TypeParamSpec::new("T").with_bound(TypeName::primitive("std::fmt::Display"));
 
-    let mut fb = FunSpec::<RustLang>::builder("print_value");
-    fb.visibility(Visibility::Public);
-    fb.add_type_param(tp);
-    fb.add_param(ParameterSpec::new("value", TypeName::primitive("&T")).unwrap());
-    let body = CodeBlock::<RustLang>::of("println!(\"{}\", value)", ()).unwrap();
-    fb.body(body);
+    let body = CodeBlock::of("println!(\"{}\", value)", ()).unwrap();
+    let fb = FunSpec::builder("print_value")
+        .visibility(Visibility::Public)
+        .add_type_param(tp)
+        .add_param(ParameterSpec::new("value", TypeName::primitive("&T")).unwrap())
+        .body(body);
 
-    let mut file = FileSpec::builder_with("utils.rs", RustLang::new());
-    file.add_function(fb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder_with("utils.rs", RustLang::new())
+        .add_function(fb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("rust/top_level_function.rs", &output);
 }
 
 #[test]
 fn test_function_with_doc() {
-    let mut fb = FunSpec::<RustLang>::builder("greet");
-    fb.visibility(Visibility::Public);
-    fb.doc("Greet the user by name.");
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("&str")).unwrap());
-    fb.returns(TypeName::primitive("String"));
-    let body = CodeBlock::<RustLang>::of("format!(\"Hello, {}!\", name)", ()).unwrap();
-    fb.body(body);
+    let body = CodeBlock::of("format!(\"Hello, {}!\", name)", ()).unwrap();
+    let fb = FunSpec::builder("greet")
+        .visibility(Visibility::Public)
+        .doc("Greet the user by name.")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("&str")).unwrap())
+        .returns(TypeName::primitive("String"))
+        .body(body);
 
-    let mut file = FileSpec::builder_with("greet.rs", RustLang::new());
-    file.add_function(fb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder_with("greet.rs", RustLang::new())
+        .add_function(fb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("rust/function_with_doc.rs", &output);
 }

@@ -1,7 +1,4 @@
-use std::marker::PhantomData;
-
 use crate::import::ImportEntry;
-use crate::lang::CodeLang;
 
 /// Explicit import specification for manual import control.
 ///
@@ -22,17 +19,16 @@ use crate::lang::CodeLang;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
 /// // Forced named import:
-/// let spec = ImportSpec::<TypeScript>::named("./models", "User");
+/// let spec = ImportSpec::named("./models", "User");
 ///
 /// // Aliased import: import { User as MyUser } from './models'
-/// let spec = ImportSpec::<TypeScript>::named_as("./models", "User", "MyUser");
+/// let spec = ImportSpec::named_as("./models", "User", "MyUser");
 ///
 /// // Side-effect import: import './polyfill';
-/// let spec = ImportSpec::<TypeScript>::side_effect("./polyfill");
+/// let spec = ImportSpec::side_effect("./polyfill");
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub enum ImportSpec<L: CodeLang> {
+pub enum ImportSpec {
     /// Import a specific named symbol from a module.
     Named {
         /// The module path to import from.
@@ -43,9 +39,6 @@ pub enum ImportSpec<L: CodeLang> {
         alias: Option<String>,
         /// Whether this is a type-only import (e.g., TypeScript `import type`).
         is_type_only: bool,
-        /// Language phantom data.
-        #[serde(skip)]
-        _phantom: PhantomData<L>,
     },
     /// Side-effect import: import a module for its side effects only.
     ///
@@ -58,9 +51,6 @@ pub enum ImportSpec<L: CodeLang> {
     SideEffect {
         /// The module path to import for side effects.
         module: String,
-        /// Language phantom data.
-        #[serde(skip)]
-        _phantom: PhantomData<L>,
     },
     /// Wildcard import: import all exports from a module.
     ///
@@ -72,13 +62,10 @@ pub enum ImportSpec<L: CodeLang> {
     Wildcard {
         /// The module path to wildcard-import from.
         module: String,
-        /// Language phantom data.
-        #[serde(skip)]
-        _phantom: PhantomData<L>,
     },
 }
 
-impl<L: CodeLang> ImportSpec<L> {
+impl ImportSpec {
     /// Create a named import.
     pub fn named(module: &str, name: &str) -> Self {
         ImportSpec::Named {
@@ -86,7 +73,6 @@ impl<L: CodeLang> ImportSpec<L> {
             name: name.to_string(),
             alias: None,
             is_type_only: false,
-            _phantom: PhantomData,
         }
     }
 
@@ -97,7 +83,6 @@ impl<L: CodeLang> ImportSpec<L> {
             name: name.to_string(),
             alias: Some(alias.to_string()),
             is_type_only: false,
-            _phantom: PhantomData,
         }
     }
 
@@ -108,7 +93,6 @@ impl<L: CodeLang> ImportSpec<L> {
             name: name.to_string(),
             alias: None,
             is_type_only: true,
-            _phantom: PhantomData,
         }
     }
 
@@ -116,7 +100,6 @@ impl<L: CodeLang> ImportSpec<L> {
     pub fn side_effect(module: &str) -> Self {
         ImportSpec::SideEffect {
             module: module.to_string(),
-            _phantom: PhantomData,
         }
     }
 
@@ -124,7 +107,6 @@ impl<L: CodeLang> ImportSpec<L> {
     pub fn wildcard(module: &str) -> Self {
         ImportSpec::Wildcard {
             module: module.to_string(),
-            _phantom: PhantomData,
         }
     }
 
@@ -168,11 +150,10 @@ impl<L: CodeLang> ImportSpec<L> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lang::typescript::TypeScript;
 
     #[test]
     fn test_named_import() {
-        let spec = ImportSpec::<TypeScript>::named("./models", "User");
+        let spec = ImportSpec::named("./models", "User");
         let entry = spec.into_entry();
         assert_eq!(entry.module, "./models");
         assert_eq!(entry.name, "User");
@@ -184,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_named_as_import() {
-        let spec = ImportSpec::<TypeScript>::named_as("./models", "User", "MyUser");
+        let spec = ImportSpec::named_as("./models", "User", "MyUser");
         let entry = spec.into_entry();
         assert_eq!(entry.name, "User");
         assert_eq!(entry.alias.as_deref(), Some("MyUser"));
@@ -192,14 +173,14 @@ mod tests {
 
     #[test]
     fn test_named_type_import() {
-        let spec = ImportSpec::<TypeScript>::named_type("./models", "User");
+        let spec = ImportSpec::named_type("./models", "User");
         let entry = spec.into_entry();
         assert!(entry.is_type_only);
     }
 
     #[test]
     fn test_side_effect_import() {
-        let spec = ImportSpec::<TypeScript>::side_effect("./polyfill");
+        let spec = ImportSpec::side_effect("./polyfill");
         let entry = spec.into_entry();
         assert!(entry.is_side_effect);
         assert!(entry.name.is_empty());
@@ -208,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_wildcard_import() {
-        let spec = ImportSpec::<TypeScript>::wildcard("./utils");
+        let spec = ImportSpec::wildcard("./utils");
         let entry = spec.into_entry();
         assert!(entry.is_wildcard);
         assert!(entry.name.is_empty());

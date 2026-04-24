@@ -96,7 +96,7 @@ use proc_macro::TokenStream;
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+/// let user_type = TypeName::importable_type("./models", "User");
 ///
 /// let block = sigil_quote!(TypeScript {
 ///     const user: $T(user_type) = await getUser($S("id"));
@@ -107,7 +107,7 @@ use proc_macro::TokenStream;
 /// Control flow with interpolation:
 ///
 /// ```ignore
-/// let error_type = TypeName::<TypeScript>::importable_type("./errors", "NotFoundError");
+/// let error_type = TypeName::importable_type("./errors", "NotFoundError");
 ///
 /// let block = sigil_quote!(TypeScript {
 ///     if (!user) {

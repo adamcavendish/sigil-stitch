@@ -12,7 +12,7 @@ use super::golden;
 
 #[test]
 fn test_full_module() {
-    let user = TypeName::<Kotlin>::primitive("User");
+    let user = TypeName::primitive("User");
     let list = TypeName::generic(
         TypeName::importable("kotlin.collections", "List"),
         vec![user.clone()],
@@ -27,53 +27,66 @@ fn test_full_module() {
     );
 
     // Interface.
-    let mut iface = TypeSpec::<Kotlin>::builder("UserRepository", TypeKind::Interface);
-
-    let mut find = FunSpec::<Kotlin>::builder("findById");
-    find.returns(TypeName::primitive("User?"));
-    find.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    iface.add_method(find.build().unwrap());
-
-    let mut find_all = FunSpec::<Kotlin>::builder("findAll");
-    find_all.returns(list.clone());
-    iface.add_method(find_all.build().unwrap());
-
-    let iface_spec = iface.build().unwrap();
+    let iface_spec = TypeSpec::builder("UserRepository", TypeKind::Interface)
+        .add_method(
+            FunSpec::builder("findById")
+                .returns(TypeName::primitive("User?"))
+                .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("findAll")
+                .returns(list.clone())
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     // Implementation class.
-    let mut cls = TypeSpec::<Kotlin>::builder("InMemoryUserRepository", TypeKind::Class);
-    cls.extends(TypeName::primitive("UserRepository"));
-    cls.doc("In-memory implementation of UserRepository.");
+    let cls = TypeSpec::builder("InMemoryUserRepository", TypeKind::Class);
+    let cls = cls.extends(TypeName::primitive("UserRepository"));
+    let cls = cls.doc("In-memory implementation of UserRepository.");
 
-    let mut users_field = FieldSpec::builder("users", mutable_list);
-    users_field.visibility(Visibility::Private);
-    users_field.is_readonly();
-    cls.add_field(users_field.build().unwrap());
+    let cls = cls.add_field(
+        FieldSpec::builder("users", mutable_list)
+            .visibility(Visibility::Private)
+            .is_readonly()
+            .build()
+            .unwrap(),
+    );
 
     // findById override.
-    let find_body =
-        CodeBlock::<Kotlin>::of("return users.firstOrNull { it.id == id }", ()).unwrap();
-    let mut find_impl = FunSpec::<Kotlin>::builder("findById");
-    find_impl.returns(TypeName::primitive("User?"));
-    find_impl.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    find_impl.is_override();
-    find_impl.body(find_body);
-    cls.add_method(find_impl.build().unwrap());
+    let find_body = CodeBlock::of("return users.firstOrNull { it.id == id }", ()).unwrap();
+    let cls = cls.add_method(
+        FunSpec::builder("findById")
+            .returns(TypeName::primitive("User?"))
+            .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+            .is_override()
+            .body(find_body)
+            .build()
+            .unwrap(),
+    );
 
     // findAll override.
-    let find_all_body = CodeBlock::<Kotlin>::of("return %T(users)", (array_list,)).unwrap();
-    let mut find_all_impl = FunSpec::<Kotlin>::builder("findAll");
-    find_all_impl.returns(list);
-    find_all_impl.is_override();
-    find_all_impl.body(find_all_body);
-    cls.add_method(find_all_impl.build().unwrap());
+    let find_all_body = CodeBlock::of("return %T(users)", (array_list,)).unwrap();
+    let cls = cls.add_method(
+        FunSpec::builder("findAll")
+            .returns(list)
+            .is_override()
+            .body(find_all_body)
+            .build()
+            .unwrap(),
+    );
 
     let cls_spec = cls.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("UserRepo.kt", Kotlin::new());
-    fb.add_type(iface_spec);
-    fb.add_type(cls_spec);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("UserRepo.kt", Kotlin::new())
+        .add_type(iface_spec)
+        .add_type(cls_spec)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/full_module.kt", &output);
@@ -81,7 +94,7 @@ fn test_full_module() {
 
 #[test]
 fn test_string_dollar_escape() {
-    let body = CodeBlock::<Kotlin>::of(
+    let body = CodeBlock::of(
         "val greeting = %S\nval template = %S\nprintln(greeting)",
         (
             StringLitArg("Hello ${name}!".into()),
@@ -89,14 +102,16 @@ fn test_string_dollar_escape() {
         ),
     )
     .unwrap();
-    let mut fb = FunSpec::<Kotlin>::builder("greet");
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap());
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let fun = FunSpec::builder("greet")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap())
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("greet.kt", Kotlin::new());
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("greet.kt", Kotlin::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/string_dollar_escape.kt", &output);

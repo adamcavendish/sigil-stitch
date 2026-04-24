@@ -5,10 +5,13 @@ use sigil_stitch::spec::file_spec::FileSpec;
 
 use super::golden;
 
-fn render(block: &CodeBlock<CLang>) -> String {
-    let mut fb = FileSpec::builder_with("test.c", CLang::new());
-    fb.add_code(block.clone());
-    fb.build().unwrap().render(80).unwrap()
+fn render(block: &CodeBlock) -> String {
+    FileSpec::builder_with("test.c", CLang::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }
 
 #[test]

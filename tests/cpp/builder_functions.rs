@@ -9,15 +9,17 @@ use super::golden;
 
 #[test]
 fn test_const_method() {
-    let mut fb = FunSpec::<CppLang>::builder("size");
-    fb.returns(TypeName::primitive("int"));
-    fb.suffix("const");
-    fb.suffix("noexcept");
-    let fun = fb.build().unwrap();
+    let fun = FunSpec::builder("size")
+        .returns(TypeName::primitive("int"))
+        .suffix("const")
+        .suffix("noexcept")
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("api.hpp", CppLang::header());
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("api.hpp", CppLang::header())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("cpp/const_method.cpp", &output);
@@ -25,18 +27,20 @@ fn test_const_method() {
 
 #[test]
 fn test_template_function() {
-    let mut fb = FunSpec::<CppLang>::builder("max_of");
-    fb.annotation(CodeBlock::<CppLang>::of("template<typename T>", ()).unwrap());
-    fb.add_param(ParameterSpec::new("a", TypeName::primitive("const T&")).unwrap());
-    fb.add_param(ParameterSpec::new("b", TypeName::primitive("const T&")).unwrap());
-    fb.returns(TypeName::primitive("T"));
-    let body = CodeBlock::<CppLang>::of("return (a > b) ? a : b;", ()).unwrap();
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let body = CodeBlock::of("return (a > b) ? a : b;", ()).unwrap();
+    let fun = FunSpec::builder("max_of")
+        .annotation(CodeBlock::of("template<typename T>", ()).unwrap())
+        .add_param(ParameterSpec::new("a", TypeName::primitive("const T&")).unwrap())
+        .add_param(ParameterSpec::new("b", TypeName::primitive("const T&")).unwrap())
+        .returns(TypeName::primitive("T"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("algo.hpp", CppLang::header());
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("algo.hpp", CppLang::header())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("cpp/template_function.cpp", &output);
@@ -44,16 +48,18 @@ fn test_template_function() {
 
 #[test]
 fn test_static_method() {
-    let body = CodeBlock::<CppLang>::of("return instance_count_;", ()).unwrap();
-    let mut fb = FunSpec::<CppLang>::builder("count");
-    fb.is_static();
-    fb.returns(TypeName::primitive("int"));
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let body = CodeBlock::of("return instance_count_;", ()).unwrap();
+    let fun = FunSpec::builder("count")
+        .is_static()
+        .returns(TypeName::primitive("int"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("helpers.cpp", CppLang::new());
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("helpers.cpp", CppLang::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("cpp/static_method.cpp", &output);
@@ -61,18 +67,20 @@ fn test_static_method() {
 
 #[test]
 fn test_function_with_doc() {
-    let body = CodeBlock::<CppLang>::of("return (a > b) ? a : b;", ()).unwrap();
-    let mut fb = FunSpec::<CppLang>::builder("max_val");
-    fb.doc("Return the larger of two values.");
-    fb.add_param(ParameterSpec::new("a", TypeName::primitive("int")).unwrap());
-    fb.add_param(ParameterSpec::new("b", TypeName::primitive("int")).unwrap());
-    fb.returns(TypeName::primitive("int"));
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let body = CodeBlock::of("return (a > b) ? a : b;", ()).unwrap();
+    let fun = FunSpec::builder("max_val")
+        .doc("Return the larger of two values.")
+        .add_param(ParameterSpec::new("a", TypeName::primitive("int")).unwrap())
+        .add_param(ParameterSpec::new("b", TypeName::primitive("int")).unwrap())
+        .returns(TypeName::primitive("int"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("math_doc.cpp", CppLang::new());
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("math_doc.cpp", CppLang::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("cpp/function_with_doc.cpp", &output);

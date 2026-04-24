@@ -3,7 +3,6 @@
 //! Run with: `cargo run --example typescript_hello_world`
 
 use sigil_stitch::code_block::{CodeBlock, StringLitArg};
-use sigil_stitch::lang::typescript::TypeScript;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::spec::fun_spec::FunSpec;
@@ -14,22 +13,23 @@ use sigil_stitch::type_name::TypeName;
 
 fn main() {
     // Define types that need imports.
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
-    let not_found = TypeName::<TypeScript>::importable_type("./errors", "NotFoundError");
+    let user_type = TypeName::importable_type("./models", "User");
+    let not_found = TypeName::importable_type("./errors", "NotFoundError");
 
     // Build the class using TypeSpec.
-    let mut tb = TypeSpec::<TypeScript>::builder("UserService", TypeKind::Class);
-    tb.visibility(Visibility::Public);
-    tb.doc("Service for managing users.");
-
-    // Private field.
-    let mut field_b = FieldSpec::builder("userRepo", TypeName::primitive("UserRepository"));
-    field_b.visibility(Visibility::Private);
-    field_b.is_readonly();
-    tb.add_field(field_b.build().unwrap());
+    let tb = TypeSpec::builder("UserService", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .doc("Service for managing users.")
+        .add_field(
+            FieldSpec::builder("userRepo", TypeName::primitive("UserRepository"))
+                .visibility(Visibility::Private)
+                .is_readonly()
+                .build()
+                .unwrap(),
+        );
 
     // Async method with control flow body.
-    let mut body = CodeBlock::<TypeScript>::builder();
+    let mut body = CodeBlock::builder();
     body.add_statement(
         "const user = await this.userRepo.findById(%S)",
         (StringLitArg("id".to_string()),),
@@ -40,20 +40,24 @@ fn main() {
     body.add_statement("return user", ());
     let body_block = body.build().unwrap();
 
-    let mut fb = FunSpec::builder("getUser");
-    fb.is_async();
-    fb.add_param(ParameterSpec::new("id", TypeName::primitive("string")).unwrap());
-    fb.returns(TypeName::generic(
-        TypeName::primitive("Promise"),
-        vec![user_type],
-    ));
-    fb.body(body_block);
-    tb.add_method(fb.build().unwrap());
+    let tb = tb.add_method(
+        FunSpec::builder("getUser")
+            .is_async()
+            .add_param(ParameterSpec::new("id", TypeName::primitive("string")).unwrap())
+            .returns(TypeName::generic(
+                TypeName::primitive("Promise"),
+                vec![user_type],
+            ))
+            .body(body_block)
+            .build()
+            .unwrap(),
+    );
 
     // Build the file.
-    let mut file = FileSpec::<TypeScript>::builder("UserService.ts");
-    file.add_type(tb.build().unwrap());
-    let spec = file.build().unwrap();
+    let spec = FileSpec::builder("UserService.ts")
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap();
 
     // Render at 80 columns.
     let output = spec.render(80).unwrap();

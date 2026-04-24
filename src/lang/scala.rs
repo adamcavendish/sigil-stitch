@@ -43,14 +43,14 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// Use `TypeKind::Trait` for traits and `TypeKind::Struct` for case classes.
 /// For sealed modifiers, use annotations:
 /// ```text
-/// tb.annotation(CodeBlock::<Scala>::of("sealed", ()).unwrap());
+/// tb.annotation(CodeBlock::of("sealed", ()).unwrap());
 /// ```
 ///
 /// # Primary constructors
 ///
 /// Use `add_primary_constructor_param()` on `TypeSpecBuilder`:
 /// ```text
-/// let mut tb = TypeSpec::<Scala>::builder("Person", TypeKind::Class);
+/// let mut tb = TypeSpec::builder("Person", TypeKind::Class);
 /// tb.add_primary_constructor_param(ParameterSpec::new("val name", TypeName::primitive("String")));
 /// tb.add_primary_constructor_param(ParameterSpec::new("val age", TypeName::primitive("Int")));
 /// // Emits: class Person(val name: String, val age: Int) {

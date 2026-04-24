@@ -13,11 +13,7 @@ use super::golden;
 
 #[test]
 fn test_struct_with_impl() {
-    let mut tb = TypeSpec::<RustLang>::builder("Config", TypeKind::Struct);
-    tb.visibility(Visibility::Public);
-    tb.doc("Application configuration.");
-
-    let derive = CodeBlock::<RustLang>::of(
+    let derive = CodeBlock::of(
         "#[derive(%T, %T)]",
         (
             TypeName::importable("serde", "Serialize"),
@@ -25,172 +21,206 @@ fn test_struct_with_impl() {
         ),
     )
     .unwrap();
-    tb.annotation(derive);
 
-    let mut fb1 = FieldSpec::builder("name", TypeName::primitive("String"));
-    fb1.visibility(Visibility::Public);
-    tb.add_field(fb1.build().unwrap());
-
-    let mut fb2 = FieldSpec::builder(
-        "values",
-        TypeName::generic(
-            TypeName::importable("std::collections", "HashMap"),
-            vec![TypeName::primitive("String"), TypeName::primitive("i64")],
-        ),
-    );
-    fb2.visibility(Visibility::Public);
-    tb.add_field(fb2.build().unwrap());
-
-    let body = CodeBlock::<RustLang>::of(
+    let body = CodeBlock::of(
         "Self { name: name.to_string(), values: HashMap::new() }",
         (),
     )
     .unwrap();
-    let mut mfb = FunSpec::<RustLang>::builder("new");
-    mfb.visibility(Visibility::Public);
-    mfb.add_param(ParameterSpec::new("name", TypeName::primitive("&str")).unwrap());
-    mfb.returns(TypeName::primitive("Self"));
-    mfb.body(body);
-    tb.add_method(mfb.build().unwrap());
 
-    let mut file = FileSpec::builder_with("config.rs", RustLang::new());
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(100).unwrap();
+    let tb = TypeSpec::builder("Config", TypeKind::Struct)
+        .visibility(Visibility::Public)
+        .doc("Application configuration.")
+        .annotation(derive)
+        .add_field(
+            FieldSpec::builder("name", TypeName::primitive("String"))
+                .visibility(Visibility::Public)
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder(
+                "values",
+                TypeName::generic(
+                    TypeName::importable("std::collections", "HashMap"),
+                    vec![TypeName::primitive("String"), TypeName::primitive("i64")],
+                ),
+            )
+            .visibility(Visibility::Public)
+            .build()
+            .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("new")
+                .visibility(Visibility::Public)
+                .add_param(ParameterSpec::new("name", TypeName::primitive("&str")).unwrap())
+                .returns(TypeName::primitive("Self"))
+                .body(body)
+                .build()
+                .unwrap(),
+        );
+
+    let output = FileSpec::builder_with("config.rs", RustLang::new())
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(100)
+        .unwrap();
 
     golden::assert_golden("rust/struct_with_impl.rs", &output);
 }
 
 #[test]
 fn test_generic_struct() {
-    let tp = TypeParamSpec::<RustLang>::new("T")
+    let tp = TypeParamSpec::new("T")
         .with_bound(TypeName::primitive("Clone"))
         .with_bound(TypeName::primitive("Send"));
 
-    let mut tb = TypeSpec::<RustLang>::builder("Container", TypeKind::Struct);
-    tb.visibility(Visibility::Public);
-    tb.add_type_param(tp);
+    let body = CodeBlock::of("self.items.len()", ()).unwrap();
+    let tb = TypeSpec::builder("Container", TypeKind::Struct)
+        .visibility(Visibility::Public)
+        .add_type_param(tp)
+        .add_field(
+            FieldSpec::builder(
+                "items",
+                TypeName::generic(TypeName::primitive("Vec"), vec![TypeName::primitive("T")]),
+            )
+            .visibility(Visibility::Public)
+            .build()
+            .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("len")
+                .visibility(Visibility::Public)
+                .add_param(ParameterSpec::new("&self", TypeName::primitive("")).unwrap())
+                .returns(TypeName::primitive("usize"))
+                .body(body)
+                .build()
+                .unwrap(),
+        );
 
-    let mut fb = FieldSpec::builder(
-        "items",
-        TypeName::generic(TypeName::primitive("Vec"), vec![TypeName::primitive("T")]),
-    );
-    fb.visibility(Visibility::Public);
-    tb.add_field(fb.build().unwrap());
-
-    let body = CodeBlock::<RustLang>::of("self.items.len()", ()).unwrap();
-    let mut mfb = FunSpec::<RustLang>::builder("len");
-    mfb.visibility(Visibility::Public);
-    mfb.add_param(ParameterSpec::new("&self", TypeName::primitive("")).unwrap());
-    mfb.returns(TypeName::primitive("usize"));
-    mfb.body(body);
-    tb.add_method(mfb.build().unwrap());
-
-    let mut file = FileSpec::builder_with("container.rs", RustLang::new());
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder_with("container.rs", RustLang::new())
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("rust/generic_struct.rs", &output);
 }
 
 #[test]
 fn test_enum() {
-    let mut tb = TypeSpec::<RustLang>::builder("Color", TypeKind::Enum);
-    tb.visibility(Visibility::Public);
+    let derive = CodeBlock::of("#[derive(Debug, Clone, Copy)]", ()).unwrap();
+    let tb = TypeSpec::builder("Color", TypeKind::Enum)
+        .visibility(Visibility::Public)
+        .annotation(derive)
+        .add_variant(EnumVariantSpec::new("Red").unwrap())
+        .add_variant(EnumVariantSpec::new("Green").unwrap())
+        .add_variant(EnumVariantSpec::new("Blue").unwrap());
 
-    let derive = CodeBlock::<RustLang>::of("#[derive(Debug, Clone, Copy)]", ()).unwrap();
-    tb.annotation(derive);
-
-    tb.add_variant(EnumVariantSpec::new("Red").unwrap());
-    tb.add_variant(EnumVariantSpec::new("Green").unwrap());
-    tb.add_variant(EnumVariantSpec::new("Blue").unwrap());
-
-    let mut file = FileSpec::builder_with("color.rs", RustLang::new());
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder_with("color.rs", RustLang::new())
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("rust/enum.rs", &output);
 }
 
 #[test]
 fn test_enum_tuple_variants() {
-    let mut tb = TypeSpec::<RustLang>::builder("Expr", TypeKind::Enum);
-    tb.visibility(Visibility::Public);
+    let derive = CodeBlock::of("#[derive(Debug, Clone)]", ()).unwrap();
+    let tb = TypeSpec::builder("Expr", TypeKind::Enum)
+        .visibility(Visibility::Public)
+        .annotation(derive)
+        .add_variant(EnumVariantSpec::new("Unit").unwrap())
+        .add_variant(
+            EnumVariantSpec::builder("Literal")
+                .associated_type(TypeName::primitive("i64"))
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("Add")
+                .associated_type(TypeName::generic(
+                    TypeName::primitive("Box"),
+                    vec![TypeName::primitive("Expr")],
+                ))
+                .associated_type(TypeName::generic(
+                    TypeName::primitive("Box"),
+                    vec![TypeName::primitive("Expr")],
+                ))
+                .build()
+                .unwrap(),
+        );
 
-    let derive = CodeBlock::<RustLang>::of("#[derive(Debug, Clone)]", ()).unwrap();
-    tb.annotation(derive);
-
-    tb.add_variant(EnumVariantSpec::new("Unit").unwrap());
-
-    let mut v_lit = EnumVariantSpec::<RustLang>::builder("Literal");
-    v_lit.associated_type(TypeName::primitive("i64"));
-    tb.add_variant(v_lit.build().unwrap());
-
-    let mut v_add = EnumVariantSpec::<RustLang>::builder("Add");
-    v_add.associated_type(TypeName::generic(
-        TypeName::primitive("Box"),
-        vec![TypeName::primitive("Expr")],
-    ));
-    v_add.associated_type(TypeName::generic(
-        TypeName::primitive("Box"),
-        vec![TypeName::primitive("Expr")],
-    ));
-    tb.add_variant(v_add.build().unwrap());
-
-    let mut file = FileSpec::builder_with("expr.rs", RustLang::new());
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder_with("expr.rs", RustLang::new())
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("rust/enum_tuple.rs", &output);
 }
 
 #[test]
 fn test_enum_struct_variants() {
-    let mut tb = TypeSpec::<RustLang>::builder("Message", TypeKind::Enum);
-    tb.visibility(Visibility::Public);
+    let derive = CodeBlock::of("#[derive(Debug)]", ()).unwrap();
+    let tb = TypeSpec::builder("Message", TypeKind::Enum)
+        .visibility(Visibility::Public)
+        .annotation(derive)
+        .add_variant(EnumVariantSpec::new("Quit").unwrap())
+        .add_variant(
+            EnumVariantSpec::builder("Move")
+                .add_field(
+                    FieldSpec::builder("x", TypeName::primitive("i32"))
+                        .build()
+                        .unwrap(),
+                )
+                .add_field(
+                    FieldSpec::builder("y", TypeName::primitive("i32"))
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("Write")
+                .associated_type(TypeName::primitive("String"))
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("ChangeColor")
+                .add_field(
+                    FieldSpec::builder("r", TypeName::primitive("u8"))
+                        .build()
+                        .unwrap(),
+                )
+                .add_field(
+                    FieldSpec::builder("g", TypeName::primitive("u8"))
+                        .build()
+                        .unwrap(),
+                )
+                .add_field(
+                    FieldSpec::builder("b", TypeName::primitive("u8"))
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        );
 
-    let derive = CodeBlock::<RustLang>::of("#[derive(Debug)]", ()).unwrap();
-    tb.annotation(derive);
-
-    tb.add_variant(EnumVariantSpec::new("Quit").unwrap());
-
-    let mut v_move = EnumVariantSpec::<RustLang>::builder("Move");
-    v_move.add_field(
-        FieldSpec::builder("x", TypeName::primitive("i32"))
-            .build()
-            .unwrap(),
-    );
-    v_move.add_field(
-        FieldSpec::builder("y", TypeName::primitive("i32"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_variant(v_move.build().unwrap());
-
-    let mut v_write = EnumVariantSpec::<RustLang>::builder("Write");
-    v_write.associated_type(TypeName::primitive("String"));
-    tb.add_variant(v_write.build().unwrap());
-
-    let mut v_color = EnumVariantSpec::<RustLang>::builder("ChangeColor");
-    v_color.add_field(
-        FieldSpec::builder("r", TypeName::primitive("u8"))
-            .build()
-            .unwrap(),
-    );
-    v_color.add_field(
-        FieldSpec::builder("g", TypeName::primitive("u8"))
-            .build()
-            .unwrap(),
-    );
-    v_color.add_field(
-        FieldSpec::builder("b", TypeName::primitive("u8"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_variant(v_color.build().unwrap());
-
-    let mut file = FileSpec::builder_with("message.rs", RustLang::new());
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder_with("message.rs", RustLang::new())
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("rust/enum_struct.rs", &output);
 }

@@ -148,23 +148,22 @@ pub struct WildcardPresentation<'a> {
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
 /// // Importable type (generates `import { User } from './models'`):
-/// let user = TypeName::<TypeScript>::importable("./models", "User");
+/// let user = TypeName::importable("./models", "User");
 ///
 /// // Primitive (no import needed):
-/// let num = TypeName::<TypeScript>::primitive("number");
+/// let num = TypeName::primitive("number");
 ///
 /// // Generic: Promise<User>
-/// let promise = TypeName::<TypeScript>::generic(
+/// let promise = TypeName::generic(
 ///     TypeName::primitive("Promise"),
 ///     vec![user],
 /// );
 ///
 /// // Optional: string | null
-/// let maybe_str = TypeName::<TypeScript>::optional(TypeName::primitive("string"));
+/// let maybe_str = TypeName::optional(TypeName::primitive("string"));
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub enum TypeName<L: CodeLang> {
+pub enum TypeName {
     /// A type that requires an import statement.
     Importable {
         /// The module path to import from.
@@ -179,40 +178,40 @@ pub enum TypeName<L: CodeLang> {
     /// A primitive/built-in type (no import needed).
     Primitive(String),
     /// Array type. TS: `T[]`, Go: `[]T`, Rust: `Vec<T>`.
-    Array(Box<TypeName<L>>),
+    Array(Box<TypeName>),
     /// Readonly array type. TS: `readonly T[]`. Other languages fall back to
     /// their `Array` rendering since they lack a direct readonly-array form.
-    ReadonlyArray(Box<TypeName<L>>),
+    ReadonlyArray(Box<TypeName>),
     /// Generic type. e.g., `Promise<User>`, `HashMap<String, User>`.
     Generic {
         /// The base type (e.g., `Promise`, `HashMap`).
-        base: Box<TypeName<L>>,
+        base: Box<TypeName>,
         /// The type parameters.
-        params: Vec<TypeName<L>>,
+        params: Vec<TypeName>,
     },
     /// Union type. TS: `A | B | C`.
-    Union(Vec<TypeName<L>>),
+    Union(Vec<TypeName>),
     /// Intersection type. TS: `A & B`.
-    Intersection(Vec<TypeName<L>>),
+    Intersection(Vec<TypeName>),
     /// Pointer type. Go: `*T`.
-    Pointer(Box<TypeName<L>>),
+    Pointer(Box<TypeName>),
     /// Slice type. Go: `[]T`.
-    Slice(Box<TypeName<L>>),
+    Slice(Box<TypeName>),
     /// Map type. Go: `map[K]V`, TS: `Record<K, V>`.
     Map {
         /// The key type.
-        key: Box<TypeName<L>>,
+        key: Box<TypeName>,
         /// The value type.
-        value: Box<TypeName<L>>,
+        value: Box<TypeName>,
     },
     /// Optional type. TS: `T | null`, Rust: `Option<T>`.
-    Optional(Box<TypeName<L>>),
+    Optional(Box<TypeName>),
     /// Tuple type. Rust: `(A, B)`, TS: `[A, B]`, Python: `tuple[A, B]`.
-    Tuple(Vec<TypeName<L>>),
+    Tuple(Vec<TypeName>),
     /// Reference type. Rust: `&T` / `&mut T` / `&'a T`, C++: `const T&` / `T&`.
     Reference {
         /// The referenced type.
-        inner: Box<TypeName<L>>,
+        inner: Box<TypeName>,
         /// Whether the reference is mutable.
         mutable: bool,
         /// Optional lifetime (Rust only, e.g., `'a`).
@@ -222,48 +221,44 @@ pub enum TypeName<L: CodeLang> {
     /// Associated/path-dependent type. Rust: `<T as Iterator>::Item`, TS: `T["key"]`.
     AssociatedType {
         /// The base type (e.g., `T`, `Vec<i32>`).
-        base: Box<TypeName<L>>,
+        base: Box<TypeName>,
         /// Optional qualifier trait (Rust: `Iterator` in `<T as Iterator>::Item`).
-        qualifier: Option<Box<TypeName<L>>>,
+        qualifier: Option<Box<TypeName>>,
         /// The projected member name (e.g., `"Item"`, `"key"`).
         member: String,
     },
     /// `impl Trait` bounds. Rust: `impl Display + Debug`.
     ImplTrait {
         /// The trait bounds.
-        bounds: Vec<TypeName<L>>,
+        bounds: Vec<TypeName>,
     },
     /// `dyn Trait` bounds. Rust: `dyn Error + Send`.
     DynTrait {
         /// The trait bounds.
-        bounds: Vec<TypeName<L>>,
+        bounds: Vec<TypeName>,
     },
     /// Wildcard type. Java: `?`, `? extends T`, `? super T`. Kotlin: `*`, `out T`, `in T`.
     Wildcard {
         /// Upper bound (Java: `? extends T`, Kotlin: `out T`).
-        upper_bound: Option<Box<TypeName<L>>>,
+        upper_bound: Option<Box<TypeName>>,
         /// Lower bound (Java: `? super T`, Kotlin: `in T`).
-        lower_bound: Option<Box<TypeName<L>>>,
+        lower_bound: Option<Box<TypeName>>,
     },
     /// Function type. TS: `(a: A, b: B) => R`.
     Function {
         /// The parameter types.
-        params: Vec<TypeName<L>>,
+        params: Vec<TypeName>,
         /// The return type.
-        return_type: Box<TypeName<L>>,
+        return_type: Box<TypeName>,
     },
     /// Raw string escape hatch. No import tracking.
     Raw(String),
-
-    /// Phantom data to carry L without requiring it in all variants.
-    #[doc(hidden)]
-    _Phantom(std::marker::PhantomData<L>),
 }
 
 fn render_presentation(
     pres: &TypePresentation<'_>,
     inner_docs: Vec<BoxDoc<'static, ()>>,
-    lang: &impl CodeLang,
+    lang: &dyn CodeLang,
 ) -> BoxDoc<'static, ()> {
     match pres {
         TypePresentation::GenericWrap { name } => {
@@ -351,7 +346,7 @@ fn render_function_presentation(
     }
 }
 
-fn is_compound_type<L: CodeLang>(t: &TypeName<L>) -> bool {
+fn is_compound_type(t: &TypeName) -> bool {
     matches!(
         t,
         TypeName::Generic { .. }
@@ -362,7 +357,7 @@ fn is_compound_type<L: CodeLang>(t: &TypeName<L>) -> bool {
     )
 }
 
-impl<L: CodeLang> TypeName<L> {
+impl TypeName {
     /// Create an importable type name.
     pub fn importable(module: &str, name: &str) -> Self {
         TypeName::Importable {
@@ -413,7 +408,7 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create an array type.
-    pub fn array(inner: TypeName<L>) -> Self {
+    pub fn array(inner: TypeName) -> Self {
         TypeName::Array(Box::new(inner))
     }
 
@@ -423,12 +418,12 @@ impl<L: CodeLang> TypeName<L> {
     /// this renders identically to [`TypeName::array`]. Use this variant only
     /// when the readonly distinction carries information the output should
     /// preserve (e.g. TypeScript interface fields).
-    pub fn readonly_array(inner: TypeName<L>) -> Self {
+    pub fn readonly_array(inner: TypeName) -> Self {
         TypeName::ReadonlyArray(Box::new(inner))
     }
 
     /// Create a generic type (e.g., `Promise<User>`).
-    pub fn generic(base: TypeName<L>, params: Vec<TypeName<L>>) -> Self {
+    pub fn generic(base: TypeName, params: Vec<TypeName>) -> Self {
         TypeName::Generic {
             base: Box::new(base),
             params,
@@ -436,27 +431,27 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create a union type (e.g., `A | B | C`).
-    pub fn union(members: Vec<TypeName<L>>) -> Self {
+    pub fn union(members: Vec<TypeName>) -> Self {
         TypeName::Union(members)
     }
 
     /// Create an intersection type (e.g., `A & B`).
-    pub fn intersection(members: Vec<TypeName<L>>) -> Self {
+    pub fn intersection(members: Vec<TypeName>) -> Self {
         TypeName::Intersection(members)
     }
 
     /// Create a pointer type (e.g., Go `*T`).
-    pub fn pointer(inner: TypeName<L>) -> Self {
+    pub fn pointer(inner: TypeName) -> Self {
         TypeName::Pointer(Box::new(inner))
     }
 
     /// Create a slice type (e.g., Go `[]T`).
-    pub fn slice(inner: TypeName<L>) -> Self {
+    pub fn slice(inner: TypeName) -> Self {
         TypeName::Slice(Box::new(inner))
     }
 
     /// Create a map type (e.g., `map[K]V`).
-    pub fn map(key: TypeName<L>, value: TypeName<L>) -> Self {
+    pub fn map(key: TypeName, value: TypeName) -> Self {
         TypeName::Map {
             key: Box::new(key),
             value: Box::new(value),
@@ -464,12 +459,12 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create an optional type.
-    pub fn optional(inner: TypeName<L>) -> Self {
+    pub fn optional(inner: TypeName) -> Self {
         TypeName::Optional(Box::new(inner))
     }
 
     /// Create a tuple type (e.g., Rust `(A, B)`, TS `[A, B]`).
-    pub fn tuple(elements: Vec<TypeName<L>>) -> Self {
+    pub fn tuple(elements: Vec<TypeName>) -> Self {
         TypeName::Tuple(elements)
     }
 
@@ -479,7 +474,7 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create a shared reference type (Rust `&T`, C++ `const T&`).
-    pub fn reference(inner: TypeName<L>) -> Self {
+    pub fn reference(inner: TypeName) -> Self {
         TypeName::Reference {
             inner: Box::new(inner),
             mutable: false,
@@ -488,7 +483,7 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create a mutable reference type (Rust `&mut T`, C++ `T&`).
-    pub fn reference_mut(inner: TypeName<L>) -> Self {
+    pub fn reference_mut(inner: TypeName) -> Self {
         TypeName::Reference {
             inner: Box::new(inner),
             mutable: true,
@@ -497,7 +492,7 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create a shared reference with a lifetime (Rust `&'a T`).
-    pub fn reference_with_lifetime(inner: TypeName<L>, lifetime: &str) -> Self {
+    pub fn reference_with_lifetime(inner: TypeName, lifetime: &str) -> Self {
         TypeName::Reference {
             inner: Box::new(inner),
             mutable: false,
@@ -506,7 +501,7 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create a mutable reference with a lifetime (Rust `&'a mut T`).
-    pub fn reference_mut_with_lifetime(inner: TypeName<L>, lifetime: &str) -> Self {
+    pub fn reference_mut_with_lifetime(inner: TypeName, lifetime: &str) -> Self {
         TypeName::Reference {
             inner: Box::new(inner),
             mutable: true,
@@ -515,7 +510,7 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create a function type.
-    pub fn function(params: Vec<TypeName<L>>, return_type: TypeName<L>) -> Self {
+    pub fn function(params: Vec<TypeName>, return_type: TypeName) -> Self {
         TypeName::Function {
             params,
             return_type: Box::new(return_type),
@@ -530,11 +525,7 @@ impl<L: CodeLang> TypeName<L> {
     /// Create an associated/path-dependent type with a qualifier.
     ///
     /// Rust: `<base as qualifier>::member` (e.g., `<T as Iterator>::Item`).
-    pub fn associated_type(
-        base: TypeName<L>,
-        qualifier: Option<TypeName<L>>,
-        member: &str,
-    ) -> Self {
+    pub fn associated_type(base: TypeName, qualifier: Option<TypeName>, member: &str) -> Self {
         TypeName::AssociatedType {
             base: Box::new(base),
             qualifier: qualifier.map(Box::new),
@@ -545,7 +536,7 @@ impl<L: CodeLang> TypeName<L> {
     /// Create a simple member type (no qualifier).
     ///
     /// Rust: `base::member` (e.g., `Self::Output`).
-    pub fn member_type(base: TypeName<L>, member: &str) -> Self {
+    pub fn member_type(base: TypeName, member: &str) -> Self {
         TypeName::AssociatedType {
             base: Box::new(base),
             qualifier: None,
@@ -554,12 +545,12 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create an `impl Trait` type (Rust: `impl Display + Debug`).
-    pub fn impl_trait(bounds: Vec<TypeName<L>>) -> Self {
+    pub fn impl_trait(bounds: Vec<TypeName>) -> Self {
         TypeName::ImplTrait { bounds }
     }
 
     /// Create a `dyn Trait` type (Rust: `dyn Error + Send`).
-    pub fn dyn_trait(bounds: Vec<TypeName<L>>) -> Self {
+    pub fn dyn_trait(bounds: Vec<TypeName>) -> Self {
         TypeName::DynTrait { bounds }
     }
 
@@ -572,7 +563,7 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create a wildcard with an upper bound (Java: `? extends T`, Kotlin: `out T`).
-    pub fn wildcard_extends(bound: TypeName<L>) -> Self {
+    pub fn wildcard_extends(bound: TypeName) -> Self {
         TypeName::Wildcard {
             upper_bound: Some(Box::new(bound)),
             lower_bound: None,
@@ -580,7 +571,7 @@ impl<L: CodeLang> TypeName<L> {
     }
 
     /// Create a wildcard with a lower bound (Java: `? super T`, Kotlin: `in T`).
-    pub fn wildcard_super(bound: TypeName<L>) -> Self {
+    pub fn wildcard_super(bound: TypeName) -> Self {
         TypeName::Wildcard {
             upper_bound: None,
             lower_bound: Some(Box::new(bound)),
@@ -674,7 +665,7 @@ impl<L: CodeLang> TypeName<L> {
                     lb.collect_imports(out);
                 }
             }
-            TypeName::Primitive(_) | TypeName::Raw(_) | TypeName::_Phantom(_) => {}
+            TypeName::Primitive(_) | TypeName::Raw(_) => {}
         }
     }
 
@@ -821,7 +812,6 @@ impl<L: CodeLang> TypeName<L> {
                     BoxDoc::text("?")
                 }
             }
-            TypeName::_Phantom(_) => BoxDoc::nil(),
         }
     }
 
@@ -849,7 +839,7 @@ impl<L: CodeLang> TypeName<L> {
 
     /// Language-aware variant of [`TypeName::to_doc`] that consults the lang for
     /// syntax differences (e.g., generic delimiters `<>` vs `[]`).
-    pub fn to_doc_with_lang<F>(&self, resolve: &F, lang: &L) -> BoxDoc<'static, ()>
+    pub fn to_doc_with_lang<F>(&self, resolve: &F, lang: &dyn CodeLang) -> BoxDoc<'static, ()>
     where
         F: Fn(&str, &str) -> String,
     {
@@ -1132,19 +1122,19 @@ mod tests {
 
     #[test]
     fn test_primitive() {
-        let t = TypeName::<TypeScript>::primitive("number");
+        let t = TypeName::primitive("number");
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "number");
     }
 
     #[test]
     fn test_importable() {
-        let t = TypeName::<TypeScript>::importable("./models", "User");
+        let t = TypeName::importable("./models", "User");
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "User");
     }
 
     #[test]
     fn test_importable_with_alias() {
-        let t = TypeName::<TypeScript>::importable("./other", "User");
+        let t = TypeName::importable("./other", "User");
         let resolve = |module: &str, name: &str| {
             if module == "./other" && name == "User" {
                 "OtherUser".to_string()
@@ -1157,13 +1147,13 @@ mod tests {
 
     #[test]
     fn test_array() {
-        let t = TypeName::<TypeScript>::array(TypeName::primitive("string"));
+        let t = TypeName::array(TypeName::primitive("string"));
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "string[]");
     }
 
     #[test]
     fn test_generic() {
-        let t = TypeName::<TypeScript>::generic(
+        let t = TypeName::generic(
             TypeName::primitive("Promise"),
             vec![TypeName::importable("./models", "User")],
         );
@@ -1172,7 +1162,7 @@ mod tests {
 
     #[test]
     fn test_generic_multiline() {
-        let t = TypeName::<TypeScript>::generic(
+        let t = TypeName::generic(
             TypeName::primitive("Map"),
             vec![
                 TypeName::primitive("VeryLongKeyTypeName"),
@@ -1188,7 +1178,7 @@ mod tests {
 
     #[test]
     fn test_union() {
-        let t = TypeName::<TypeScript>::union(vec![
+        let t = TypeName::union(vec![
             TypeName::primitive("string"),
             TypeName::primitive("number"),
             TypeName::primitive("boolean"),
@@ -1201,7 +1191,7 @@ mod tests {
 
     #[test]
     fn test_union_multiline() {
-        let t = TypeName::<TypeScript>::union(vec![
+        let t = TypeName::union(vec![
             TypeName::primitive("VeryLongTypeName1"),
             TypeName::primitive("VeryLongTypeName2"),
             TypeName::primitive("VeryLongTypeName3"),
@@ -1212,32 +1202,31 @@ mod tests {
 
     #[test]
     fn test_pointer() {
-        let t = TypeName::<TypeScript>::pointer(TypeName::primitive("User"));
+        let t = TypeName::pointer(TypeName::primitive("User"));
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "*User");
     }
 
     #[test]
     fn test_slice() {
-        let t = TypeName::<TypeScript>::slice(TypeName::primitive("User"));
+        let t = TypeName::slice(TypeName::primitive("User"));
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "[]User");
     }
 
     #[test]
     fn test_map() {
-        let t =
-            TypeName::<TypeScript>::map(TypeName::primitive("string"), TypeName::primitive("User"));
+        let t = TypeName::map(TypeName::primitive("string"), TypeName::primitive("User"));
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "map[string]User");
     }
 
     #[test]
     fn test_optional() {
-        let t = TypeName::<TypeScript>::optional(TypeName::primitive("string"));
+        let t = TypeName::optional(TypeName::primitive("string"));
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "string | null");
     }
 
     #[test]
     fn test_function_type() {
-        let t = TypeName::<TypeScript>::function(
+        let t = TypeName::function(
             vec![TypeName::primitive("string"), TypeName::primitive("number")],
             TypeName::primitive("boolean"),
         );
@@ -1249,7 +1238,7 @@ mod tests {
 
     #[test]
     fn test_deeply_nested() {
-        let inner = TypeName::<TypeScript>::generic(
+        let inner = TypeName::generic(
             TypeName::primitive("Array"),
             vec![TypeName::importable("./models", "User")],
         );
@@ -1262,7 +1251,7 @@ mod tests {
 
     #[test]
     fn test_collect_imports() {
-        let t = TypeName::<TypeScript>::generic(
+        let t = TypeName::generic(
             TypeName::importable("./base", "Base"),
             vec![
                 TypeName::importable("./models", "User"),
@@ -1279,7 +1268,7 @@ mod tests {
 
     #[test]
     fn test_raw_no_imports() {
-        let t = TypeName::<TypeScript>::raw("any");
+        let t = TypeName::raw("any");
         let mut imports = Vec::new();
         t.collect_imports(&mut imports);
         assert!(imports.is_empty());
@@ -1288,7 +1277,7 @@ mod tests {
 
     #[test]
     fn test_with_alias_on_importable() {
-        let t = TypeName::<TypeScript>::importable("./models", "User").with_alias("MyUser");
+        let t = TypeName::importable("./models", "User").with_alias("MyUser");
         // Verify the alias is stored correctly.
         if let TypeName::Importable { alias, .. } = &t {
             assert_eq!(alias.as_deref(), Some("MyUser"));
@@ -1299,7 +1288,7 @@ mod tests {
 
     #[test]
     fn test_with_alias_propagates_to_import_ref() {
-        let t = TypeName::<TypeScript>::importable("./models", "User").with_alias("MyUser");
+        let t = TypeName::importable("./models", "User").with_alias("MyUser");
         let mut imports = Vec::new();
         t.collect_imports(&mut imports);
         assert_eq!(imports.len(), 1);
@@ -1310,13 +1299,13 @@ mod tests {
     #[test]
     fn test_with_alias_noop_on_primitive() {
         // with_alias on a non-Importable variant should be a no-op.
-        let t = TypeName::<TypeScript>::primitive("number").with_alias("MyNumber");
+        let t = TypeName::primitive("number").with_alias("MyNumber");
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "number");
     }
 
     #[test]
     fn test_with_alias_renders_alias_name() {
-        let t = TypeName::<TypeScript>::importable("./models", "User").with_alias("MyUser");
+        let t = TypeName::importable("./models", "User").with_alias("MyUser");
         // The resolve function should map to the alias.
         let resolve = |_module: &str, _name: &str| "MyUser".to_string();
         assert_eq!(t.render(80, &resolve).unwrap(), "MyUser");
@@ -1324,7 +1313,7 @@ mod tests {
 
     #[test]
     fn test_tuple() {
-        let t = TypeName::<TypeScript>::tuple(vec![
+        let t = TypeName::tuple(vec![
             TypeName::primitive("string"),
             TypeName::primitive("number"),
         ]);
@@ -1333,13 +1322,13 @@ mod tests {
 
     #[test]
     fn test_unit_tuple() {
-        let t = TypeName::<TypeScript>::unit();
+        let t = TypeName::unit();
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "()");
     }
 
     #[test]
     fn test_tuple_collect_imports() {
-        let t = TypeName::<TypeScript>::tuple(vec![
+        let t = TypeName::tuple(vec![
             TypeName::importable("./models", "User"),
             TypeName::importable("./models", "Tag"),
         ]);
@@ -1353,7 +1342,7 @@ mod tests {
     #[test]
     fn test_tuple_with_lang_ts() {
         let lang = TypeScript::new();
-        let t = TypeName::<TypeScript>::tuple(vec![
+        let t = TypeName::tuple(vec![
             TypeName::primitive("string"),
             TypeName::primitive("number"),
         ]);
@@ -1367,7 +1356,7 @@ mod tests {
     fn test_tuple_with_lang_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::tuple(vec![
+        let t = TypeName::tuple(vec![
             TypeName::primitive("String"),
             TypeName::primitive("i32"),
         ]);
@@ -1381,8 +1370,7 @@ mod tests {
     fn test_tuple_with_lang_python() {
         use crate::lang::python::Python;
         let lang = Python::new();
-        let t =
-            TypeName::<Python>::tuple(vec![TypeName::primitive("str"), TypeName::primitive("int")]);
+        let t = TypeName::tuple(vec![TypeName::primitive("str"), TypeName::primitive("int")]);
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1393,7 +1381,7 @@ mod tests {
     fn test_tuple_with_lang_cpp() {
         use crate::lang::cpp_lang::CppLang;
         let lang = CppLang::new();
-        let t = TypeName::<CppLang>::tuple(vec![
+        let t = TypeName::tuple(vec![
             TypeName::primitive("int"),
             TypeName::primitive("std::string"),
         ]);
@@ -1410,7 +1398,7 @@ mod tests {
     fn test_unit_tuple_with_lang_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::unit();
+        let t = TypeName::unit();
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1419,19 +1407,19 @@ mod tests {
 
     #[test]
     fn test_reference() {
-        let t = TypeName::<TypeScript>::reference(TypeName::primitive("str"));
+        let t = TypeName::reference(TypeName::primitive("str"));
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "&str");
     }
 
     #[test]
     fn test_reference_mut() {
-        let t = TypeName::<TypeScript>::reference_mut(TypeName::primitive("Vec<i32>"));
+        let t = TypeName::reference_mut(TypeName::primitive("Vec<i32>"));
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "&mut Vec<i32>");
     }
 
     #[test]
     fn test_reference_collect_imports() {
-        let t = TypeName::<TypeScript>::reference(TypeName::importable("./models", "User"));
+        let t = TypeName::reference(TypeName::importable("./models", "User"));
         let mut imports = Vec::new();
         t.collect_imports(&mut imports);
         assert_eq!(imports.len(), 1);
@@ -1442,7 +1430,7 @@ mod tests {
     fn test_reference_with_lang_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::reference(TypeName::primitive("String"));
+        let t = TypeName::reference(TypeName::primitive("String"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1453,7 +1441,7 @@ mod tests {
     fn test_reference_mut_with_lang_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::reference_mut(TypeName::primitive("String"));
+        let t = TypeName::reference_mut(TypeName::primitive("String"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1464,7 +1452,7 @@ mod tests {
     fn test_reference_with_lang_cpp() {
         use crate::lang::cpp_lang::CppLang;
         let lang = CppLang::new();
-        let t = TypeName::<CppLang>::reference(TypeName::primitive("std::string"));
+        let t = TypeName::reference(TypeName::primitive("std::string"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1475,7 +1463,7 @@ mod tests {
     fn test_reference_mut_with_lang_cpp() {
         use crate::lang::cpp_lang::CppLang;
         let lang = CppLang::new();
-        let t = TypeName::<CppLang>::reference_mut(TypeName::primitive("std::string"));
+        let t = TypeName::reference_mut(TypeName::primitive("std::string"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1485,7 +1473,7 @@ mod tests {
     #[test]
     fn test_reference_with_lang_ts() {
         let lang = TypeScript::new();
-        let t = TypeName::<TypeScript>::reference(TypeName::primitive("string"));
+        let t = TypeName::reference(TypeName::primitive("string"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1496,7 +1484,7 @@ mod tests {
     fn test_reference_mut_with_lang_go() {
         use crate::lang::go_lang::GoLang;
         let lang = GoLang::new();
-        let t = TypeName::<GoLang>::reference_mut(TypeName::primitive("int"));
+        let t = TypeName::reference_mut(TypeName::primitive("int"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1507,7 +1495,7 @@ mod tests {
     fn test_reference_with_lang_go() {
         use crate::lang::go_lang::GoLang;
         let lang = GoLang::new();
-        let t = TypeName::<GoLang>::reference(TypeName::primitive("int"));
+        let t = TypeName::reference(TypeName::primitive("int"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1518,7 +1506,7 @@ mod tests {
     fn test_reference_with_lang_c() {
         use crate::lang::c_lang::CLang;
         let lang = CLang::new();
-        let t = TypeName::<CLang>::reference(TypeName::primitive("int"));
+        let t = TypeName::reference(TypeName::primitive("int"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1529,7 +1517,7 @@ mod tests {
     fn test_reference_mut_with_lang_c() {
         use crate::lang::c_lang::CLang;
         let lang = CLang::new();
-        let t = TypeName::<CLang>::reference_mut(TypeName::primitive("int"));
+        let t = TypeName::reference_mut(TypeName::primitive("int"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1539,7 +1527,7 @@ mod tests {
     #[test]
     fn test_generic_prefix_juxtaposition() {
         let lang = PrefixLang::new();
-        let t = TypeName::<PrefixLang>::generic(
+        let t = TypeName::generic(
             TypeName::primitive("Maybe"),
             vec![TypeName::primitive("Int")],
         );
@@ -1552,11 +1540,11 @@ mod tests {
     #[test]
     fn test_generic_prefix_juxtaposition_compound_param() {
         let lang = PrefixLang::new();
-        let inner = TypeName::<PrefixLang>::generic(
+        let inner = TypeName::generic(
             TypeName::primitive("Maybe"),
             vec![TypeName::primitive("Int")],
         );
-        let t = TypeName::<PrefixLang>::generic(
+        let t = TypeName::generic(
             TypeName::primitive("Either"),
             vec![TypeName::primitive("String"), inner],
         );
@@ -1569,7 +1557,7 @@ mod tests {
     #[test]
     fn test_generic_postfix_juxtaposition_single() {
         let lang = PostfixLang::new();
-        let t = TypeName::<PostfixLang>::generic(
+        let t = TypeName::generic(
             TypeName::primitive("option"),
             vec![TypeName::primitive("int")],
         );
@@ -1582,7 +1570,7 @@ mod tests {
     #[test]
     fn test_generic_postfix_juxtaposition_multi() {
         let lang = PostfixLang::new();
-        let t = TypeName::<PostfixLang>::generic(
+        let t = TypeName::generic(
             TypeName::primitive("result"),
             vec![TypeName::primitive("int"), TypeName::primitive("string")],
         );
@@ -1594,29 +1582,30 @@ mod tests {
 
     #[test]
     fn test_is_compound_type() {
-        assert!(is_compound_type(&TypeName::<TypeScript>::generic(
+        assert!(is_compound_type(&TypeName::generic(
             TypeName::primitive("A"),
             vec![TypeName::primitive("B")],
         )));
-        assert!(is_compound_type(&TypeName::<TypeScript>::union(vec![
+        assert!(is_compound_type(&TypeName::union(vec![
             TypeName::primitive("A"),
             TypeName::primitive("B"),
         ])));
-        assert!(is_compound_type(&TypeName::<TypeScript>::intersection(
-            vec![TypeName::primitive("A"), TypeName::primitive("B"),]
-        )));
-        assert!(is_compound_type(&TypeName::<TypeScript>::function(
+        assert!(is_compound_type(&TypeName::intersection(vec![
+            TypeName::primitive("A"),
+            TypeName::primitive("B"),
+        ])));
+        assert!(is_compound_type(&TypeName::function(
             vec![TypeName::primitive("A")],
             TypeName::primitive("B"),
         )));
-        assert!(is_compound_type(&TypeName::<TypeScript>::tuple(vec![
+        assert!(is_compound_type(&TypeName::tuple(vec![
             TypeName::primitive("A"),
             TypeName::primitive("B"),
         ])));
-        assert!(!is_compound_type(&TypeName::<TypeScript>::primitive("Int")));
-        assert!(!is_compound_type(&TypeName::<TypeScript>::array(
-            TypeName::primitive("Int"),
-        )));
+        assert!(!is_compound_type(&TypeName::primitive("Int")));
+        assert!(!is_compound_type(&TypeName::array(TypeName::primitive(
+            "Int"
+        ),)));
     }
 
     // --- Feature 07: Associated Types ---
@@ -1625,7 +1614,7 @@ mod tests {
     fn test_associated_type_rust_qualified() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::associated_type(
+        let t = TypeName::associated_type(
             TypeName::primitive("T"),
             Some(TypeName::primitive("Iterator")),
             "Item",
@@ -1640,7 +1629,7 @@ mod tests {
     fn test_associated_type_rust_simple() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::member_type(TypeName::primitive("Self"), "Output");
+        let t = TypeName::member_type(TypeName::primitive("Self"), "Output");
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1650,7 +1639,7 @@ mod tests {
     #[test]
     fn test_associated_type_ts_index_access() {
         let lang = TypeScript::new();
-        let t = TypeName::<TypeScript>::associated_type(
+        let t = TypeName::associated_type(
             TypeName::primitive("T"),
             Some(TypeName::primitive("Qual")),
             "key",
@@ -1665,7 +1654,7 @@ mod tests {
     fn test_associated_type_java_dot() {
         use crate::lang::java_lang::JavaLang;
         let lang = JavaLang::new();
-        let t = TypeName::<JavaLang>::member_type(TypeName::primitive("Map"), "Entry");
+        let t = TypeName::member_type(TypeName::primitive("Map"), "Entry");
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1674,7 +1663,7 @@ mod tests {
 
     #[test]
     fn test_associated_type_collect_imports() {
-        let t = TypeName::<TypeScript>::associated_type(
+        let t = TypeName::associated_type(
             TypeName::importable("./models", "User"),
             Some(TypeName::importable("./traits", "Serializable")),
             "Output",
@@ -1690,7 +1679,7 @@ mod tests {
     fn test_impl_trait_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::impl_trait(vec![
+        let t = TypeName::impl_trait(vec![
             TypeName::primitive("Display"),
             TypeName::primitive("Debug"),
         ]);
@@ -1704,7 +1693,7 @@ mod tests {
     fn test_dyn_trait_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::dyn_trait(vec![TypeName::primitive("Error")]);
+        let t = TypeName::dyn_trait(vec![TypeName::primitive("Error")]);
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1714,7 +1703,7 @@ mod tests {
     #[test]
     fn test_impl_trait_ts_intersection() {
         let lang = TypeScript::new();
-        let t = TypeName::<TypeScript>::impl_trait(vec![
+        let t = TypeName::impl_trait(vec![
             TypeName::primitive("Serializable"),
             TypeName::primitive("Loggable"),
         ]);
@@ -1728,7 +1717,7 @@ mod tests {
     fn test_wildcard_java_unbounded() {
         use crate::lang::java_lang::JavaLang;
         let lang = JavaLang::new();
-        let t = TypeName::<JavaLang>::wildcard();
+        let t = TypeName::wildcard();
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1739,7 +1728,7 @@ mod tests {
     fn test_wildcard_java_extends() {
         use crate::lang::java_lang::JavaLang;
         let lang = JavaLang::new();
-        let t = TypeName::<JavaLang>::wildcard_extends(TypeName::primitive("Comparable"));
+        let t = TypeName::wildcard_extends(TypeName::primitive("Comparable"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1750,7 +1739,7 @@ mod tests {
     fn test_wildcard_java_super() {
         use crate::lang::java_lang::JavaLang;
         let lang = JavaLang::new();
-        let t = TypeName::<JavaLang>::wildcard_super(TypeName::primitive("Number"));
+        let t = TypeName::wildcard_super(TypeName::primitive("Number"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1761,7 +1750,7 @@ mod tests {
     fn test_wildcard_kotlin() {
         use crate::lang::kotlin::Kotlin;
         let lang = Kotlin::new();
-        let t = TypeName::<Kotlin>::wildcard();
+        let t = TypeName::wildcard();
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1772,7 +1761,7 @@ mod tests {
     fn test_wildcard_kotlin_out() {
         use crate::lang::kotlin::Kotlin;
         let lang = Kotlin::new();
-        let t = TypeName::<Kotlin>::wildcard_extends(TypeName::primitive("Number"));
+        let t = TypeName::wildcard_extends(TypeName::primitive("Number"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1783,7 +1772,7 @@ mod tests {
     fn test_wildcard_kotlin_in() {
         use crate::lang::kotlin::Kotlin;
         let lang = Kotlin::new();
-        let t = TypeName::<Kotlin>::wildcard_super(TypeName::primitive("Number"));
+        let t = TypeName::wildcard_super(TypeName::primitive("Number"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1794,7 +1783,7 @@ mod tests {
     fn test_wildcard_go() {
         use crate::lang::go_lang::GoLang;
         let lang = GoLang::new();
-        let t = TypeName::<GoLang>::wildcard();
+        let t = TypeName::wildcard();
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1805,7 +1794,7 @@ mod tests {
     fn test_wildcard_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::wildcard();
+        let t = TypeName::wildcard();
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1814,7 +1803,7 @@ mod tests {
 
     #[test]
     fn test_impl_trait_collect_imports() {
-        let t = TypeName::<TypeScript>::impl_trait(vec![
+        let t = TypeName::impl_trait(vec![
             TypeName::importable("./traits", "Serializable"),
             TypeName::primitive("Debug"),
         ]);
@@ -1825,8 +1814,7 @@ mod tests {
 
     #[test]
     fn test_dyn_trait_collect_imports() {
-        let t =
-            TypeName::<TypeScript>::dyn_trait(vec![TypeName::importable("./errors", "AppError")]);
+        let t = TypeName::dyn_trait(vec![TypeName::importable("./errors", "AppError")]);
         let mut imports = Vec::new();
         t.collect_imports(&mut imports);
         assert_eq!(imports.len(), 1);
@@ -1834,7 +1822,7 @@ mod tests {
 
     #[test]
     fn test_wildcard_collect_imports() {
-        let t = TypeName::<TypeScript>::wildcard_extends(TypeName::importable("./models", "User"));
+        let t = TypeName::wildcard_extends(TypeName::importable("./models", "User"));
         let mut imports = Vec::new();
         t.collect_imports(&mut imports);
         assert_eq!(imports.len(), 1);
@@ -1842,7 +1830,7 @@ mod tests {
 
     #[test]
     fn test_associated_type_default_rendering() {
-        let t = TypeName::<TypeScript>::associated_type(
+        let t = TypeName::associated_type(
             TypeName::primitive("T"),
             Some(TypeName::primitive("Iter")),
             "Item",
@@ -1855,19 +1843,19 @@ mod tests {
 
     #[test]
     fn test_member_type_default_rendering() {
-        let t = TypeName::<TypeScript>::member_type(TypeName::primitive("Self"), "Output");
+        let t = TypeName::member_type(TypeName::primitive("Self"), "Output");
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "Self::Output");
     }
 
     #[test]
     fn test_impl_trait_default_rendering() {
-        let t = TypeName::<TypeScript>::impl_trait(vec![TypeName::primitive("Display")]);
+        let t = TypeName::impl_trait(vec![TypeName::primitive("Display")]);
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "impl Display");
     }
 
     #[test]
     fn test_dyn_trait_default_rendering() {
-        let t = TypeName::<TypeScript>::dyn_trait(vec![
+        let t = TypeName::dyn_trait(vec![
             TypeName::primitive("Error"),
             TypeName::primitive("Send"),
         ]);
@@ -1877,19 +1865,17 @@ mod tests {
     #[test]
     fn test_wildcard_default_rendering() {
         assert_eq!(
-            TypeName::<TypeScript>::wildcard()
-                .render(80, &identity_resolve)
-                .unwrap(),
+            TypeName::wildcard().render(80, &identity_resolve).unwrap(),
             "?"
         );
         assert_eq!(
-            TypeName::<TypeScript>::wildcard_extends(TypeName::primitive("T"))
+            TypeName::wildcard_extends(TypeName::primitive("T"))
                 .render(80, &identity_resolve)
                 .unwrap(),
             "? extends T"
         );
         assert_eq!(
-            TypeName::<TypeScript>::wildcard_super(TypeName::primitive("T"))
+            TypeName::wildcard_super(TypeName::primitive("T"))
                 .render(80, &identity_resolve)
                 .unwrap(),
             "? super T"
@@ -1902,7 +1888,7 @@ mod tests {
     fn test_reference_with_lifetime_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::reference_with_lifetime(TypeName::primitive("str"), "'a");
+        let t = TypeName::reference_with_lifetime(TypeName::primitive("str"), "'a");
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1913,8 +1899,7 @@ mod tests {
     fn test_reference_mut_with_lifetime_rust() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t =
-            TypeName::<RustLang>::reference_mut_with_lifetime(TypeName::primitive("String"), "'a");
+        let t = TypeName::reference_mut_with_lifetime(TypeName::primitive("String"), "'a");
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
@@ -1923,7 +1908,7 @@ mod tests {
 
     #[test]
     fn test_reference_with_lifetime_default_rendering() {
-        let t = TypeName::<TypeScript>::reference_with_lifetime(TypeName::primitive("str"), "'a");
+        let t = TypeName::reference_with_lifetime(TypeName::primitive("str"), "'a");
         assert_eq!(t.render(80, &identity_resolve).unwrap(), "&'a str");
     }
 
@@ -1931,7 +1916,7 @@ mod tests {
     fn test_reference_without_lifetime_unchanged() {
         use crate::lang::rust_lang::RustLang;
         let lang = RustLang::new();
-        let t = TypeName::<RustLang>::reference(TypeName::primitive("String"));
+        let t = TypeName::reference(TypeName::primitive("String"));
         let doc = t.to_doc_with_lang(&identity_resolve, &lang);
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();

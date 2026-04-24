@@ -6,7 +6,7 @@ use super::golden;
 
 #[test]
 fn test_control_flow() {
-    let mut b = CodeBlock::<Python>::builder();
+    let mut b = CodeBlock::builder();
     b.add("def classify(x: int) -> str:", ());
     b.add_line();
     b.add("%>", ());
@@ -20,9 +20,10 @@ fn test_control_flow() {
     b.add("%<", ());
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("classify.py", Python::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("classify.py", Python::new())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/control_flow.py", &output);
@@ -30,7 +31,7 @@ fn test_control_flow() {
 
 #[test]
 fn test_class_basic() {
-    let mut b = CodeBlock::<Python>::builder();
+    let mut b = CodeBlock::builder();
     b.add("class Config:", ());
     b.add_line();
     b.add("%>", ());
@@ -40,9 +41,10 @@ fn test_class_basic() {
     b.add("%<", ());
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("config.py", Python::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("config.py", Python::new())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/class_basic.py", &output);

@@ -6,16 +6,19 @@ use sigil_stitch::type_name::TypeName;
 
 use super::golden;
 
-fn render(block: &CodeBlock<JavaScript>) -> String {
-    let mut fb = FileSpec::builder_with("test.js", JavaScript::new());
-    fb.add_code(block.clone());
-    fb.build().unwrap().render(80).unwrap()
+fn render(block: &CodeBlock) -> String {
+    FileSpec::builder_with("test.js", JavaScript::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }
 
 #[test]
 fn test_imports() {
-    let fs_type = TypeName::<JavaScript>::importable("fs", "readFileSync");
-    let path_type = TypeName::<JavaScript>::importable("path", "join");
+    let fs_type = TypeName::importable("fs", "readFileSync");
+    let path_type = TypeName::importable("path", "join");
     let block = sigil_quote!(JavaScript {
         const data = $T(fs_type)($S("input.txt"));
         const full = $T(path_type)($S("dir"), $S("file"));

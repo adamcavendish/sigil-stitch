@@ -6,16 +6,19 @@ use sigil_stitch::type_name::TypeName;
 
 use super::golden;
 
-fn render(block: &CodeBlock<CppLang>) -> String {
-    let mut fb = FileSpec::builder_with("test.cpp", CppLang::new());
-    fb.add_code(block.clone());
-    fb.build().unwrap().render(80).unwrap()
+fn render(block: &CodeBlock) -> String {
+    FileSpec::builder_with("test.cpp", CppLang::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }
 
 #[test]
 fn test_includes() {
-    let iostream = TypeName::<CppLang>::importable("iostream", "cout");
-    let memory = TypeName::<CppLang>::importable("memory", "unique_ptr");
+    let iostream = TypeName::importable("iostream", "cout");
+    let memory = TypeName::importable("memory", "unique_ptr");
     let block = sigil_quote!(CppLang {
         auto ptr = std::make_unique<int>(42);
         $T(iostream) << $T(memory)(ptr.get()) << std::endl;

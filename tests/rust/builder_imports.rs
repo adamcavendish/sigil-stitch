@@ -7,10 +7,10 @@ use super::golden;
 
 #[test]
 fn test_function_with_imports() {
-    let hashmap = TypeName::<RustLang>::importable("std::collections", "HashMap");
-    let serialize = TypeName::<RustLang>::importable("serde", "Serialize");
+    let hashmap = TypeName::importable("std::collections", "HashMap");
+    let serialize = TypeName::importable("serde", "Serialize");
 
-    let mut b = CodeBlock::<RustLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add("pub fn create_map() -> %T<String, String> {", (hashmap,));
     b.add_line();
     b.add("%>", ());
@@ -22,7 +22,7 @@ fn test_function_with_imports() {
     b.add_line();
     let func_block = b.build().unwrap();
 
-    let mut b2 = CodeBlock::<RustLang>::builder();
+    let mut b2 = CodeBlock::builder();
     b2.add("#[derive(%T)]", (serialize,));
     b2.add_line();
     b2.add("pub struct Config {", ());
@@ -34,10 +34,11 @@ fn test_function_with_imports() {
     b2.add_line();
     let struct_block = b2.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("lib.rs", RustLang::new());
-    fb.add_code(func_block);
-    fb.add_code(struct_block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("lib.rs", RustLang::new())
+        .add_code(func_block)
+        .add_code(struct_block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("rust/function_with_imports.rs", &output);
@@ -45,14 +46,14 @@ fn test_function_with_imports() {
 
 #[test]
 fn test_import_grouping() {
-    let hashmap = TypeName::<RustLang>::importable("std::collections", "HashMap");
-    let btreemap = TypeName::<RustLang>::importable("std::collections", "BTreeMap");
-    let arc = TypeName::<RustLang>::importable("std::sync", "Arc");
-    let serialize = TypeName::<RustLang>::importable("serde", "Serialize");
-    let deserialize = TypeName::<RustLang>::importable("serde", "Deserialize");
-    let user = TypeName::<RustLang>::importable("crate::models", "User");
+    let hashmap = TypeName::importable("std::collections", "HashMap");
+    let btreemap = TypeName::importable("std::collections", "BTreeMap");
+    let arc = TypeName::importable("std::sync", "Arc");
+    let serialize = TypeName::importable("serde", "Serialize");
+    let deserialize = TypeName::importable("serde", "Deserialize");
+    let user = TypeName::importable("crate::models", "User");
 
-    let mut b = CodeBlock::<RustLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement(
         "let _h: %T<String, String> = Default::default()",
         (hashmap,),
@@ -67,9 +68,10 @@ fn test_import_grouping() {
     b.add_statement("let _u: %T = todo!()", (user,));
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("main.rs", RustLang::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("main.rs", RustLang::new())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("rust/import_grouping.rs", &output);
@@ -77,17 +79,18 @@ fn test_import_grouping() {
 
 #[test]
 fn test_import_conflict() {
-    let user1 = TypeName::<RustLang>::importable("models", "User");
-    let user2 = TypeName::<RustLang>::importable("other_models", "User");
+    let user1 = TypeName::importable("models", "User");
+    let user2 = TypeName::importable("other_models", "User");
 
-    let mut b = CodeBlock::<RustLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("let u1: %T = todo!()", (user1,));
     b.add_statement("let u2: %T = todo!()", (user2,));
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("conflict.rs", RustLang::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("conflict.rs", RustLang::new())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("rust/import_conflict.rs", &output);

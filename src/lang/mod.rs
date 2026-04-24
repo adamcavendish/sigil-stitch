@@ -45,7 +45,7 @@ use crate::import::ImportGroup;
 /// render_string_literal) take `&self`. Methods that are truly invariant
 /// per language (file_extension, reserved_words) also take `&self` for
 /// consistency and future flexibility.
-pub trait CodeLang: Sized + Clone + 'static {
+pub trait CodeLang: std::fmt::Debug + 'static {
     /// File extension for this language (e.g., "ts", "go", "rs").
     fn file_extension(&self) -> &str;
 
@@ -462,10 +462,7 @@ pub trait CodeLang: Sized + Clone + 'static {
     /// signature line. Used for Haskell's `(Show a, Eq a) => ...` prefix.
     ///
     /// Default: `""` (no context).
-    fn render_type_context(
-        &self,
-        _type_params: &[crate::spec::fun_spec::TypeParamSpec<Self>],
-    ) -> String {
+    fn render_type_context(&self, _type_params: &[crate::spec::fun_spec::TypeParamSpec]) -> String {
         String::new()
     }
 
@@ -668,5 +665,30 @@ pub(crate) fn module_to_alias(module: &str) -> String {
             let upper: String = first.to_uppercase().collect();
             format!("{upper}{}", chars.as_str())
         }
+    }
+}
+
+/// Create a default `CodeLang` implementation from a file extension.
+///
+/// Returns `None` if the extension is not recognized.
+pub fn lang_from_extension(ext: &str) -> Option<Box<dyn CodeLang>> {
+    match ext {
+        "ts" | "tsx" => Some(Box::new(typescript::TypeScript::default())),
+        "js" | "jsx" | "mjs" | "cjs" => Some(Box::new(javascript::JavaScript::default())),
+        "rs" => Some(Box::new(rust_lang::RustLang::default())),
+        "go" => Some(Box::new(go_lang::GoLang::default())),
+        "py" | "pyi" => Some(Box::new(python::Python::default())),
+        "java" => Some(Box::new(java_lang::JavaLang::default())),
+        "kt" | "kts" => Some(Box::new(kotlin::Kotlin::default())),
+        "swift" => Some(Box::new(swift::Swift::default())),
+        "dart" => Some(Box::new(dart::DartLang::default())),
+        "scala" | "sc" => Some(Box::new(scala::Scala::default())),
+        "hs" => Some(Box::new(haskell::Haskell::default())),
+        "ml" | "mli" => Some(Box::new(ocaml::OCaml::default())),
+        "c" | "h" => Some(Box::new(c_lang::CLang::default())),
+        "cpp" | "cxx" | "cc" | "hpp" | "hxx" => Some(Box::new(cpp_lang::CppLang::default())),
+        "sh" | "bash" => Some(Box::new(bash::Bash::default())),
+        "zsh" => Some(Box::new(zsh::Zsh::default())),
+        _ => None,
     }
 }

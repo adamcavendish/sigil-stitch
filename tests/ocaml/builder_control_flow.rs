@@ -6,15 +6,16 @@ use super::golden;
 
 #[test]
 fn test_let_binding() {
-    let mut b = CodeBlock::<OCaml>::builder();
+    let mut b = CodeBlock::builder();
     b.begin_control_flow("let add x y", ());
     b.add_statement("x + y", ());
     b.end_control_flow();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("add.ml", OCaml::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("add.ml", OCaml::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/let_binding.ml", &output);
@@ -22,7 +23,7 @@ fn test_let_binding() {
 
 #[test]
 fn test_pattern_match() {
-    let mut b = CodeBlock::<OCaml>::builder();
+    let mut b = CodeBlock::builder();
     b.begin_control_flow("let describe color", ());
     b.begin_control_flow_with_open("match color with", (), "");
     b.add("| Red -> \"red\"", ());
@@ -35,9 +36,10 @@ fn test_pattern_match() {
     b.end_control_flow();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("match.ml", OCaml::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("match.ml", OCaml::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/pattern_match.ml", &output);

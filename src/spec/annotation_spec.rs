@@ -32,35 +32,33 @@ use crate::type_name::TypeName;
 /// use sigil_stitch::lang::rust_lang::RustLang;
 ///
 /// // Simple: #[allow(dead_code)]
-/// let ann = AnnotationSpec::<RustLang>::new("allow").arg("dead_code");
+/// let ann = AnnotationSpec::new("allow").arg("dead_code");
 ///
 /// // Multiple args: #[cfg(test, feature = "nightly")]
-/// let ann = AnnotationSpec::<RustLang>::new("cfg")
+/// let ann = AnnotationSpec::new("cfg")
 ///     .arg("test")
 ///     .arg("feature = \"nightly\"");
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub struct AnnotationSpec<L: CodeLang> {
-    pub(crate) name: AnnotationName<L>,
+pub struct AnnotationSpec {
+    pub(crate) name: AnnotationName,
     pub(crate) arguments: Vec<String>,
 }
 
 /// The name of an annotation — either a simple string or an import-tracked type.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub(crate) enum AnnotationName<L: CodeLang> {
+pub(crate) enum AnnotationName {
     /// A simple name string (e.g., "Override", "deprecated").
     Simple(String),
     /// An importable type name that triggers import tracking via `%T`.
-    Importable(TypeName<L>),
+    Importable(TypeName),
 }
 
-impl<L: CodeLang> AnnotationSpec<L> {
+impl AnnotationSpec {
     /// Create an annotation with a simple (non-imported) name.
     ///
     /// ```text
-    /// AnnotationSpec::<TypeScript>::new("deprecated")
+    /// AnnotationSpec::new("deprecated")
     /// // TS: @deprecated
     /// // Rust: #[deprecated]
     /// ```
@@ -76,12 +74,12 @@ impl<L: CodeLang> AnnotationSpec<L> {
     /// The `TypeName` is rendered via `%T` so the import collector picks it up.
     ///
     /// ```text
-    /// AnnotationSpec::<JavaLang>::importable(
+    /// AnnotationSpec::importable(
     ///     TypeName::importable("javax.annotation", "Nullable")
     /// )
     /// // Java: @Nullable (with import javax.annotation.Nullable)
     /// ```
-    pub fn importable(type_name: TypeName<L>) -> Self {
+    pub fn importable(type_name: TypeName) -> Self {
         Self {
             name: AnnotationName::Importable(type_name),
             arguments: Vec::new(),
@@ -93,11 +91,11 @@ impl<L: CodeLang> AnnotationSpec<L> {
     /// Arguments are joined with `", "` inside parentheses.
     ///
     /// ```text
-    /// AnnotationSpec::<RustLang>::new("allow")
+    /// AnnotationSpec::new("allow")
     ///     .arg("dead_code")
     /// // Rust: #[allow(dead_code)]
     ///
-    /// AnnotationSpec::<JavaLang>::new("SuppressWarnings")
+    /// AnnotationSpec::new("SuppressWarnings")
     ///     .arg("\"unchecked\"")
     /// // Java: @SuppressWarnings("unchecked")
     /// ```
@@ -109,7 +107,7 @@ impl<L: CodeLang> AnnotationSpec<L> {
     /// Emit this annotation as a `CodeBlock` using the language's annotation syntax.
     ///
     /// Called during spec `emit()` methods which have access to `&L`.
-    pub fn emit(&self, lang: &L) -> Result<CodeBlock<L>, crate::error::SigilStitchError> {
+    pub fn emit(&self, lang: &dyn CodeLang) -> Result<CodeBlock, crate::error::SigilStitchError> {
         let (prefix, suffix) = lang.render_annotation_prefix();
 
         // Build the argument list portion: "(arg1, arg2)" or empty.
@@ -152,7 +150,7 @@ mod tests {
     #[test]
     fn test_simple_annotation_ts() {
         let ts = TypeScript::new();
-        let ann = AnnotationSpec::<TypeScript>::new("deprecated");
+        let ann = AnnotationSpec::new("deprecated");
         let cb = ann.emit(&ts).unwrap();
         assert!(!cb.is_empty());
     }
@@ -160,7 +158,7 @@ mod tests {
     #[test]
     fn test_simple_annotation_with_args() {
         let ts = TypeScript::new();
-        let ann = AnnotationSpec::<TypeScript>::new("deprecated").arg("reason: 'use v2'");
+        let ann = AnnotationSpec::new("deprecated").arg("reason: 'use v2'");
         let cb = ann.emit(&ts).unwrap();
         assert!(!cb.is_empty());
     }
@@ -168,7 +166,7 @@ mod tests {
     #[test]
     fn test_rust_prefix() {
         let rs = RustLang::new();
-        let ann = AnnotationSpec::<RustLang>::new("allow").arg("dead_code");
+        let ann = AnnotationSpec::new("allow").arg("dead_code");
         let cb = ann.emit(&rs).unwrap();
         assert!(!cb.is_empty());
     }
@@ -176,7 +174,7 @@ mod tests {
     #[test]
     fn test_importable_annotation() {
         let ts = TypeScript::new();
-        let type_name = TypeName::<TypeScript>::importable("./decorators", "Component");
+        let type_name = TypeName::importable("./decorators", "Component");
         let ann = AnnotationSpec::importable(type_name);
         let cb = ann.emit(&ts).unwrap();
         assert!(!cb.is_empty());
@@ -185,7 +183,7 @@ mod tests {
     #[test]
     fn test_arg_chaining() {
         let rs = RustLang::new();
-        let ann = AnnotationSpec::<RustLang>::new("cfg")
+        let ann = AnnotationSpec::new("cfg")
             .arg("test")
             .arg("feature = \"nightly\"");
         let cb = ann.emit(&rs).unwrap();

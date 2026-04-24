@@ -2,12 +2,8 @@
 
 use sigil_stitch::code_block::{CodeBlock, NameArg, StringLitArg};
 use sigil_stitch::import_collector;
-use sigil_stitch::lang::go_lang::GoLang;
 use sigil_stitch::lang::haskell::Haskell;
 use sigil_stitch::lang::ocaml::OCaml;
-use sigil_stitch::lang::python::Python;
-use sigil_stitch::lang::rust_lang::RustLang;
-use sigil_stitch::lang::typescript::TypeScript;
 use sigil_stitch::prelude::*;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::type_name::TypeName;
@@ -54,7 +50,7 @@ fn test_empty_body() {
 
 #[test]
 fn test_type_interpolation_import_tracking() {
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+    let user_type = TypeName::importable_type("./models", "User");
     let block = sigil_quote!(TypeScript {
         const user: $T(user_type) = getUser();
     })
@@ -67,7 +63,7 @@ fn test_type_interpolation_import_tracking() {
 
 #[test]
 fn test_type_interpolation_renders() {
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+    let user_type = TypeName::importable_type("./models", "User");
     let block = sigil_quote!(TypeScript {
         const user: $T(user_type) = getUser();
     })
@@ -120,7 +116,7 @@ fn test_literal_interpolation() {
 
 #[test]
 fn test_code_block_interpolation() {
-    let inner = CodeBlock::<TypeScript>::of("doSomething()", ()).unwrap();
+    let inner = CodeBlock::of("doSomething()", ()).unwrap();
     let block = sigil_quote!(TypeScript {
         $C(inner);
     })
@@ -132,8 +128,8 @@ fn test_code_block_interpolation() {
 
 #[test]
 fn test_multiple_interpolations_in_one_statement() {
-    let t1 = TypeName::<TypeScript>::primitive("string");
-    let t2 = TypeName::<TypeScript>::primitive("number");
+    let t1 = TypeName::primitive("string");
+    let t2 = TypeName::primitive("number");
     let block = sigil_quote!(TypeScript {
         const x: $T(t1) = $L("getVal") as $T(t2);
     })
@@ -147,7 +143,7 @@ fn test_multiple_interpolations_in_one_statement() {
 
 #[test]
 fn test_mixed_arg_types_in_one_statement() {
-    let ty = TypeName::<TypeScript>::primitive("User");
+    let ty = TypeName::primitive("User");
     let block = sigil_quote!(TypeScript {
         const $N("x"): $T(ty) = $S("hello") + $L("42");
     })
@@ -286,7 +282,7 @@ fn test_interpolation_in_condition() {
 
 #[test]
 fn test_control_flow_with_type_and_string_interpolation() {
-    let error_type = TypeName::<TypeScript>::importable("./errors", "NotFoundError");
+    let error_type = TypeName::importable("./errors", "NotFoundError");
     let block = sigil_quote!(TypeScript {
         if(!user) {
             throw new $T(error_type)($S("not found"));
@@ -620,7 +616,7 @@ fn test_dollar_escape_with_interpolation() {
 
 #[test]
 fn test_wrap_point_in_params() {
-    let config_type = TypeName::<TypeScript>::primitive("Config");
+    let config_type = TypeName::primitive("Config");
     let block = sigil_quote!(TypeScript {
         export async function createUser($W name: string,$W age: number,$W config: $T(config_type) $W): Promise<void> {
             return undefined;
@@ -641,9 +637,10 @@ fn test_wrap_point_narrow_width() {
     .unwrap();
 
     // Render at narrow width to force line breaks.
-    let mut fb = FileSpec::<TypeScript>::builder("test.ts");
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder("test.ts")
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(20).unwrap();
     // With narrow width, %W should break lines.
     assert!(output.contains("doSomething"), "got: {output}");
@@ -667,7 +664,7 @@ fn test_rust_language() {
 #[test]
 fn test_python_control_flow() {
     // Python uses `:` instead of `{` for blocks, rendered by CodeLang.
-    let mut b = CodeBlock::<Python>::builder();
+    let mut b = CodeBlock::builder();
     b.begin_control_flow("if x > 0", ());
     b.add_statement("return True", ());
     b.end_control_flow();
@@ -709,9 +706,9 @@ fn test_go_language() {
 
 #[test]
 fn test_equiv_simple_statement() {
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+    let user_type = TypeName::importable_type("./models", "User");
 
-    let mut b = CodeBlock::<TypeScript>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("const user: %T = getUser()", (user_type.clone(),));
     b.add_statement("return user", ());
     let manual = b.build().unwrap();
@@ -731,7 +728,7 @@ fn test_equiv_simple_statement() {
 
 #[test]
 fn test_equiv_control_flow() {
-    let mut b = CodeBlock::<TypeScript>::builder();
+    let mut b = CodeBlock::builder();
     b.begin_control_flow("if(x > 0)", ());
     b.add_statement("return true", ());
     b.next_control_flow("else", ());
@@ -758,7 +755,7 @@ fn test_equiv_control_flow() {
 
 #[test]
 fn test_equiv_comment() {
-    let mut b = CodeBlock::<TypeScript>::builder();
+    let mut b = CodeBlock::builder();
     b.add_comment("hello");
     b.add_statement("const x = 1", ());
     let manual = b.build().unwrap();
@@ -779,7 +776,7 @@ fn test_equiv_comment() {
 
 #[test]
 fn test_equiv_blank_line() {
-    let mut b = CodeBlock::<TypeScript>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("const a = 1", ());
     b.add_line();
     b.add_statement("const b = 2", ());
@@ -802,7 +799,7 @@ fn test_equiv_blank_line() {
 
 #[test]
 fn test_equiv_name_arg() {
-    let mut b = CodeBlock::<TypeScript>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("const %N = 1", (NameArg("x".to_string()),));
     let manual = b.build().unwrap();
 
@@ -821,7 +818,7 @@ fn test_equiv_name_arg() {
 
 #[test]
 fn test_equiv_string_lit_arg() {
-    let mut b = CodeBlock::<TypeScript>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("console.log(%S)", (StringLitArg("hi".to_string()),));
     let manual = b.build().unwrap();
 
@@ -840,9 +837,9 @@ fn test_equiv_string_lit_arg() {
 
 #[test]
 fn test_equiv_nested_code_block() {
-    let inner = CodeBlock::<TypeScript>::of("doWork()", ()).unwrap();
+    let inner = CodeBlock::of("doWork()", ()).unwrap();
 
-    let mut b = CodeBlock::<TypeScript>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("%L", (inner.clone(),));
     let manual = b.build().unwrap();
 
@@ -892,7 +889,7 @@ fn test_zero_args_statement() {
 
 #[test]
 fn test_single_arg_statement() {
-    let ty = TypeName::<TypeScript>::primitive("number");
+    let ty = TypeName::primitive("number");
     let block = sigil_quote!(TypeScript {
         const x: $T(ty) = 1;
     })
@@ -904,9 +901,9 @@ fn test_single_arg_statement() {
 
 #[test]
 fn test_many_args_statement() {
-    let t1 = TypeName::<TypeScript>::primitive("string");
-    let t2 = TypeName::<TypeScript>::primitive("number");
-    let t3 = TypeName::<TypeScript>::primitive("boolean");
+    let t1 = TypeName::primitive("string");
+    let t2 = TypeName::primitive("number");
+    let t3 = TypeName::primitive("boolean");
     let block = sigil_quote!(TypeScript {
         function f(a: $T(t1), b: $T(t2), c: $T(t3)): void {};
     })
@@ -924,7 +921,7 @@ fn test_many_args_statement() {
 
 #[test]
 fn test_class_like_structure() {
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+    let user_type = TypeName::importable_type("./models", "User");
     let block = sigil_quote!(TypeScript {
         export class UserService {
             getUser(id: $T(user_type)): void {
@@ -1024,9 +1021,9 @@ fn test_control_flow_then_statement() {
 
 #[test]
 fn test_many_types_with_imports() {
-    let t1 = TypeName::<TypeScript>::importable_type("./a", "TypeA");
-    let t2 = TypeName::<TypeScript>::importable_type("./b", "TypeB");
-    let t3 = TypeName::<TypeScript>::importable_type("./c", "TypeC");
+    let t1 = TypeName::importable_type("./a", "TypeA");
+    let t2 = TypeName::importable_type("./b", "TypeB");
+    let t3 = TypeName::importable_type("./c", "TypeC");
 
     let block = sigil_quote!(TypeScript {
         const a: $T(t1) = getA();
@@ -1048,7 +1045,7 @@ fn test_many_types_with_imports() {
 fn test_complex_expression_interpolation() {
     // Expression in $T() can be a method call.
     let block = sigil_quote!(TypeScript {
-        const x: $T(TypeName::<TypeScript>::primitive("string")) = $S("hello");
+        const x: $T(TypeName::primitive("string")) = $S("hello");
     })
     .unwrap();
 
@@ -1061,45 +1058,51 @@ fn test_complex_expression_interpolation() {
 // Helpers
 // ════════════════════════════════════════════════════════
 
-fn render_ts(block: &CodeBlock<TypeScript>) -> String {
-    let mut fb = FileSpec::<TypeScript>::builder("test.ts");
-    fb.add_code(block.clone());
-    let file = fb.build().unwrap();
+fn render_ts(block: &CodeBlock) -> String {
+    let file = FileSpec::builder("test.ts")
+        .add_code(block.clone())
+        .build()
+        .unwrap();
     file.render(80).unwrap()
 }
 
-fn render_rs(block: &CodeBlock<RustLang>) -> String {
-    let mut fb = FileSpec::<RustLang>::builder("test.rs");
-    fb.add_code(block.clone());
-    let file = fb.build().unwrap();
+fn render_rs(block: &CodeBlock) -> String {
+    let file = FileSpec::builder("test.rs")
+        .add_code(block.clone())
+        .build()
+        .unwrap();
     file.render(80).unwrap()
 }
 
-fn render_py(block: &CodeBlock<Python>) -> String {
-    let mut fb = FileSpec::<Python>::builder("test.py");
-    fb.add_code(block.clone());
-    let file = fb.build().unwrap();
+fn render_py(block: &CodeBlock) -> String {
+    let file = FileSpec::builder("test.py")
+        .add_code(block.clone())
+        .build()
+        .unwrap();
     file.render(80).unwrap()
 }
 
-fn render_go(block: &CodeBlock<GoLang>) -> String {
-    let mut fb = FileSpec::<GoLang>::builder("test.go");
-    fb.add_code(block.clone());
-    let file = fb.build().unwrap();
+fn render_go(block: &CodeBlock) -> String {
+    let file = FileSpec::builder("test.go")
+        .add_code(block.clone())
+        .build()
+        .unwrap();
     file.render(80).unwrap()
 }
 
-fn render_hs(block: &CodeBlock<Haskell>) -> String {
-    let mut fb = FileSpec::builder_with("test.hs", Haskell::new());
-    fb.add_code(block.clone());
-    let file = fb.build().unwrap();
+fn render_hs(block: &CodeBlock) -> String {
+    let file = FileSpec::builder_with("test.hs", Haskell::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap();
     file.render(80).unwrap()
 }
 
-fn render_ml(block: &CodeBlock<OCaml>) -> String {
-    let mut fb = FileSpec::builder_with("test.ml", OCaml::new());
-    fb.add_code(block.clone());
-    let file = fb.build().unwrap();
+fn render_ml(block: &CodeBlock) -> String {
+    let file = FileSpec::builder_with("test.ml", OCaml::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap();
     file.render(80).unwrap()
 }
 
@@ -1273,8 +1276,8 @@ fn test_ocaml_let_binding() {
 
 #[test]
 fn test_nested_code_block_import_propagation() {
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
-    let inner = CodeBlock::<TypeScript>::of("getUser(): %T", (user_type,)).unwrap();
+    let user_type = TypeName::importable_type("./models", "User");
+    let inner = CodeBlock::of("getUser(): %T", (user_type,)).unwrap();
 
     let block = sigil_quote!(TypeScript {
         $C(inner);

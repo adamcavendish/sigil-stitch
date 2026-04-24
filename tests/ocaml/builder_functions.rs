@@ -9,17 +9,19 @@ use super::golden;
 
 #[test]
 fn test_function_with_params() {
-    let body = CodeBlock::<OCaml>::of("List.map f xs", ()).unwrap();
-    let mut fb_fun = FunSpec::<OCaml>::builder("transform");
-    fb_fun.returns(TypeName::primitive("'b list"));
-    fb_fun.add_param(ParameterSpec::new("f", TypeName::primitive("'a -> 'b")).unwrap());
-    fb_fun.add_param(ParameterSpec::new("xs", TypeName::primitive("'a list")).unwrap());
-    fb_fun.body(body);
-    let fun = fb_fun.build().unwrap();
+    let body = CodeBlock::of("List.map f xs", ()).unwrap();
+    let fun = FunSpec::builder("transform")
+        .returns(TypeName::primitive("'b list"))
+        .add_param(ParameterSpec::new("f", TypeName::primitive("'a -> 'b")).unwrap())
+        .add_param(ParameterSpec::new("xs", TypeName::primitive("'a list")).unwrap())
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("transform.ml", OCaml::new());
-    fb.add_function(fun);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("transform.ml", OCaml::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/function_with_params.ml", &output);
@@ -27,18 +29,20 @@ fn test_function_with_params() {
 
 #[test]
 fn test_function_with_doc() {
-    let body = CodeBlock::<OCaml>::of("List.map f xs", ()).unwrap();
-    let mut fb_fun = FunSpec::<OCaml>::builder("transform");
-    fb_fun.doc("Transform a list using a mapping function.");
-    fb_fun.returns(TypeName::primitive("'b list"));
-    fb_fun.add_param(ParameterSpec::new("f", TypeName::primitive("'a -> 'b")).unwrap());
-    fb_fun.add_param(ParameterSpec::new("xs", TypeName::primitive("'a list")).unwrap());
-    fb_fun.body(body);
-    let fun = fb_fun.build().unwrap();
+    let body = CodeBlock::of("List.map f xs", ()).unwrap();
+    let fun = FunSpec::builder("transform")
+        .doc("Transform a list using a mapping function.")
+        .returns(TypeName::primitive("'b list"))
+        .add_param(ParameterSpec::new("f", TypeName::primitive("'a -> 'b")).unwrap())
+        .add_param(ParameterSpec::new("xs", TypeName::primitive("'a list")).unwrap())
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("transform.ml", OCaml::new());
-    fb.add_function(fun);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("transform.ml", OCaml::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/function_with_doc.ml", &output);

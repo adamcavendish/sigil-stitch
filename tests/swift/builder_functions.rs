@@ -11,19 +11,21 @@ use super::golden;
 
 #[test]
 fn test_async_function() {
-    let user = TypeName::<Swift>::importable("MyModule", "User");
+    let user = TypeName::importable("MyModule", "User");
 
-    let body = CodeBlock::<Swift>::of("return try await api.fetchUser(id: id)", ()).unwrap();
-    let mut fb_fun = FunSpec::<Swift>::builder("fetchUser");
-    fb_fun.is_async();
-    fb_fun.returns(user);
-    fb_fun.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    fb_fun.body(body);
-    let fun = fb_fun.build().unwrap();
+    let body = CodeBlock::of("return try await api.fetchUser(id: id)", ()).unwrap();
+    let fun = FunSpec::builder("fetchUser")
+        .is_async()
+        .returns(user)
+        .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("Api.swift", Swift::new());
-    fb.add_function(fun);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Api.swift", Swift::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("swift/async_function.swift", &output);
@@ -31,25 +33,29 @@ fn test_async_function() {
 
 #[test]
 fn test_override_method() {
-    let mut tb = TypeSpec::<Swift>::builder("Dog", TypeKind::Class);
-    tb.extends(TypeName::primitive("Animal"));
-
-    let body = CodeBlock::<Swift>::of(
+    let body = CodeBlock::of(
         "return %S",
         (sigil_stitch::code_block::StringLitArg("Woof!".to_string()),),
     )
     .unwrap();
-    let mut speak = FunSpec::<Swift>::builder("speak");
-    speak.returns(TypeName::primitive("String"));
-    speak.is_override();
-    speak.body(body);
-    tb.add_method(speak.build().unwrap());
 
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("Dog", TypeKind::Class)
+        .extends(TypeName::primitive("Animal"))
+        .add_method(
+            FunSpec::builder("speak")
+                .returns(TypeName::primitive("String"))
+                .is_override()
+                .body(body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("Dog.swift", Swift::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Dog.swift", Swift::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("swift/override_method.swift", &output);
@@ -57,18 +63,20 @@ fn test_override_method() {
 
 #[test]
 fn test_function_with_doc() {
-    let body = CodeBlock::<Swift>::of("return \"Hello, \\(name)!\"", ()).unwrap();
-    let mut fb = FunSpec::<Swift>::builder("greet");
-    fb.visibility(Visibility::Public);
-    fb.doc("Greet the user by name.");
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap());
-    fb.returns(TypeName::primitive("String"));
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let body = CodeBlock::of("return \"Hello, \\(name)!\"", ()).unwrap();
+    let fun = FunSpec::builder("greet")
+        .visibility(Visibility::Public)
+        .doc("Greet the user by name.")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap())
+        .returns(TypeName::primitive("String"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::<Swift>::builder("greet.swift");
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder("greet.swift")
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("swift/function_with_doc.swift", &output);

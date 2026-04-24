@@ -46,10 +46,9 @@ pub enum FormatPart {
 
 /// An argument to a CodeBlock format string.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub enum Arg<L: CodeLang> {
+pub enum Arg {
     /// A type name reference (used by `%T`).
-    TypeName(TypeName<L>),
+    TypeName(TypeName),
     /// A name string (used by `%N`).
     Name(String),
     /// A string literal value (used by `%S`).
@@ -57,7 +56,7 @@ pub enum Arg<L: CodeLang> {
     /// A literal string value or nested code block (used by `%L`).
     Literal(String),
     /// A nested code block (used by `%L`).
-    Code(CodeBlock<L>),
+    Code(CodeBlock),
 }
 
 /// An immutable code fragment with embedded type references.
@@ -79,33 +78,29 @@ pub enum Arg<L: CodeLang> {
 /// use sigil_stitch::type_name::TypeName;
 ///
 /// // One-liner with a type reference:
-/// let user = TypeName::<TypeScript>::importable("./models", "User");
-/// let block = CodeBlock::<TypeScript>::of("const u: %T = getUser()", (user,)).unwrap();
+/// let user = TypeName::importable("./models", "User");
+/// let block = CodeBlock::of("const u: %T = getUser()", (user,)).unwrap();
 ///
 /// // Multi-statement block via builder:
-/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// let mut cb = CodeBlock::builder();
 /// cb.add_statement("const x = 1", ());
 /// cb.add_statement("const y = 2", ());
 /// let block = cb.build().unwrap();
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub struct CodeBlock<L: CodeLang> {
+pub struct CodeBlock {
     pub(crate) parts: Vec<FormatPart>,
-    pub(crate) args: Vec<Arg<L>>,
+    pub(crate) args: Vec<Arg>,
 }
 
-impl<L: CodeLang> CodeBlock<L> {
+impl CodeBlock {
     /// Create a new CodeBlockBuilder.
-    pub fn builder() -> CodeBlockBuilder<L> {
+    pub fn builder() -> CodeBlockBuilder {
         CodeBlockBuilder::new()
     }
 
     /// Create a CodeBlock from a single format string and arguments.
-    pub fn of(
-        format: &str,
-        args: impl IntoArgs<L>,
-    ) -> Result<Self, crate::error::SigilStitchError> {
+    pub fn of(format: &str, args: impl IntoArgs) -> Result<Self, crate::error::SigilStitchError> {
         let mut builder = CodeBlockBuilder::new();
         builder.add(format, args);
         builder.build()
@@ -126,6 +121,21 @@ impl<L: CodeLang> CodeBlock<L> {
             }
         }
     }
+
+    /// Render this code block to a string without import resolution.
+    ///
+    /// Creates a temporary empty import group and renders using the given
+    /// language and target line width. Useful for quick one-off rendering
+    /// in tests or when import management is not needed.
+    pub fn render_standalone(
+        &self,
+        lang: &dyn CodeLang,
+        width: usize,
+    ) -> Result<String, crate::error::SigilStitchError> {
+        let imports = crate::import::ImportGroup::new();
+        let mut renderer = crate::code_renderer::CodeRenderer::new(lang, &imports, width);
+        renderer.render(self)
+    }
 }
 
 /// Builder for constructing [`CodeBlock`] instances.
@@ -141,7 +151,7 @@ impl<L: CodeLang> CodeBlock<L> {
 /// use sigil_stitch::code_block::CodeBlock;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// let mut cb = CodeBlock::builder();
 /// cb.begin_control_flow("if (x > 0)", ());
 /// cb.add_statement("return x", ());
 /// cb.next_control_flow("else", ());
@@ -150,14 +160,14 @@ impl<L: CodeLang> CodeBlock<L> {
 /// let block = cb.build().unwrap();
 /// ```
 #[derive(Debug)]
-pub struct CodeBlockBuilder<L: CodeLang> {
+pub struct CodeBlockBuilder {
     parts: Vec<FormatPart>,
-    args: Vec<Arg<L>>,
+    args: Vec<Arg>,
     indent_depth: i32,
     errors: Vec<crate::error::SigilStitchError>,
 }
 
-impl<L: CodeLang> CodeBlockBuilder<L> {
+impl CodeBlockBuilder {
     /// Create a new empty code block builder.
     pub fn new() -> Self {
         Self {
@@ -169,7 +179,7 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     }
 
     /// Add a formatted code fragment.
-    pub fn add(&mut self, format: &str, args: impl IntoArgs<L>) -> &mut Self {
+    pub fn add(&mut self, format: &str, args: impl IntoArgs) -> &mut Self {
         let arg_vec = args.into_args();
         let parsed = match parse_format(format) {
             Ok(parts) => parts,
@@ -220,7 +230,7 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     }
 
     /// Add a statement (wraps in %[...%] and appends language semicolon).
-    pub fn add_statement(&mut self, format: &str, args: impl IntoArgs<L>) -> &mut Self {
+    pub fn add_statement(&mut self, format: &str, args: impl IntoArgs) -> &mut Self {
         self.parts.push(FormatPart::StatementBegin);
         self.add(format, args);
         self.parts.push(FormatPart::StatementEnd);
@@ -229,7 +239,7 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     }
 
     /// Begin a control flow block (e.g., "if foo" -> "if foo {\n" + indent).
-    pub fn begin_control_flow(&mut self, format: &str, args: impl IntoArgs<L>) -> &mut Self {
+    pub fn begin_control_flow(&mut self, format: &str, args: impl IntoArgs) -> &mut Self {
         self.add(format, args);
         self.parts.push(FormatPart::BlockOpen);
         self.parts.push(FormatPart::Newline);
@@ -246,7 +256,7 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     pub fn begin_control_flow_with_open(
         &mut self,
         format: &str,
-        args: impl IntoArgs<L>,
+        args: impl IntoArgs,
         custom_open: &str,
     ) -> &mut Self {
         self.add(format, args);
@@ -261,7 +271,7 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     }
 
     /// Add an else/else-if clause (e.g., "} else {" or "elif ...:" for Python).
-    pub fn next_control_flow(&mut self, format: &str, args: impl IntoArgs<L>) -> &mut Self {
+    pub fn next_control_flow(&mut self, format: &str, args: impl IntoArgs) -> &mut Self {
         self.parts.push(FormatPart::Dedent);
         self.indent_depth -= 1;
         self.parts.push(FormatPart::BlockCloseTransition);
@@ -297,7 +307,7 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     }
 
     /// Add a nested CodeBlock inline.
-    pub fn add_code(&mut self, block: CodeBlock<L>) -> &mut Self {
+    pub fn add_code(&mut self, block: CodeBlock) -> &mut Self {
         self.parts.push(FormatPart::Literal_);
         self.args.push(Arg::Code(block));
         self
@@ -308,7 +318,7 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     /// Returns an error if any format string had an argument count mismatch,
     /// or if indent depth is not balanced (unmatched
     /// begin_control_flow / end_control_flow).
-    pub fn build(self) -> Result<CodeBlock<L>, crate::error::SigilStitchError> {
+    pub fn build(self) -> Result<CodeBlock, crate::error::SigilStitchError> {
         if let Some(err) = self.errors.into_iter().next() {
             return Err(err);
         }
@@ -324,12 +334,12 @@ impl<L: CodeLang> CodeBlockBuilder<L> {
     }
 
     /// Build the CodeBlock, panicking on error.
-    pub fn build_unwrap(self) -> CodeBlock<L> {
+    pub fn build_unwrap(self) -> CodeBlock {
         self.build().unwrap()
     }
 }
 
-impl<L: CodeLang> Default for CodeBlockBuilder<L> {
+impl Default for CodeBlockBuilder {
     fn default() -> Self {
         Self::new()
     }
@@ -395,54 +405,54 @@ fn parse_format(format: &str) -> Result<Vec<FormatPart>, crate::error::SigilStit
 
 // === IntoArgs trait and implementations ===
 
-/// Trait for converting various types into a `Vec<Arg<L>>` for format strings.
+/// Trait for converting various types into a `Vec<Arg>` for format strings.
 ///
 /// Implemented for `()` (no args), `TypeName`, `&str`, `String`, `CodeBlock`,
-/// `NameArg`, `StringLitArg`, `Vec<Arg<L>>`, and tuples up to 8 elements.
+/// `NameArg`, `StringLitArg`, `Vec<Arg>`, and tuples up to 8 elements.
 /// Bare strings convert to `Arg::Literal`; use [`NameArg`] or [`StringLitArg`]
 /// wrappers to target `%N` or `%S` specifiers instead.
-pub trait IntoArgs<L: CodeLang> {
+pub trait IntoArgs {
     /// Convert into a vector of format arguments.
-    fn into_args(self) -> Vec<Arg<L>>;
+    fn into_args(self) -> Vec<Arg>;
 }
 
 /// Empty args (for format strings with no specifiers).
-impl<L: CodeLang> IntoArgs<L> for () {
-    fn into_args(self) -> Vec<Arg<L>> {
+impl IntoArgs for () {
+    fn into_args(self) -> Vec<Arg> {
         Vec::new()
     }
 }
 
 /// Single TypeName arg.
-impl<L: CodeLang> IntoArgs<L> for TypeName<L> {
-    fn into_args(self) -> Vec<Arg<L>> {
+impl IntoArgs for TypeName {
+    fn into_args(self) -> Vec<Arg> {
         vec![Arg::TypeName(self)]
     }
 }
 
 /// Single string arg (as literal).
-impl<L: CodeLang> IntoArgs<L> for &str {
-    fn into_args(self) -> Vec<Arg<L>> {
+impl IntoArgs for &str {
+    fn into_args(self) -> Vec<Arg> {
         vec![Arg::Literal(self.to_string())]
     }
 }
 
-impl<L: CodeLang> IntoArgs<L> for String {
-    fn into_args(self) -> Vec<Arg<L>> {
+impl IntoArgs for String {
+    fn into_args(self) -> Vec<Arg> {
         vec![Arg::Literal(self)]
     }
 }
 
 /// Single CodeBlock arg.
-impl<L: CodeLang> IntoArgs<L> for CodeBlock<L> {
-    fn into_args(self) -> Vec<Arg<L>> {
+impl IntoArgs for CodeBlock {
+    fn into_args(self) -> Vec<Arg> {
         vec![Arg::Code(self)]
     }
 }
 
 /// Pre-built args vector (used by specs that dynamically build format strings).
-impl<L: CodeLang> IntoArgs<L> for Vec<Arg<L>> {
-    fn into_args(self) -> Vec<Arg<L>> {
+impl IntoArgs for Vec<Arg> {
+    fn into_args(self) -> Vec<Arg> {
         self
     }
 }
@@ -458,14 +468,14 @@ impl<L: CodeLang> IntoArgs<L> for Vec<Arg<L>> {
 /// use sigil_stitch::code_block::{CodeBlock, NameArg};
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// let mut cb = CodeBlock::builder();
 /// cb.add("this.%N()", (NameArg("getData".to_string()),));
 /// let block = cb.build().unwrap();
 /// ```
 pub struct NameArg(pub String);
 
-impl<L: CodeLang> IntoArgs<L> for NameArg {
-    fn into_args(self) -> Vec<Arg<L>> {
+impl IntoArgs for NameArg {
+    fn into_args(self) -> Vec<Arg> {
         vec![Arg::Name(self.0)]
     }
 }
@@ -481,62 +491,62 @@ impl<L: CodeLang> IntoArgs<L> for NameArg {
 /// use sigil_stitch::code_block::{CodeBlock, StringLitArg};
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// let mut cb = CodeBlock::builder();
 /// cb.add_statement("const msg = %S", (StringLitArg("hello".to_string()),));
 /// let block = cb.build().unwrap();
 /// ```
 pub struct StringLitArg(pub String);
 
-impl<L: CodeLang> IntoArgs<L> for StringLitArg {
-    fn into_args(self) -> Vec<Arg<L>> {
+impl IntoArgs for StringLitArg {
+    fn into_args(self) -> Vec<Arg> {
         vec![Arg::StringLit(self.0)]
     }
 }
 
 // Individual Arg conversions.
-impl<L: CodeLang> From<TypeName<L>> for Arg<L> {
-    fn from(tn: TypeName<L>) -> Self {
+impl From<TypeName> for Arg {
+    fn from(tn: TypeName) -> Self {
         Arg::TypeName(tn)
     }
 }
 
-impl<L: CodeLang> From<&str> for Arg<L> {
+impl From<&str> for Arg {
     fn from(s: &str) -> Self {
         Arg::Literal(s.to_string())
     }
 }
 
-impl<L: CodeLang> From<String> for Arg<L> {
+impl From<String> for Arg {
     fn from(s: String) -> Self {
         Arg::Literal(s)
     }
 }
 
-impl<L: CodeLang> From<CodeBlock<L>> for Arg<L> {
-    fn from(cb: CodeBlock<L>) -> Self {
+impl From<CodeBlock> for Arg {
+    fn from(cb: CodeBlock) -> Self {
         Arg::Code(cb)
     }
 }
 
-impl<L: CodeLang> From<NameArg> for Arg<L> {
+impl From<NameArg> for Arg {
     fn from(n: NameArg) -> Self {
         Arg::Name(n.0)
     }
 }
 
-impl<L: CodeLang> From<StringLitArg> for Arg<L> {
+impl From<StringLitArg> for Arg {
     fn from(s: StringLitArg) -> Self {
         Arg::StringLit(s.0)
     }
 }
 
 // Tuple implementations for IntoArgs.
-// Each element must implement Into<Arg<L>>.
+// Each element must implement Into<Arg>.
 
 macro_rules! impl_into_args_tuple {
     ($($idx:tt $T:ident),+) => {
-        impl<L: CodeLang, $($T: Into<Arg<L>>),+> IntoArgs<L> for ($($T,)+) {
-            fn into_args(self) -> Vec<Arg<L>> {
+        impl<$($T: Into<Arg>),+> IntoArgs for ($($T,)+) {
+            fn into_args(self) -> Vec<Arg> {
                 vec![$(self.$idx.into()),+]
             }
         }
@@ -555,7 +565,6 @@ impl_into_args_tuple!(0 A, 1 B, 2 C, 3 D, 4 E, 5 F, 6 G, 7 H);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lang::typescript::TypeScript;
 
     #[test]
     fn test_parse_all_specifiers() {
@@ -598,7 +607,7 @@ mod tests {
 
     #[test]
     fn test_builder_add_statement() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const x = %L", "42");
         let block = b.build().unwrap();
 
@@ -609,7 +618,7 @@ mod tests {
 
     #[test]
     fn test_builder_control_flow() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow("if (x > 0)", ());
         b.add_statement("return x", ());
         b.end_control_flow();
@@ -620,7 +629,7 @@ mod tests {
 
     #[test]
     fn test_builder_unbalanced_control_flow() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow("if (x)", ());
         b.add_statement("y()", ());
         // missing end_control_flow
@@ -631,7 +640,7 @@ mod tests {
 
     #[test]
     fn test_mismatched_arg_count() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add("%T", ());
         let result = b.build();
         assert!(result.is_err());
@@ -645,8 +654,8 @@ mod tests {
 
     #[test]
     fn test_into_args_tuple() {
-        let user = TypeName::<TypeScript>::importable("./models", "User");
-        let args: Vec<Arg<TypeScript>> = (user, "hello").into_args();
+        let user = TypeName::importable("./models", "User");
+        let args: Vec<Arg> = (user, "hello").into_args();
         assert_eq!(args.len(), 2);
         assert!(matches!(&args[0], Arg::TypeName(_)));
         assert!(matches!(&args[1], Arg::Literal(s) if s == "hello"));
@@ -654,23 +663,23 @@ mod tests {
 
     #[test]
     fn test_into_args_single_typename() {
-        let user = TypeName::<TypeScript>::importable("./models", "User");
-        let args: Vec<Arg<TypeScript>> = user.into_args();
+        let user = TypeName::importable("./models", "User");
+        let args: Vec<Arg> = user.into_args();
         assert_eq!(args.len(), 1);
     }
 
     #[test]
     fn test_into_args_single_str() {
-        let args: Vec<Arg<TypeScript>> = "hello".into_args();
+        let args: Vec<Arg> = "hello".into_args();
         assert_eq!(args.len(), 1);
         assert!(matches!(&args[0], Arg::Literal(s) if s == "hello"));
     }
 
     #[test]
     fn test_collect_imports_from_codeblock() {
-        let user = TypeName::<TypeScript>::importable("./models", "User");
-        let tag = TypeName::<TypeScript>::importable("./models", "Tag");
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let user = TypeName::importable("./models", "User");
+        let tag = TypeName::importable("./models", "Tag");
+        let mut b = CodeBlock::builder();
         b.add_statement("const u: %T = getUser()", (user,));
         b.add_statement("const t: %T = getTag()", (tag,));
         let block = b.build().unwrap();
@@ -684,12 +693,12 @@ mod tests {
 
     #[test]
     fn test_nested_codeblock_imports() {
-        let user = TypeName::<TypeScript>::importable("./models", "User");
-        let mut ib = CodeBlock::<TypeScript>::builder();
+        let user = TypeName::importable("./models", "User");
+        let mut ib = CodeBlock::builder();
         ib.add_statement("return new %T()", (user,));
         let inner = ib.build().unwrap();
 
-        let mut ob = CodeBlock::<TypeScript>::builder();
+        let mut ob = CodeBlock::builder();
         ob.add_code(inner);
         let outer = ob.build().unwrap();
 
@@ -701,7 +710,7 @@ mod tests {
 
     #[test]
     fn test_name_arg() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add("this.%N()", (NameArg("getUser".to_string()),));
         let block = b.build().unwrap();
         assert_eq!(block.args.len(), 1);
@@ -710,7 +719,7 @@ mod tests {
 
     #[test]
     fn test_string_lit_arg() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add("const x = %S", (StringLitArg("hello".to_string()),));
         let block = b.build().unwrap();
         assert_eq!(block.args.len(), 1);
@@ -719,7 +728,7 @@ mod tests {
 
     #[test]
     fn test_invalid_format_specifier() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add("hello %X world", ());
         let result = b.build();
         assert!(result.is_err());
@@ -739,8 +748,8 @@ mod tests {
 
     #[test]
     fn test_mismatched_arg_count_includes_specifiers_and_kinds() {
-        let user = TypeName::<TypeScript>::importable("./models", "User");
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let user = TypeName::importable("./models", "User");
+        let mut b = CodeBlock::builder();
         b.add("%T %S %L", (user,));
         let result = b.build();
         assert!(result.is_err());
@@ -754,7 +763,7 @@ mod tests {
 
     #[test]
     fn test_begin_control_flow_with_open_non_empty() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow_with_open("class Functor f", (), " where");
         b.add_statement("fmap :: (a -> b) -> f a -> f b", ());
         b.end_control_flow();
@@ -776,7 +785,7 @@ mod tests {
 
     #[test]
     fn test_begin_control_flow_with_open_empty() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow_with_open("match x with", (), "");
         b.add("| Red -> red", ());
         b.add_line();

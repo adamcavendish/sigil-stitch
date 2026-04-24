@@ -27,7 +27,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// FieldSpec::builder("count", TypeName::primitive("")).build()
 ///
 /// // Function without return type — just don't call .returns():
-/// let mut fb = FunSpec::<JavaScript>::builder("greet");
+/// let mut fb = FunSpec::builder("greet");
 /// fb.add_param(ParameterSpec::new("name", TypeName::primitive("")));
 /// fb.body(body);
 /// ```

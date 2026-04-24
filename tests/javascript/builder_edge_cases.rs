@@ -11,12 +11,12 @@ use sigil_stitch::type_name::TypeName;
 use super::golden;
 
 /// Shorthand for a JS parameter (no type annotation).
-fn param(name: &str) -> ParameterSpec<JavaScript> {
+fn param(name: &str) -> ParameterSpec {
     ParameterSpec::new(name, TypeName::primitive("")).unwrap()
 }
 
 /// Shorthand for a JS field (no type annotation).
-fn field(name: &str) -> FieldSpec<JavaScript> {
+fn field(name: &str) -> FieldSpec {
     FieldSpec::builder(name, TypeName::primitive(""))
         .build()
         .unwrap()
@@ -24,51 +24,56 @@ fn field(name: &str) -> FieldSpec<JavaScript> {
 
 #[test]
 fn test_full_module() {
-    let event_emitter = TypeName::<JavaScript>::importable("events", "EventEmitter");
-    let uuid = TypeName::<JavaScript>::importable("uuid", "v4");
+    let event_emitter = TypeName::importable("events", "EventEmitter");
+    let uuid = TypeName::importable("uuid", "v4");
 
     // EventBus class extending EventEmitter.
-    let mut tb = TypeSpec::<JavaScript>::builder("EventBus", TypeKind::Class);
-    tb.visibility(Visibility::Public);
-    tb.extends(TypeName::primitive("EventEmitter"));
-    tb.doc("Application event bus.");
-
-    tb.add_field(field("#handlers"));
-
-    let ctor_body =
-        CodeBlock::<JavaScript>::of("super();\nthis.#handlers = new Map();", ()).unwrap();
-    let mut ctor = FunSpec::<JavaScript>::builder("constructor");
-    ctor.body(ctor_body);
-    tb.add_method(ctor.build().unwrap());
-
-    let pub_body = CodeBlock::<JavaScript>::of(
+    let ctor_body = CodeBlock::of("super();\nthis.#handlers = new Map();", ()).unwrap();
+    let pub_body = CodeBlock::of(
         "const id = %T();\nthis.emit(event, data);\nreturn id;",
         (uuid,),
     )
     .unwrap();
-    let mut publish = FunSpec::<JavaScript>::builder("publish");
-    publish.add_param(param("event"));
-    publish.add_param(param("data"));
-    publish.body(pub_body);
-    tb.add_method(publish.build().unwrap());
 
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("EventBus", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .extends(TypeName::primitive("EventEmitter"))
+        .doc("Application event bus.")
+        .add_field(field("#handlers"))
+        .add_method(
+            FunSpec::builder("constructor")
+                .body(ctor_body)
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("publish")
+                .add_param(param("event"))
+                .add_param(param("data"))
+                .body(pub_body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     // Trigger EventEmitter import.
-    let import_trigger = CodeBlock::<JavaScript>::of("// extends %T", (event_emitter,)).unwrap();
+    let import_trigger = CodeBlock::of("// extends %T", (event_emitter,)).unwrap();
 
     // Standalone exported function.
-    let create_body = CodeBlock::<JavaScript>::of("return new EventBus();", ()).unwrap();
-    let mut create_fn = FunSpec::<JavaScript>::builder("createEventBus");
-    create_fn.visibility(Visibility::Public);
-    create_fn.body(create_body);
-    let create = create_fn.build().unwrap();
+    let create_body = CodeBlock::of("return new EventBus();", ()).unwrap();
+    let create = FunSpec::builder("createEventBus")
+        .visibility(Visibility::Public)
+        .body(create_body)
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("event-bus.js", JavaScript::new());
-    fb.add_code(import_trigger);
-    fb.add_type(ts);
-    fb.add_function(create);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("event-bus.js", JavaScript::new())
+        .add_code(import_trigger)
+        .add_type(ts)
+        .add_function(create)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("javascript/full_module.js", &output);

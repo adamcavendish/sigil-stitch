@@ -9,17 +9,20 @@ use super::golden;
 
 #[test]
 fn test_top_level_function() {
-    let json_dumps = TypeName::<Python>::importable("json", "dumps");
+    let json_dumps = TypeName::importable("json", "dumps");
 
-    let mut fb = FunSpec::<Python>::builder("serialize");
-    fb.doc("Serialize an object to JSON.");
-    fb.add_param(ParameterSpec::new("value", TypeName::primitive("object")).unwrap());
-    fb.returns(TypeName::primitive("str"));
-    fb.body(CodeBlock::<Python>::of("return %T(value)", (json_dumps,)).unwrap());
-
-    let mut file_b = FileSpec::builder_with("utils.py", Python::new());
-    file_b.add_function(fb.build().unwrap());
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("utils.py", Python::new())
+        .add_function(
+            FunSpec::builder("serialize")
+                .doc("Serialize an object to JSON.")
+                .add_param(ParameterSpec::new("value", TypeName::primitive("object")).unwrap())
+                .returns(TypeName::primitive("str"))
+                .body(CodeBlock::of("return %T(value)", (json_dumps,)).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/top_level_function.py", &output);
@@ -27,17 +30,19 @@ fn test_top_level_function() {
 
 #[test]
 fn test_function_with_doc() {
-    let body = CodeBlock::<Python>::of("return f\"Hello, {name}!\"", ()).unwrap();
-    let mut fb = FunSpec::<Python>::builder("greet");
-    fb.doc("Greet the user by name.");
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("str")).unwrap());
-    fb.returns(TypeName::primitive("str"));
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let body = CodeBlock::of("return f\"Hello, {name}!\"", ()).unwrap();
+    let fun = FunSpec::builder("greet")
+        .doc("Greet the user by name.")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("str")).unwrap())
+        .returns(TypeName::primitive("str"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::<Python>::builder("greet.py");
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder("greet.py")
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("python/function_with_doc.py", &output);

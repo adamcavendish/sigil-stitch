@@ -1,7 +1,5 @@
 use sigil_stitch::code_block::{CodeBlock, NameArg};
 use sigil_stitch::code_template::CodeTemplate;
-use sigil_stitch::lang::rust_lang::RustLang;
-use sigil_stitch::lang::typescript::TypeScript;
 use sigil_stitch::spec::file_spec::FileSpec;
 use sigil_stitch::type_name::TypeName;
 
@@ -10,19 +8,22 @@ use sigil_stitch::type_name::TypeName;
 #[test]
 fn test_template_full_render_ts() {
     let tmpl = CodeTemplate::new("const #{var:N}: #{type:T} = #{init:L}").unwrap();
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+    let user_type = TypeName::importable_type("./models", "User");
 
     let block = tmpl
-        .apply::<TypeScript>()
+        .apply()
         .set("var", NameArg("currentUser".into()))
         .set("type", user_type)
         .set("init", "getUser()")
         .build()
         .unwrap();
 
-    let mut fb = FileSpec::<TypeScript>::builder("app.ts");
-    fb.add_code(block);
-    let output = fb.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("app.ts")
+        .add_code(block)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     assert!(output.contains("import type { User } from './models'"));
     assert!(output.contains("const currentUser: User = getUser()"));
@@ -31,27 +32,30 @@ fn test_template_full_render_ts() {
 #[test]
 fn test_template_reuse_with_dedup() {
     let tmpl = CodeTemplate::new("const #{var:N}: #{type:T} = new #{type:T}()").unwrap();
-    let user = TypeName::<TypeScript>::importable_type("./models", "User");
-    let config = TypeName::<TypeScript>::importable("./config", "Config");
+    let user = TypeName::importable_type("./models", "User");
+    let config = TypeName::importable("./config", "Config");
 
     let block1 = tmpl
-        .apply::<TypeScript>()
+        .apply()
         .set("var", NameArg("user".into()))
         .set("type", user)
         .build()
         .unwrap();
 
     let block2 = tmpl
-        .apply::<TypeScript>()
+        .apply()
         .set("var", NameArg("config".into()))
         .set("type", config)
         .build()
         .unwrap();
 
-    let mut fb = FileSpec::<TypeScript>::builder("service.ts");
-    fb.add_code(block1);
-    fb.add_code(block2);
-    let output = fb.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("service.ts")
+        .add_code(block1)
+        .add_code(block2)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     assert!(output.contains("import type { User } from './models'"));
     assert!(output.contains("import { Config } from './config'"));
@@ -65,22 +69,21 @@ fn test_template_composition_via_literal() {
     let inner_tmpl = CodeTemplate::new("return #{val:L}").unwrap();
     let outer_tmpl = CodeTemplate::new("function #{name:N}() { #{body:L} }").unwrap();
 
-    let inner = inner_tmpl
-        .apply::<TypeScript>()
-        .set("val", "42")
-        .build()
-        .unwrap();
+    let inner = inner_tmpl.apply().set("val", "42").build().unwrap();
 
     let outer = outer_tmpl
-        .apply::<TypeScript>()
+        .apply()
         .set("name", NameArg("getAnswer".into()))
         .set("body", inner)
         .build()
         .unwrap();
 
-    let mut fb = FileSpec::<TypeScript>::builder("answer.ts");
-    fb.add_code(outer);
-    let output = fb.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("answer.ts")
+        .add_code(outer)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     assert!(output.contains("function getAnswer()"));
     assert!(output.contains("return 42"));
@@ -90,11 +93,14 @@ fn test_template_composition_via_literal() {
 
 #[test]
 fn test_raw_with_imports_triggers_import() {
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+    let user_type = TypeName::importable_type("./models", "User");
 
-    let mut fb = FileSpec::<TypeScript>::builder("handler.ts");
-    fb.add_raw_with_imports("const u: User = fetchUser();\n", vec![user_type]);
-    let output = fb.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("handler.ts")
+        .add_raw_with_imports("const u: User = fetchUser();\n", vec![user_type])
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     // Import should be generated.
     assert!(output.contains("import type { User } from './models'"));
@@ -104,11 +110,14 @@ fn test_raw_with_imports_triggers_import() {
 
 #[test]
 fn test_raw_with_imports_no_substitution() {
-    let ty = TypeName::<TypeScript>::importable("./lib", "Helper");
+    let ty = TypeName::importable("./lib", "Helper");
 
-    let mut fb = FileSpec::<TypeScript>::builder("test.ts");
-    fb.add_raw_with_imports("// Helper is used here\n", vec![ty]);
-    let output = fb.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("test.ts")
+        .add_raw_with_imports("// Helper is used here\n", vec![ty])
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     // Raw content unchanged.
     assert!(output.contains("// Helper is used here"));
@@ -118,18 +127,18 @@ fn test_raw_with_imports_no_substitution() {
 
 #[test]
 fn test_raw_with_imports_mixed_with_code() {
-    let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
-    let same_user = TypeName::<TypeScript>::importable_type("./models", "User");
+    let user_type = TypeName::importable_type("./models", "User");
+    let same_user = TypeName::importable_type("./models", "User");
 
-    let mut fb = FileSpec::<TypeScript>::builder("mixed.ts");
+    let fb = FileSpec::builder("mixed.ts");
 
     // Raw content referencing User.
-    fb.add_raw_with_imports("// User type is used below\n", vec![user_type]);
-
     // CodeBlock also referencing User.
-    let mut cb = CodeBlock::<TypeScript>::builder();
+    let mut cb = CodeBlock::builder();
     cb.add_statement("const u: %T = getUser()", (same_user,));
-    fb.add_code(cb.build().unwrap());
+    let fb = fb
+        .add_raw_with_imports("// User type is used below\n", vec![user_type])
+        .add_code(cb.build().unwrap());
 
     let output = fb.build().unwrap().render(80).unwrap();
 
@@ -143,19 +152,22 @@ fn test_raw_with_imports_mixed_with_code() {
 #[test]
 fn test_template_rust_render() {
     let tmpl = CodeTemplate::new("let #{var:N}: #{type:T} = #{init:L}").unwrap();
-    let config_type = TypeName::<RustLang>::importable("crate::config", "Config");
+    let config_type = TypeName::importable("crate::config", "Config");
 
     let block = tmpl
-        .apply::<RustLang>()
+        .apply()
         .set("var", NameArg("cfg".into()))
         .set("type", config_type)
         .set("init", "Config::default()")
         .build()
         .unwrap();
 
-    let mut fb = FileSpec::<RustLang>::builder("main.rs");
-    fb.add_code(block);
-    let output = fb.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("main.rs")
+        .add_code(block)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     assert!(output.contains("use crate::config::Config;"));
     assert!(output.contains("let cfg: Config = Config::default()"));

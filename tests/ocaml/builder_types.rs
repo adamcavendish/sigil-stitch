@@ -11,30 +11,30 @@ use super::golden;
 
 #[test]
 fn test_record_type() {
-    let mut tb = TypeSpec::<OCaml>::builder("person", TypeKind::Struct);
-    tb.doc("A person record.");
+    let ts = TypeSpec::builder("person", TypeKind::Struct)
+        .doc("A person record.")
+        .add_field(
+            FieldSpec::builder("name", TypeName::primitive("string"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("age", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("email", TypeName::primitive("string"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    tb.add_field(
-        FieldSpec::builder("name", TypeName::primitive("string"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("age", TypeName::primitive("int"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("email", TypeName::primitive("string"))
-            .build()
-            .unwrap(),
-    );
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("person.ml", OCaml::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("person.ml", OCaml::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/record_type.ml", &output);
@@ -42,14 +42,15 @@ fn test_record_type() {
 
 #[test]
 fn test_type_alias() {
-    let mut tb = TypeSpec::<OCaml>::builder("string_list", TypeKind::TypeAlias);
-    tb.extends(TypeName::primitive("string list"));
+    let ts = TypeSpec::builder("string_list", TypeKind::TypeAlias)
+        .extends(TypeName::primitive("string list"))
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("aliases.ml", OCaml::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("aliases.ml", OCaml::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/type_alias.ml", &output);
@@ -59,12 +60,12 @@ fn test_type_alias() {
 fn test_module_type() {
     let ml = OCaml::new();
 
-    let mut outer = CodeBlock::<OCaml>::builder();
+    let mut outer = CodeBlock::builder();
     let doc = ml.render_doc_comment(&["Comparable interface."]);
     outer.add("%L", doc);
     outer.add_line();
 
-    let mut inner = CodeBlock::<OCaml>::builder();
+    let mut inner = CodeBlock::builder();
     inner.add_statement("val compare : t -> t -> int", ());
     let body = inner.build().unwrap();
 
@@ -72,9 +73,10 @@ fn test_module_type() {
     outer.add_code(module);
     let block = outer.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("comparable.ml", OCaml::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("comparable.ml", OCaml::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/module_type.ml", &output);
@@ -82,16 +84,17 @@ fn test_module_type() {
 
 #[test]
 fn test_module_block() {
-    let mut inner = CodeBlock::<OCaml>::builder();
+    let mut inner = CodeBlock::builder();
     inner.add_statement("let greeting = \"hello\"", ());
     inner.add_statement("let farewell = \"goodbye\"", ());
     let body = inner.build().unwrap();
 
     let module = OCaml::module_block("MyModule", body).unwrap();
 
-    let mut fb = FileSpec::builder_with("mymodule.ml", OCaml::new());
-    fb.add_code(module);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("mymodule.ml", OCaml::new())
+        .add_code(module)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/module_block.ml", &output);
@@ -99,16 +102,17 @@ fn test_module_block() {
 
 #[test]
 fn test_module_sig_block() {
-    let mut inner = CodeBlock::<OCaml>::builder();
+    let mut inner = CodeBlock::builder();
     inner.add_statement("val greeting : string", ());
     inner.add_statement("val farewell : string", ());
     let body = inner.build().unwrap();
 
     let module = OCaml::module_sig_block("MY_SIG", body).unwrap();
 
-    let mut fb = FileSpec::builder_with("my_sig.ml", OCaml::new());
-    fb.add_code(module);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("my_sig.ml", OCaml::new())
+        .add_code(module)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/module_sig.ml", &output);

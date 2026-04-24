@@ -12,10 +12,9 @@ use crate::type_name::TypeName;
 
 /// A member of a file.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub enum FileMember<L: CodeLang> {
+pub enum FileMember {
     /// A CodeBlock (e.g., module-level statements, class declarations).
-    Code(CodeBlock<L>),
+    Code(CodeBlock),
     /// Raw content string (escape hatch, no import tracking).
     RawContent(String),
     /// Raw content string with associated types for import tracking.
@@ -27,12 +26,12 @@ pub enum FileMember<L: CodeLang> {
         /// The raw content to emit verbatim.
         content: String,
         /// Types to register for import collection.
-        types: Vec<TypeName<L>>,
+        types: Vec<TypeName>,
     },
     /// A type declaration (struct, class, interface, trait, enum).
-    Type(TypeSpec<L>),
+    Type(TypeSpec),
     /// A top-level function.
-    Fun(FunSpec<L>),
+    Fun(FunSpec),
 }
 
 /// A complete source file with automatic import management.
@@ -51,54 +50,56 @@ pub enum FileMember<L: CodeLang> {
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let user = TypeName::<TypeScript>::importable_type("./models", "User");
+/// let user = TypeName::importable_type("./models", "User");
 ///
-/// let mut cb = CodeBlock::<TypeScript>::builder();
+/// let mut cb = CodeBlock::builder();
 /// cb.add_statement("const u: %T = getUser()", (user,));
 /// let body = cb.build().unwrap();
 ///
-/// let mut fb = FileSpec::<TypeScript>::builder("user.ts");
-/// fb.add_code(body);
-/// let file = fb.build().unwrap();
+/// let file = FileSpec::builder("user.ts")
+///     .add_code(body)
+///     .build().unwrap();
 ///
 /// let output = file.render(80).unwrap();
 /// // output contains: import type { User } from './models'
 /// // output contains: const u: User = getUser();
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound(serialize = "", deserialize = "L: Default"))]
-pub struct FileSpec<L: CodeLang> {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct FileSpec {
     filename: String,
-    header: Option<CodeBlock<L>>,
-    members: Vec<FileMember<L>>,
-    explicit_imports: Vec<ImportSpec<L>>,
+    header: Option<CodeBlock>,
+    members: Vec<FileMember>,
+    explicit_imports: Vec<ImportSpec>,
     #[serde(skip)]
-    lang: L,
+    lang: Option<Box<dyn CodeLang>>,
 }
 
-impl<L: CodeLang> FileSpec<L> {
-    /// Create a new FileSpec builder.
-    pub fn builder(filename: &str) -> FileSpecBuilder<L>
-    where
-        L: Default,
-    {
-        FileSpecBuilder {
-            filename: filename.to_string(),
-            header: None,
-            members: Vec::new(),
-            explicit_imports: Vec::new(),
-            lang: L::default(),
-        }
-    }
-
-    /// Create a builder with a specific language configuration.
-    pub fn builder_with(filename: &str, lang: L) -> FileSpecBuilder<L> {
+impl FileSpec {
+    /// Create a builder that auto-detects the language from the filename extension.
+    ///
+    /// If the extension is not recognized, [`build()`](FileSpecBuilder::build) will
+    /// return an error. Use [`builder_with`](FileSpec::builder_with) for explicit
+    /// language control or unsupported extensions.
+    pub fn builder(filename: &str) -> FileSpecBuilder {
+        let ext = filename.rsplit('.').next().unwrap_or("");
+        let lang = crate::lang::lang_from_extension(ext);
         FileSpecBuilder {
             filename: filename.to_string(),
             header: None,
             members: Vec::new(),
             explicit_imports: Vec::new(),
             lang,
+        }
+    }
+
+    /// Create a builder with a specific language configuration.
+    pub fn builder_with(filename: &str, lang: impl CodeLang) -> FileSpecBuilder {
+        FileSpecBuilder {
+            filename: filename.to_string(),
+            header: None,
+            members: Vec::new(),
+            explicit_imports: Vec::new(),
+            lang: Some(Box::new(lang)),
         }
     }
 
@@ -111,17 +112,21 @@ impl<L: CodeLang> FileSpec<L> {
     ///
     /// `width` controls the target line width for pretty-printing.
     pub fn render(&self, width: usize) -> Result<String, SigilStitchError> {
+        let lang: &dyn CodeLang = self.lang.as_deref().expect(
+            "FileSpec requires a language — use builder_with() or set lang via deserialization",
+        );
+
         // Phase 0: Materialize specs into CodeBlocks.
-        enum Materialized<L: CodeLang> {
-            Blocks(Vec<CodeBlock<L>>),
+        enum Materialized {
+            Blocks(Vec<CodeBlock>),
             Raw(String),
             RawWithImports {
                 content: String,
-                types: Vec<TypeName<L>>,
+                types: Vec<TypeName>,
             },
         }
 
-        let mut materialized: Vec<Materialized<L>> = Vec::with_capacity(self.members.len());
+        let mut materialized: Vec<Materialized> = Vec::with_capacity(self.members.len());
         for m in &self.members {
             materialized.push(match m {
                 FileMember::Code(b) => Materialized::Blocks(vec![b.clone()]),
@@ -132,9 +137,9 @@ impl<L: CodeLang> FileSpec<L> {
                         types: types.clone(),
                     }
                 }
-                FileMember::Type(spec) => Materialized::Blocks(spec.emit(&self.lang)?),
+                FileMember::Type(spec) => Materialized::Blocks(spec.emit(lang)?),
                 FileMember::Fun(spec) => {
-                    Materialized::Blocks(vec![spec.emit(&self.lang, DeclarationContext::TopLevel)?])
+                    Materialized::Blocks(vec![spec.emit(lang, DeclarationContext::TopLevel)?])
                 }
             });
         }
@@ -177,7 +182,7 @@ impl<L: CodeLang> FileSpec<L> {
 
         // Render header block if present (e.g., license comment, Go package declaration).
         if let Some(header) = &self.header {
-            let mut renderer = CodeRenderer::new(&self.lang, &imports, width);
+            let mut renderer = CodeRenderer::new(lang, &imports, width);
             let header_output = renderer.render(header)?;
             if !header_output.is_empty() {
                 output.push_str(&header_output);
@@ -189,7 +194,7 @@ impl<L: CodeLang> FileSpec<L> {
         }
 
         // Render import header.
-        let import_header = self.lang.render_imports(&imports);
+        let import_header = lang.render_imports(&imports);
         if !import_header.is_empty() {
             output.push_str(&import_header);
             output.push_str("\n\n");
@@ -206,7 +211,7 @@ impl<L: CodeLang> FileSpec<L> {
                         if j > 0 {
                             output.push('\n');
                         }
-                        let mut renderer = CodeRenderer::new(&self.lang, &imports, width);
+                        let mut renderer = CodeRenderer::new(lang, &imports, width);
                         let member_output = renderer.render(block)?;
                         output.push_str(&member_output);
                         if !member_output.ends_with('\n') {
@@ -238,29 +243,29 @@ impl<L: CodeLang> FileSpec<L> {
 /// Use [`FileSpec::builder()`] to create. Add members with `add_code()`,
 /// `add_type()`, `add_function()`, or `add_raw()`, then call `build()`.
 #[derive(Debug)]
-pub struct FileSpecBuilder<L: CodeLang> {
+pub struct FileSpecBuilder {
     filename: String,
-    header: Option<CodeBlock<L>>,
-    members: Vec<FileMember<L>>,
-    explicit_imports: Vec<ImportSpec<L>>,
-    lang: L,
+    header: Option<CodeBlock>,
+    members: Vec<FileMember>,
+    explicit_imports: Vec<ImportSpec>,
+    lang: Option<Box<dyn CodeLang>>,
 }
 
-impl<L: CodeLang> FileSpecBuilder<L> {
+impl FileSpecBuilder {
     /// Set a file header (e.g., license comment, package declaration).
-    pub fn header(&mut self, block: CodeBlock<L>) -> &mut Self {
+    pub fn header(mut self, block: CodeBlock) -> Self {
         self.header = Some(block);
         self
     }
 
     /// Add a CodeBlock member.
-    pub fn add_code(&mut self, block: CodeBlock<L>) -> &mut Self {
+    pub fn add_code(mut self, block: CodeBlock) -> Self {
         self.members.push(FileMember::Code(block));
         self
     }
 
     /// Add raw content (no import tracking).
-    pub fn add_raw(&mut self, content: &str) -> &mut Self {
+    pub fn add_raw(mut self, content: &str) -> Self {
         self.members
             .push(FileMember::RawContent(content.to_string()));
         self
@@ -270,7 +275,7 @@ impl<L: CodeLang> FileSpecBuilder<L> {
     ///
     /// The content is emitted verbatim (no substitution). The types are walked
     /// during import collection so the correct import statements are generated.
-    pub fn add_raw_with_imports(&mut self, content: &str, types: Vec<TypeName<L>>) -> &mut Self {
+    pub fn add_raw_with_imports(mut self, content: &str, types: Vec<TypeName>) -> Self {
         self.members.push(FileMember::RawContentWithImports {
             content: content.to_string(),
             types,
@@ -279,31 +284,31 @@ impl<L: CodeLang> FileSpecBuilder<L> {
     }
 
     /// Add a generic member.
-    pub fn add_member(&mut self, member: FileMember<L>) -> &mut Self {
+    pub fn add_member(mut self, member: FileMember) -> Self {
         self.members.push(member);
         self
     }
 
     /// Add a type declaration (struct, class, interface, trait, enum).
-    pub fn add_type(&mut self, spec: TypeSpec<L>) -> &mut Self {
+    pub fn add_type(mut self, spec: TypeSpec) -> Self {
         self.members.push(FileMember::Type(spec));
         self
     }
 
     /// Add a top-level function.
-    pub fn add_function(&mut self, spec: FunSpec<L>) -> &mut Self {
+    pub fn add_function(mut self, spec: FunSpec) -> Self {
         self.members.push(FileMember::Fun(spec));
         self
     }
 
     /// Set the language configuration.
-    pub fn lang(&mut self, lang: L) -> &mut Self {
-        self.lang = lang;
+    pub fn lang(mut self, lang: impl CodeLang) -> Self {
+        self.lang = Some(Box::new(lang));
         self
     }
 
     /// Add an explicit import (forced, aliased, side-effect, or wildcard).
-    pub fn add_import(&mut self, spec: ImportSpec<L>) -> &mut Self {
+    pub fn add_import(mut self, spec: ImportSpec) -> Self {
         self.explicit_imports.push(spec);
         self
     }
@@ -313,19 +318,31 @@ impl<L: CodeLang> FileSpecBuilder<L> {
     /// # Errors
     ///
     /// Returns [`SigilStitchError::EmptyName`] if `filename` is empty.
-    pub fn build(self) -> Result<FileSpec<L>, SigilStitchError> {
+    /// Returns an error if no language was detected or configured.
+    pub fn build(self) -> Result<FileSpec, SigilStitchError> {
         snafu::ensure!(
             !self.filename.is_empty(),
             crate::error::EmptyNameSnafu {
                 builder: "FileSpecBuilder",
             }
         );
+        let lang = self.lang.ok_or_else(|| {
+            let ext = self.filename.rsplit('.').next().unwrap_or("");
+            SigilStitchError::Render {
+                context: "FileSpecBuilder::build()".to_string(),
+                message: format!(
+                    "unrecognized file extension '.{ext}' in filename '{}'; \
+                     use FileSpec::builder_with() to specify the language explicitly",
+                    self.filename
+                ),
+            }
+        })?;
         Ok(FileSpec {
             filename: self.filename,
             header: self.header,
             members: self.members,
             explicit_imports: self.explicit_imports,
-            lang: self.lang,
+            lang: Some(lang),
         })
     }
 }
@@ -333,27 +350,28 @@ impl<L: CodeLang> FileSpecBuilder<L> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lang::typescript::TypeScript;
+
     use crate::type_name::TypeName;
 
     #[test]
     fn test_empty_file() {
-        let file = FileSpec::<TypeScript>::builder("empty.ts").build().unwrap();
+        let file = FileSpec::builder("empty.ts").build().unwrap();
         let output = file.render(80).unwrap();
         assert!(output.is_empty() || output.trim().is_empty());
     }
 
     #[test]
     fn test_simple_file_with_import() {
-        let user = TypeName::<TypeScript>::importable_type("./models", "User");
+        let user = TypeName::importable_type("./models", "User");
 
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const u: %T = getUser()", (user,));
         let block = b.build().unwrap();
 
-        let mut fb = FileSpec::<TypeScript>::builder("user.ts");
-        fb.add_code(block);
-        let file = fb.build().unwrap();
+        let file = FileSpec::builder("user.ts")
+            .add_code(block)
+            .build()
+            .unwrap();
 
         let output = file.render(80).unwrap();
         assert!(output.contains("import type { User } from './models'"));
@@ -362,17 +380,18 @@ mod tests {
 
     #[test]
     fn test_conflicting_imports() {
-        let user1 = TypeName::<TypeScript>::importable_type("./models", "User");
-        let user2 = TypeName::<TypeScript>::importable_type("./other", "User");
+        let user1 = TypeName::importable_type("./models", "User");
+        let user2 = TypeName::importable_type("./other", "User");
 
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const u1: %T = get1()", (user1,));
         b.add_statement("const u2: %T = get2()", (user2,));
         let block = b.build().unwrap();
 
-        let mut fb = FileSpec::<TypeScript>::builder("user.ts");
-        fb.add_code(block);
-        let file = fb.build().unwrap();
+        let file = FileSpec::builder("user.ts")
+            .add_code(block)
+            .build()
+            .unwrap();
 
         let output = file.render(80).unwrap();
         // First wins simple name.
@@ -384,9 +403,10 @@ mod tests {
 
     #[test]
     fn test_raw_content_no_import_tracking() {
-        let mut fb = FileSpec::<TypeScript>::builder("raw.ts");
-        fb.add_raw("// This is raw content\nexport const VERSION = '1.0.0';\n");
-        let file = fb.build().unwrap();
+        let file = FileSpec::builder("raw.ts")
+            .add_raw("// This is raw content\nexport const VERSION = '1.0.0';\n")
+            .build()
+            .unwrap();
 
         let output = file.render(80).unwrap();
         assert!(output.contains("// This is raw content"));
@@ -397,16 +417,17 @@ mod tests {
 
     #[test]
     fn test_mixed_code_and_raw() {
-        let user = TypeName::<TypeScript>::importable_type("./models", "User");
+        let user = TypeName::importable_type("./models", "User");
 
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const u: %T = getUser()", (user,));
         let block = b.build().unwrap();
 
-        let mut fb = FileSpec::<TypeScript>::builder("mixed.ts");
-        fb.add_raw("// Generated file, do not edit.\n");
-        fb.add_code(block);
-        let file = fb.build().unwrap();
+        let file = FileSpec::builder("mixed.ts")
+            .add_raw("// Generated file, do not edit.\n")
+            .add_code(block)
+            .build()
+            .unwrap();
 
         let output = file.render(80).unwrap();
         assert!(output.contains("import type { User }"));
@@ -416,18 +437,19 @@ mod tests {
 
     #[test]
     fn test_file_with_header() {
-        let mut header_builder = CodeBlock::<TypeScript>::builder();
+        let mut header_builder = CodeBlock::builder();
         header_builder.add("// License: MIT", ());
         let header = header_builder.build().unwrap();
 
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const x = 1", ());
         let block = b.build().unwrap();
 
-        let mut fb = FileSpec::<TypeScript>::builder("test.ts");
-        fb.header(header);
-        fb.add_code(block);
-        let file = fb.build().unwrap();
+        let file = FileSpec::builder("test.ts")
+            .header(header)
+            .add_code(block)
+            .build()
+            .unwrap();
 
         let output = file.render(80).unwrap();
         assert!(output.starts_with("// License: MIT"));
@@ -436,17 +458,18 @@ mod tests {
 
     #[test]
     fn test_dedup_same_import() {
-        let user1 = TypeName::<TypeScript>::importable_type("./models", "User");
-        let user2 = TypeName::<TypeScript>::importable_type("./models", "User");
+        let user1 = TypeName::importable_type("./models", "User");
+        let user2 = TypeName::importable_type("./models", "User");
 
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const u1: %T = get1()", (user1,));
         b.add_statement("const u2: %T = get2()", (user2,));
         let block = b.build().unwrap();
 
-        let mut fb = FileSpec::<TypeScript>::builder("user.ts");
-        fb.add_code(block);
-        let file = fb.build().unwrap();
+        let file = FileSpec::builder("user.ts")
+            .add_code(block)
+            .build()
+            .unwrap();
 
         let output = file.render(80).unwrap();
         // Should appear only once.
@@ -456,7 +479,7 @@ mod tests {
 
     #[test]
     fn test_build_empty_filename_errors() {
-        let result = FileSpec::<TypeScript>::builder("").build();
+        let result = FileSpec::builder("").build();
         assert!(result.is_err());
         assert!(
             result
@@ -468,15 +491,16 @@ mod tests {
 
     #[test]
     fn test_aliased_type_in_codeblock() {
-        let user = TypeName::<TypeScript>::importable("./models", "User").with_alias("UserModel");
+        let user = TypeName::importable("./models", "User").with_alias("UserModel");
 
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const u: %T = getUser()", (user,));
         let block = b.build().unwrap();
 
-        let mut fb = FileSpec::<TypeScript>::builder("user.ts");
-        fb.add_code(block);
-        let file = fb.build().unwrap();
+        let file = FileSpec::builder("user.ts")
+            .add_code(block)
+            .build()
+            .unwrap();
 
         let output = file.render(80).unwrap();
         // Import should use the alias.
@@ -495,18 +519,18 @@ mod tests {
     fn test_aliased_type_with_auto_alias_conflict() {
         // Two types named "User" from different modules.
         // First one has a preferred alias; second should still get auto-aliased.
-        let user1 =
-            TypeName::<TypeScript>::importable_type("./models", "User").with_alias("ModelUser");
-        let user2 = TypeName::<TypeScript>::importable_type("./other", "User");
+        let user1 = TypeName::importable_type("./models", "User").with_alias("ModelUser");
+        let user2 = TypeName::importable_type("./other", "User");
 
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const u1: %T = get1()", (user1,));
         b.add_statement("const u2: %T = get2()", (user2,));
         let block = b.build().unwrap();
 
-        let mut fb = FileSpec::<TypeScript>::builder("user.ts");
-        fb.add_code(block);
-        let file = fb.build().unwrap();
+        let file = FileSpec::builder("user.ts")
+            .add_code(block)
+            .build()
+            .unwrap();
 
         let output = file.render(80).unwrap();
         // First uses its preferred alias.

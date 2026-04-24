@@ -46,8 +46,8 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Use `annotation()` for Swift attributes:
 /// ```text
-/// fb.annotation(CodeBlock::<Swift>::of("@objc", ()).unwrap());
-/// fb.annotation(CodeBlock::<Swift>::of("@discardableResult", ()).unwrap());
+/// fb.annotation(CodeBlock::of("@objc", ()).unwrap());
+/// fb.annotation(CodeBlock::of("@discardableResult", ()).unwrap());
 /// ```
 #[derive(Debug, Clone)]
 pub struct Swift {

@@ -7,10 +7,10 @@ use super::golden;
 
 #[test]
 fn test_function_with_includes() {
-    let printf_type = TypeName::<CLang>::importable("stdio.h", "printf");
-    let config_type = TypeName::<CLang>::importable("./config.h", "Config");
+    let printf_type = TypeName::importable("stdio.h", "printf");
+    let config_type = TypeName::importable("./config.h", "Config");
 
-    let mut b = CodeBlock::<CLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add("int main(void) {", ());
     b.add_line();
     b.add("%>", ());
@@ -26,9 +26,10 @@ fn test_function_with_includes() {
     b.add_line();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("main.c", CLang::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("main.c", CLang::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("c/function_with_includes.c", &output);
@@ -36,13 +37,13 @@ fn test_function_with_includes() {
 
 #[test]
 fn test_include_grouping() {
-    let stdio = TypeName::<CLang>::importable("stdio.h", "printf");
-    let stdlib = TypeName::<CLang>::importable("stdlib.h", "malloc");
-    let string = TypeName::<CLang>::importable("string.h", "strlen");
-    let config = TypeName::<CLang>::importable("./config.h", "Config");
-    let utils = TypeName::<CLang>::importable("./utils.h", "helper");
+    let stdio = TypeName::importable("stdio.h", "printf");
+    let stdlib = TypeName::importable("stdlib.h", "malloc");
+    let string = TypeName::importable("string.h", "strlen");
+    let config = TypeName::importable("./config.h", "Config");
+    let utils = TypeName::importable("./utils.h", "helper");
 
-    let mut b = CodeBlock::<CLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement(
         "int x = %T(%S)",
         (stdio.clone(), StringLitArg("hello".to_string())),
@@ -56,9 +57,10 @@ fn test_include_grouping() {
     b.add_statement("%T()", (utils,));
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("test.c", CLang::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("test.c", CLang::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("c/include_grouping.c", &output);

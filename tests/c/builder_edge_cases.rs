@@ -13,7 +13,7 @@ use super::golden;
 
 #[test]
 fn test_struct_basic() {
-    let mut b = CodeBlock::<CLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add("struct Point", ());
     b.add(" {", ());
     b.add_line();
@@ -25,9 +25,10 @@ fn test_struct_basic() {
     b.add_line();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("point.c", CLang::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("point.c", CLang::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("c/struct_basic.c", &output);
@@ -36,30 +37,33 @@ fn test_struct_basic() {
 #[test]
 fn test_struct_with_function() {
     // Struct definition + a separate function that uses it.
-    let mut tb = TypeSpec::<CLang>::builder("Point", TypeKind::Struct);
-    tb.add_field(
-        FieldSpec::builder("x", TypeName::primitive("int"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("y", TypeName::primitive("int"))
-            .build()
-            .unwrap(),
-    );
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("Point", TypeKind::Struct)
+        .add_field(
+            FieldSpec::builder("x", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("y", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let body = CodeBlock::<CLang>::of("return p.x + p.y;", ()).unwrap();
-    let mut fb = FunSpec::<CLang>::builder("point_sum");
-    fb.add_param(ParameterSpec::new("p", TypeName::primitive("struct Point")).unwrap());
-    fb.returns(TypeName::primitive("int"));
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let body = CodeBlock::of("return p.x + p.y;", ()).unwrap();
+    let fun = FunSpec::builder("point_sum")
+        .add_param(ParameterSpec::new("p", TypeName::primitive("struct Point")).unwrap())
+        .returns(TypeName::primitive("int"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("point.c", CLang::new());
-    file_b.add_type(ts);
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("point.c", CLang::new())
+        .add_type(ts)
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("c/struct_with_function.c", &output);
@@ -68,25 +72,26 @@ fn test_struct_with_function() {
 #[test]
 fn test_top_level_with_includes() {
     // Full file with #pragma once, includes, struct, function declarations.
-    let stdio = TypeName::<CLang>::importable("stdio.h", "printf");
-    let config = TypeName::<CLang>::importable("./config.h", "Config");
+    let stdio = TypeName::importable("stdio.h", "printf");
+    let config = TypeName::importable("./config.h", "Config");
 
-    let mut tb = TypeSpec::<CLang>::builder("Server", TypeKind::Struct);
-    tb.doc("HTTP server configuration.");
-    tb.add_field(
-        FieldSpec::builder("port", TypeName::primitive("int"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("host", TypeName::primitive("const char*"))
-            .build()
-            .unwrap(),
-    );
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("Server", TypeKind::Struct)
+        .doc("HTTP server configuration.")
+        .add_field(
+            FieldSpec::builder("port", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("host", TypeName::primitive("const char*"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     // Function that uses imports.
-    let body = CodeBlock::<CLang>::of(
+    let body = CodeBlock::of(
         "%T(%S, srv.host, srv.port, %T());",
         (
             stdio,
@@ -95,17 +100,19 @@ fn test_top_level_with_includes() {
         ),
     )
     .unwrap();
-    let mut fb = FunSpec::<CLang>::builder("server_start");
-    fb.add_param(ParameterSpec::new("srv", TypeName::primitive("struct Server")).unwrap());
-    fb.returns(TypeName::primitive("void"));
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let fun = FunSpec::builder("server_start")
+        .add_param(ParameterSpec::new("srv", TypeName::primitive("struct Server")).unwrap())
+        .returns(TypeName::primitive("void"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("server.h", CLang::header());
-    file_b.header(CodeBlock::<CLang>::of("#pragma once", ()).unwrap());
-    file_b.add_type(ts);
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("server.h", CLang::header())
+        .header(CodeBlock::of("#pragma once", ()).unwrap())
+        .add_type(ts)
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("c/top_level_with_includes.c", &output);
@@ -113,23 +120,25 @@ fn test_top_level_with_includes() {
 
 #[test]
 fn test_annotation_attribute() {
-    let mut tb = TypeSpec::<CLang>::builder("PackedData", TypeKind::Struct);
-    tb.annotate(AnnotationSpec::new("packed"));
-    tb.add_field(
-        FieldSpec::builder("flags", TypeName::primitive("uint8_t"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("value", TypeName::primitive("uint32_t"))
-            .build()
-            .unwrap(),
-    );
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("PackedData", TypeKind::Struct)
+        .annotate(AnnotationSpec::new("packed"))
+        .add_field(
+            FieldSpec::builder("flags", TypeName::primitive("uint8_t"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("value", TypeName::primitive("uint32_t"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("packed.h", CLang::header());
-    file_b.add_type(ts);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("packed.h", CLang::header())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("c/annotation_attribute.c", &output);
