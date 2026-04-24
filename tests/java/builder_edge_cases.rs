@@ -12,34 +12,39 @@ use super::golden;
 
 #[test]
 fn test_static_final_field() {
-    let mut tb = TypeSpec::<JavaLang>::builder("Constants", TypeKind::Class);
-    tb.visibility(Visibility::Public);
-
-    let mut max_field = FieldSpec::builder("MAX_SIZE", TypeName::primitive("int"));
-    max_field.visibility(Visibility::Public);
-    max_field.is_static();
-    max_field.is_readonly();
-    max_field.initializer(CodeBlock::<JavaLang>::of("100", ()).unwrap());
-    tb.add_field(max_field.build().unwrap());
-
-    let mut name_field = FieldSpec::builder("APP_NAME", TypeName::primitive("String"));
-    name_field.visibility(Visibility::Public);
-    name_field.is_static();
-    name_field.is_readonly();
-    name_field.initializer(
-        CodeBlock::<JavaLang>::of(
-            "%S",
-            (sigil_stitch::code_block::StringLitArg("MyApp".to_string()),),
+    let ts = TypeSpec::builder("Constants", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .add_field(
+            FieldSpec::builder("MAX_SIZE", TypeName::primitive("int"))
+                .visibility(Visibility::Public)
+                .is_static()
+                .is_readonly()
+                .initializer(CodeBlock::of("100", ()).unwrap())
+                .build()
+                .unwrap(),
         )
-        .unwrap(),
-    );
-    tb.add_field(name_field.build().unwrap());
+        .add_field(
+            FieldSpec::builder("APP_NAME", TypeName::primitive("String"))
+                .visibility(Visibility::Public)
+                .is_static()
+                .is_readonly()
+                .initializer(
+                    CodeBlock::of(
+                        "%S",
+                        (sigil_stitch::code_block::StringLitArg("MyApp".to_string()),),
+                    )
+                    .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Constants.java", JavaLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Constants.java", JavaLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("java/static_final_field.java", &output);
@@ -47,23 +52,26 @@ fn test_static_final_field() {
 
 #[test]
 fn test_annotated_method() {
-    let mut tb = TypeSpec::<JavaLang>::builder("Dog", TypeKind::Class);
-    tb.visibility(Visibility::Public);
-    tb.extends(TypeName::primitive("Animal"));
+    let body = CodeBlock::of("return \"Woof!\";", ()).unwrap();
+    let ts = TypeSpec::builder("Dog", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .extends(TypeName::primitive("Animal"))
+        .add_method(
+            FunSpec::builder("speak")
+                .visibility(Visibility::Public)
+                .returns(TypeName::primitive("String"))
+                .annotation(CodeBlock::of("@Override", ()).unwrap())
+                .body(body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let body = CodeBlock::<JavaLang>::of("return \"Woof!\";", ()).unwrap();
-    let mut speak = FunSpec::<JavaLang>::builder("speak");
-    speak.visibility(Visibility::Public);
-    speak.returns(TypeName::primitive("String"));
-    speak.annotation(CodeBlock::<JavaLang>::of("@Override", ()).unwrap());
-    speak.body(body);
-    tb.add_method(speak.build().unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Dog.java", JavaLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Dog.java", JavaLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("java/annotated_method.java", &output);
@@ -71,75 +79,85 @@ fn test_annotated_method() {
 
 #[test]
 fn test_full_module() {
-    let list = TypeName::<JavaLang>::importable("java.util", "List");
-    let array_list = TypeName::<JavaLang>::importable("java.util", "ArrayList");
-    let nullable = TypeName::<JavaLang>::importable("javax.annotation", "Nullable");
+    let list = TypeName::importable("java.util", "List");
+    let array_list = TypeName::importable("java.util", "ArrayList");
+    let nullable = TypeName::importable("javax.annotation", "Nullable");
 
     // Interface.
-    let mut iface = TypeSpec::<JavaLang>::builder("UserRepository", TypeKind::Interface);
-    iface.visibility(Visibility::Public);
-
-    let mut find = FunSpec::<JavaLang>::builder("findById");
-    find.returns(TypeName::primitive("User"));
-    find.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    find.annotation(CodeBlock::<JavaLang>::of("@%T", (nullable.clone(),)).unwrap());
-    iface.add_method(find.build().unwrap());
-
-    let mut find_all = FunSpec::<JavaLang>::builder("findAll");
-    find_all.returns(TypeName::primitive("List<User>"));
-    iface.add_method(find_all.build().unwrap());
-
-    let iface_spec = iface.build().unwrap();
+    let iface_spec = TypeSpec::builder("UserRepository", TypeKind::Interface)
+        .visibility(Visibility::Public)
+        .add_method(
+            FunSpec::builder("findById")
+                .returns(TypeName::primitive("User"))
+                .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+                .annotation(CodeBlock::of("@%T", (nullable.clone(),)).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("findAll")
+                .returns(TypeName::primitive("List<User>"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     // Implementation class.
-    let mut cls = TypeSpec::<JavaLang>::builder("InMemoryUserRepository", TypeKind::Class);
-    cls.visibility(Visibility::Public);
-    cls.implements(TypeName::primitive("UserRepository"));
-    cls.doc("In-memory implementation of UserRepository.");
-
-    let mut users_field = FieldSpec::builder("users", TypeName::primitive("List<User>"));
-    users_field.visibility(Visibility::Private);
-    users_field.is_readonly();
-    cls.add_field(users_field.build().unwrap());
-
-    // Constructor — use imports.
-    let ctor_body = CodeBlock::<JavaLang>::of("this.users = new %T<>();", (array_list,)).unwrap();
-    let mut ctor = FunSpec::<JavaLang>::builder("InMemoryUserRepository");
-    ctor.visibility(Visibility::Public);
-    ctor.body(ctor_body);
-    cls.add_method(ctor.build().unwrap());
-
-    // findById with @Nullable.
-    let find_body = CodeBlock::<JavaLang>::of(
+    let ctor_body = CodeBlock::of("this.users = new %T<>();", (array_list,)).unwrap();
+    let find_body = CodeBlock::of(
         "return this.users.stream()\n    .filter(u -> u.getId().equals(id))\n    .findFirst()\n    .orElse(null);",
         (),
     )
     .unwrap();
-    let mut find_impl = FunSpec::<JavaLang>::builder("findById");
-    find_impl.visibility(Visibility::Public);
-    find_impl.returns(TypeName::primitive("User"));
-    find_impl.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    find_impl.annotation(CodeBlock::<JavaLang>::of("@Override", ()).unwrap());
-    find_impl.annotation(CodeBlock::<JavaLang>::of("@%T", (nullable,)).unwrap());
-    find_impl.body(find_body);
-    cls.add_method(find_impl.build().unwrap());
+    let find_all_body = CodeBlock::of("return new %T<>(this.users);", (list.clone(),)).unwrap();
 
-    // findAll — trigger List import.
-    let find_all_body =
-        CodeBlock::<JavaLang>::of("return new %T<>(this.users);", (list.clone(),)).unwrap();
-    let mut find_all_impl = FunSpec::<JavaLang>::builder("findAll");
-    find_all_impl.visibility(Visibility::Public);
-    find_all_impl.returns(TypeName::primitive("List<User>"));
-    find_all_impl.annotation(CodeBlock::<JavaLang>::of("@Override", ()).unwrap());
-    find_all_impl.body(find_all_body);
-    cls.add_method(find_all_impl.build().unwrap());
+    let cls_spec = TypeSpec::builder("InMemoryUserRepository", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .implements(TypeName::primitive("UserRepository"))
+        .doc("In-memory implementation of UserRepository.")
+        .add_field(
+            FieldSpec::builder("users", TypeName::primitive("List<User>"))
+                .visibility(Visibility::Private)
+                .is_readonly()
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("InMemoryUserRepository")
+                .visibility(Visibility::Public)
+                .body(ctor_body)
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("findById")
+                .visibility(Visibility::Public)
+                .returns(TypeName::primitive("User"))
+                .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+                .annotation(CodeBlock::of("@Override", ()).unwrap())
+                .annotation(CodeBlock::of("@%T", (nullable,)).unwrap())
+                .body(find_body)
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("findAll")
+                .visibility(Visibility::Public)
+                .returns(TypeName::primitive("List<User>"))
+                .annotation(CodeBlock::of("@Override", ()).unwrap())
+                .body(find_all_body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let cls_spec = cls.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("UserRepo.java", JavaLang::new());
-    fb.add_type(iface_spec);
-    fb.add_type(cls_spec);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("UserRepo.java", JavaLang::new())
+        .add_type(iface_spec)
+        .add_type(cls_spec)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("java/full_module.java", &output);

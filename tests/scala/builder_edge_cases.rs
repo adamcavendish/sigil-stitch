@@ -9,7 +9,7 @@ use super::golden;
 
 #[test]
 fn test_string_dollar_escape() {
-    let body = CodeBlock::<Scala>::of(
+    let body = CodeBlock::of(
         "val greeting = %S\nval template = %S\nprintln(greeting)",
         (
             StringLitArg("Hello ${name}!".into()),
@@ -17,14 +17,16 @@ fn test_string_dollar_escape() {
         ),
     )
     .unwrap();
-    let mut fb = FunSpec::<Scala>::builder("greet");
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap());
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let fun = FunSpec::builder("greet")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap())
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("greet.scala", Scala::new());
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("greet.scala", Scala::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("scala/string_dollar_escape.scala", &output);

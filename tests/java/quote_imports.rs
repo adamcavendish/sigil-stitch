@@ -6,16 +6,19 @@ use sigil_stitch::type_name::TypeName;
 
 use super::golden;
 
-fn render(block: &CodeBlock<JavaLang>) -> String {
-    let mut fb = FileSpec::builder_with("Test.java", JavaLang::new());
-    fb.add_code(block.clone());
-    fb.build().unwrap().render(80).unwrap()
+fn render(block: &CodeBlock) -> String {
+    FileSpec::builder_with("Test.java", JavaLang::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }
 
 #[test]
 fn test_imports() {
-    let list_type = TypeName::<JavaLang>::importable("java.util", "List");
-    let map_type = TypeName::<JavaLang>::importable("java.util", "Map");
+    let list_type = TypeName::importable("java.util", "List");
+    let map_type = TypeName::importable("java.util", "Map");
     let block = sigil_quote!(JavaLang {
         $T(list_type) items = new ArrayList<>();
         $T(map_type) lookup = new HashMap<>();

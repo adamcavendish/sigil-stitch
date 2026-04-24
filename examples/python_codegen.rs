@@ -14,54 +14,57 @@ use sigil_stitch::type_name::TypeName;
 
 fn main() {
     // Importable types.
-    let json_dumps = TypeName::<Python>::importable("json", "dumps");
-    let dataclass_import = TypeName::<Python>::importable("dataclasses", "dataclass");
+    let json_dumps = TypeName::importable("json", "dumps");
+    let dataclass_import = TypeName::importable("dataclasses", "dataclass");
 
     // Build a dataclass.
-    let mut tb = TypeSpec::<Python>::builder("Config", TypeKind::Class);
-    tb.doc("Application configuration.");
-    tb.annotation(CodeBlock::<Python>::of("@%T", (dataclass_import,)).unwrap());
-
-    tb.add_field(
-        FieldSpec::builder("host", TypeName::primitive("str"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("port", TypeName::primitive("int"))
-            .build()
-            .unwrap(),
-    );
-
-    let mut f3 = FieldSpec::builder("debug", TypeName::primitive("bool"));
-    f3.initializer(CodeBlock::<Python>::of("False", ()).unwrap());
-    tb.add_field(f3.build().unwrap());
-
-    // Add a method.
-    let mut to_json = FunSpec::<Python>::builder("to_json");
-    to_json.doc("Serialize to JSON string.");
-    to_json.add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap());
-    to_json.returns(TypeName::primitive("str"));
-    to_json.body(
-        CodeBlock::<Python>::of(
-            "return %T({'host': self.host, 'port': self.port})",
-            (json_dumps,),
+    let tb = TypeSpec::builder("Config", TypeKind::Class)
+        .doc("Application configuration.")
+        .annotation(CodeBlock::of("@%T", (dataclass_import,)).unwrap())
+        .add_field(
+            FieldSpec::builder("host", TypeName::primitive("str"))
+                .build()
+                .unwrap(),
         )
-        .unwrap(),
-    );
-    tb.add_method(to_json.build().unwrap());
+        .add_field(
+            FieldSpec::builder("port", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("debug", TypeName::primitive("bool"))
+                .initializer(CodeBlock::of("False", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("to_json")
+                .doc("Serialize to JSON string.")
+                .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+                .returns(TypeName::primitive("str"))
+                .body(
+                    CodeBlock::of(
+                        "return %T({'host': self.host, 'port': self.port})",
+                        (json_dumps,),
+                    )
+                    .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        );
 
     // Build a standalone function.
-    let mut greet = FunSpec::<Python>::builder("greet");
-    greet.add_param(ParameterSpec::new("name", TypeName::primitive("str")).unwrap());
-    greet.returns(TypeName::primitive("str"));
-    greet.body(CodeBlock::<Python>::of("return f'Hello, {name}!'", ()).unwrap());
+    let greet = FunSpec::builder("greet")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("str")).unwrap())
+        .returns(TypeName::primitive("str"))
+        .body(CodeBlock::of("return f'Hello, {name}!'", ()).unwrap());
 
     // Assemble the file.
-    let mut file = FileSpec::builder_with("config.py", Python::new());
-    file.add_type(tb.build().unwrap());
-    file.add_function(greet.build().unwrap());
-    let spec = file.build().unwrap();
+    let spec = FileSpec::builder_with("config.py", Python::new())
+        .add_type(tb.build().unwrap())
+        .add_function(greet.build().unwrap())
+        .build()
+        .unwrap();
 
     let output = spec.render(80).unwrap();
     println!("{output}");

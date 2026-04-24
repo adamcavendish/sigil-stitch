@@ -13,33 +13,39 @@ use super::golden;
 
 #[test]
 fn test_class_with_properties() {
-    let mut tb = TypeSpec::<Kotlin>::builder("UserService", TypeKind::Class);
-    tb.visibility(Visibility::Public);
-    tb.doc("Service for managing users.");
+    let find_body = CodeBlock::of("return repo.findById(id)", ()).unwrap();
 
-    // Properties.
-    let mut repo_field = FieldSpec::builder("repo", TypeName::primitive("UserRepository"));
-    repo_field.visibility(Visibility::Private);
-    tb.add_field(repo_field.build().unwrap());
+    let ts = TypeSpec::builder("UserService", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .doc("Service for managing users.")
+        .add_field(
+            FieldSpec::builder("repo", TypeName::primitive("UserRepository"))
+                .visibility(Visibility::Private)
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("logger", TypeName::primitive("Logger"))
+                .visibility(Visibility::Private)
+                .is_readonly()
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("findUser")
+                .returns(TypeName::primitive("User"))
+                .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+                .body(find_body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let mut logger_field = FieldSpec::builder("logger", TypeName::primitive("Logger"));
-    logger_field.visibility(Visibility::Private);
-    logger_field.is_readonly();
-    tb.add_field(logger_field.build().unwrap());
-
-    // Method.
-    let find_body = CodeBlock::<Kotlin>::of("return repo.findById(id)", ()).unwrap();
-    let mut find = FunSpec::<Kotlin>::builder("findUser");
-    find.returns(TypeName::primitive("User"));
-    find.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    find.body(find_body);
-    tb.add_method(find.build().unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("UserService.kt", Kotlin::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("UserService.kt", Kotlin::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/class_with_properties.kt", &output);
@@ -47,25 +53,25 @@ fn test_class_with_properties() {
 
 #[test]
 fn test_data_class() {
-    let mut tb = TypeSpec::<Kotlin>::builder("User", TypeKind::Struct);
-    tb.visibility(Visibility::Public);
-    tb.doc("A user data class.");
+    let ts = TypeSpec::builder("User", TypeKind::Struct)
+        .visibility(Visibility::Public)
+        .doc("A user data class.")
+        .add_primary_constructor_param(
+            ParameterSpec::new("name", TypeName::primitive("String")).unwrap(),
+        )
+        .add_primary_constructor_param(
+            ParameterSpec::new("age", TypeName::primitive("Int")).unwrap(),
+        )
+        .add_primary_constructor_param(
+            ParameterSpec::new("email", TypeName::primitive("String")).unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    tb.add_primary_constructor_param(
-        ParameterSpec::new("name", TypeName::primitive("String")).unwrap(),
-    );
-    tb.add_primary_constructor_param(
-        ParameterSpec::new("age", TypeName::primitive("Int")).unwrap(),
-    );
-    tb.add_primary_constructor_param(
-        ParameterSpec::new("email", TypeName::primitive("String")).unwrap(),
-    );
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("User.kt", Kotlin::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("User.kt", Kotlin::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/data_class.kt", &output);
@@ -73,31 +79,37 @@ fn test_data_class() {
 
 #[test]
 fn test_interface() {
-    let tp = TypeParamSpec::<Kotlin>::new("T");
+    let tp = TypeParamSpec::new("T");
 
-    let mut tb = TypeSpec::<Kotlin>::builder("Repository", TypeKind::Interface);
-    tb.add_type_param(tp);
-    tb.doc("Generic data repository.");
+    let ts = TypeSpec::builder("Repository", TypeKind::Interface)
+        .add_type_param(tp)
+        .doc("Generic data repository.")
+        .add_method(
+            FunSpec::builder("findById")
+                .returns(TypeName::primitive("T?"))
+                .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("save")
+                .add_param(ParameterSpec::new("entity", TypeName::primitive("T")).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("delete")
+                .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    // Abstract methods (no body).
-    let mut find = FunSpec::<Kotlin>::builder("findById");
-    find.returns(TypeName::primitive("T?"));
-    find.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    tb.add_method(find.build().unwrap());
-
-    let mut save = FunSpec::<Kotlin>::builder("save");
-    save.add_param(ParameterSpec::new("entity", TypeName::primitive("T")).unwrap());
-    tb.add_method(save.build().unwrap());
-
-    let mut delete = FunSpec::<Kotlin>::builder("delete");
-    delete.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    tb.add_method(delete.build().unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Repository.kt", Kotlin::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Repository.kt", Kotlin::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/interface.kt", &output);
@@ -105,29 +117,32 @@ fn test_interface() {
 
 #[test]
 fn test_abstract_class() {
-    let mut tb = TypeSpec::<Kotlin>::builder("Shape", TypeKind::Class);
-    tb.doc("Abstract shape.");
-    tb.is_abstract();
+    let desc_body = CodeBlock::of("return this::class.simpleName ?: \"Shape\"", ()).unwrap();
 
-    // Concrete method.
-    let desc_body =
-        CodeBlock::<Kotlin>::of("return this::class.simpleName ?: \"Shape\"", ()).unwrap();
-    let mut desc = FunSpec::<Kotlin>::builder("describe");
-    desc.returns(TypeName::primitive("String"));
-    desc.body(desc_body);
-    tb.add_method(desc.build().unwrap());
+    let ts = TypeSpec::builder("Shape", TypeKind::Class)
+        .doc("Abstract shape.")
+        .is_abstract()
+        .add_method(
+            FunSpec::builder("describe")
+                .returns(TypeName::primitive("String"))
+                .body(desc_body)
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("area")
+                .is_abstract()
+                .returns(TypeName::primitive("Double"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    // Abstract method.
-    let mut area = FunSpec::<Kotlin>::builder("area");
-    area.is_abstract();
-    area.returns(TypeName::primitive("Double"));
-    tb.add_method(area.build().unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Shape.kt", Kotlin::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Shape.kt", Kotlin::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/abstract_class.kt", &output);
@@ -135,28 +150,30 @@ fn test_abstract_class() {
 
 #[test]
 fn test_class_extends_implements() {
-    let base = TypeName::<Kotlin>::importable("com.example.base", "BaseService");
-    let auth = TypeName::<Kotlin>::importable("com.example.auth", "Authenticatable");
-    let serial = TypeName::<Kotlin>::importable("com.example.serial", "Serializable");
+    let base = TypeName::importable("com.example.base", "BaseService");
+    let auth = TypeName::importable("com.example.auth", "Authenticatable");
+    let serial = TypeName::importable("com.example.serial", "Serializable");
 
+    let body = CodeBlock::of("return true", ()).unwrap();
     // Kotlin uses `:` for both extends and implements.
-    // Put everything in super_types.
-    let mut tb = TypeSpec::<Kotlin>::builder("AdminService", TypeKind::Class);
-    tb.extends(base);
-    tb.extends(auth);
-    tb.extends(serial);
+    let ts = TypeSpec::builder("AdminService", TypeKind::Class)
+        .extends(base)
+        .extends(auth)
+        .extends(serial)
+        .add_method(
+            FunSpec::builder("isAdmin")
+                .returns(TypeName::primitive("Boolean"))
+                .body(body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let body = CodeBlock::<Kotlin>::of("return true", ()).unwrap();
-    let mut is_admin = FunSpec::<Kotlin>::builder("isAdmin");
-    is_admin.returns(TypeName::primitive("Boolean"));
-    is_admin.body(body);
-    tb.add_method(is_admin.build().unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("AdminService.kt", Kotlin::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("AdminService.kt", Kotlin::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/class_extends_implements.kt", &output);
@@ -164,18 +181,18 @@ fn test_class_extends_implements() {
 
 #[test]
 fn test_enum_class() {
-    let mut tb = TypeSpec::<Kotlin>::builder("Color", TypeKind::Enum);
-    tb.doc("Supported colors.");
+    let ts = TypeSpec::builder("Color", TypeKind::Enum)
+        .doc("Supported colors.")
+        .add_variant(EnumVariantSpec::new("RED").unwrap())
+        .add_variant(EnumVariantSpec::new("GREEN").unwrap())
+        .add_variant(EnumVariantSpec::new("BLUE").unwrap())
+        .build()
+        .unwrap();
 
-    tb.add_variant(EnumVariantSpec::new("RED").unwrap());
-    tb.add_variant(EnumVariantSpec::new("GREEN").unwrap());
-    tb.add_variant(EnumVariantSpec::new("BLUE").unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Color.kt", Kotlin::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Color.kt", Kotlin::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/enum_class.kt", &output);
@@ -183,25 +200,29 @@ fn test_enum_class() {
 
 #[test]
 fn test_override_method() {
-    let mut tb = TypeSpec::<Kotlin>::builder("Dog", TypeKind::Class);
-    tb.extends(TypeName::primitive("Animal"));
-
-    let body = CodeBlock::<Kotlin>::of(
+    let body = CodeBlock::of(
         "return %S",
         (sigil_stitch::code_block::StringLitArg("Woof!".to_string()),),
     )
     .unwrap();
-    let mut speak = FunSpec::<Kotlin>::builder("speak");
-    speak.returns(TypeName::primitive("String"));
-    speak.is_override();
-    speak.body(body);
-    tb.add_method(speak.build().unwrap());
 
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("Dog", TypeKind::Class)
+        .extends(TypeName::primitive("Animal"))
+        .add_method(
+            FunSpec::builder("speak")
+                .returns(TypeName::primitive("String"))
+                .is_override()
+                .body(body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("Dog.kt", Kotlin::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Dog.kt", Kotlin::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/override_method.kt", &output);

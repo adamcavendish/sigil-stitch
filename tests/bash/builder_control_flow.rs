@@ -1,12 +1,11 @@
 use sigil_stitch::code_block::CodeBlock;
-use sigil_stitch::lang::bash::Bash;
 use sigil_stitch::spec::file_spec::FileSpec;
 
 use super::golden;
 
 #[test]
 fn test_if_then_fi() {
-    let mut b = CodeBlock::<Bash>::builder();
+    let mut b = CodeBlock::builder();
     b.add("if [ -f \"$1\" ]; then\n", ());
     b.add("%>", ());
     b.add_statement("echo \"file exists\"", ());
@@ -18,9 +17,10 @@ fn test_if_then_fi() {
     b.add("fi\n", ());
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::<Bash>::builder("check.bash");
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder("check.bash")
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("bash/if_then_fi.bash", &output);
@@ -28,7 +28,7 @@ fn test_if_then_fi() {
 
 #[test]
 fn test_for_loop() {
-    let mut b = CodeBlock::<Bash>::builder();
+    let mut b = CodeBlock::builder();
     b.add("for f in *.txt; do\n", ());
     b.add("%>", ());
     b.add_statement("echo \"Processing $f\"", ());
@@ -36,9 +36,10 @@ fn test_for_loop() {
     b.add("done\n", ());
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::<Bash>::builder("loop.bash");
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder("loop.bash")
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("bash/for_loop.bash", &output);
@@ -46,7 +47,7 @@ fn test_for_loop() {
 
 #[test]
 fn test_while_loop() {
-    let mut b = CodeBlock::<Bash>::builder();
+    let mut b = CodeBlock::builder();
     b.add("while read -r line; do\n", ());
     b.add("%>", ());
     b.add_statement("echo \"$line\"", ());
@@ -54,9 +55,10 @@ fn test_while_loop() {
     b.add("done\n", ());
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::<Bash>::builder("reader.bash");
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder("reader.bash")
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("bash/while_loop.bash", &output);
@@ -64,7 +66,7 @@ fn test_while_loop() {
 
 #[test]
 fn test_case_esac() {
-    let mut b = CodeBlock::<Bash>::builder();
+    let mut b = CodeBlock::builder();
     b.add("case \"$1\" in\n", ());
     b.add("%>", ());
     b.add("start)\n", ());
@@ -86,9 +88,10 @@ fn test_case_esac() {
     b.add("esac\n", ());
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::<Bash>::builder("service.bash");
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder("service.bash")
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("bash/case_esac.bash", &output);
@@ -96,7 +99,7 @@ fn test_case_esac() {
 
 #[test]
 fn test_nested_control_flow() {
-    let mut b = CodeBlock::<Bash>::builder();
+    let mut b = CodeBlock::builder();
     b.add("if [ -d \"$1\" ]; then\n", ());
     b.add("%>", ());
     b.add("for f in \"$1\"/*; do\n", ());
@@ -112,9 +115,10 @@ fn test_nested_control_flow() {
     b.add("fi\n", ());
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::<Bash>::builder("nested.bash");
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder("nested.bash")
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("bash/nested_control_flow.bash", &output);

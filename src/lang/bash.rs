@@ -65,7 +65,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// bodies since functions use `{ }` braces:
 ///
 /// ```text
-/// let mut fb = FunSpec::<Bash>::builder("greet");
+/// let mut fb = FunSpec::builder("greet");
 /// fb.body(body);
 /// let fun = fb.build().unwrap();
 /// // function greet {
@@ -78,7 +78,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// Use `FileSpec::header()` for the shebang line:
 ///
 /// ```text
-/// let mut header_b = CodeBlock::<Bash>::builder();
+/// let mut header_b = CodeBlock::builder();
 /// header_b.add("#!/usr/bin/env bash\n", ());
 /// header_b.add("set -euo pipefail", ());
 /// fb.header(header_b.build().unwrap());

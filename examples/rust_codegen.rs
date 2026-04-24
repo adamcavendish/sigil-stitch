@@ -14,50 +14,59 @@ use sigil_stitch::type_name::TypeName;
 
 fn main() {
     // Define types from different crate groups.
-    let hashmap = TypeName::<RustLang>::importable("std::collections", "HashMap");
-    let serialize = TypeName::<RustLang>::importable("serde", "Serialize");
-    let deserialize = TypeName::<RustLang>::importable("serde", "Deserialize");
+    let hashmap = TypeName::importable("std::collections", "HashMap");
+    let serialize = TypeName::importable("serde", "Serialize");
+    let deserialize = TypeName::importable("serde", "Deserialize");
 
     // Build a struct using TypeSpec.
-    let mut tb = TypeSpec::<RustLang>::builder("Config", TypeKind::Struct);
-    tb.visibility(Visibility::Public);
+    let tb = TypeSpec::builder("Config", TypeKind::Struct).visibility(Visibility::Public);
 
     // Derive annotation.
-    let derive = CodeBlock::<RustLang>::of("#[derive(%T, %T)]", (serialize, deserialize)).unwrap();
-    tb.annotation(derive);
+    let derive = CodeBlock::of("#[derive(%T, %T)]", (serialize, deserialize)).unwrap();
+    let tb = tb.annotation(derive);
 
     // Fields.
-    let mut fb1 = FieldSpec::builder("name", TypeName::primitive("String"));
-    fb1.visibility(Visibility::Public);
-    tb.add_field(fb1.build().unwrap());
-
-    let mut fb2 = FieldSpec::builder(
-        "values",
-        TypeName::generic(
-            hashmap,
-            vec![TypeName::primitive("String"), TypeName::primitive("i64")],
-        ),
-    );
-    fb2.visibility(Visibility::Public);
-    tb.add_field(fb2.build().unwrap());
+    let tb = tb
+        .add_field(
+            FieldSpec::builder("name", TypeName::primitive("String"))
+                .visibility(Visibility::Public)
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder(
+                "values",
+                TypeName::generic(
+                    hashmap,
+                    vec![TypeName::primitive("String"), TypeName::primitive("i64")],
+                ),
+            )
+            .visibility(Visibility::Public)
+            .build()
+            .unwrap(),
+        );
 
     // Constructor method.
-    let body = CodeBlock::<RustLang>::of(
+    let body = CodeBlock::of(
         "Self { name: name.to_string(), values: HashMap::new() }",
         (),
     )
     .unwrap();
-    let mut mfb = FunSpec::<RustLang>::builder("new");
-    mfb.visibility(Visibility::Public);
-    mfb.add_param(ParameterSpec::new("name", TypeName::primitive("&str")).unwrap());
-    mfb.returns(TypeName::primitive("Self"));
-    mfb.body(body);
-    tb.add_method(mfb.build().unwrap());
+    let tb = tb.add_method(
+        FunSpec::builder("new")
+            .visibility(Visibility::Public)
+            .add_param(ParameterSpec::new("name", TypeName::primitive("&str")).unwrap())
+            .returns(TypeName::primitive("Self"))
+            .body(body)
+            .build()
+            .unwrap(),
+    );
 
     // Build and render.
-    let mut file = FileSpec::builder_with("config.rs", RustLang::new());
-    file.add_type(tb.build().unwrap());
-    let spec = file.build().unwrap();
+    let spec = FileSpec::builder_with("config.rs", RustLang::new())
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap();
 
     let output = spec.render(100).unwrap();
     println!("{output}");

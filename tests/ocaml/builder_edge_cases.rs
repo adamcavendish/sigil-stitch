@@ -7,13 +7,14 @@ use super::golden;
 
 #[test]
 fn test_comment_closes() {
-    let mut b = CodeBlock::<OCaml>::builder();
+    let mut b = CodeBlock::builder();
     b.add_comment("this is a comment");
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("comment.ml", OCaml::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("comment.ml", OCaml::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("ocaml/comment.ml", &output);

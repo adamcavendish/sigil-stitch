@@ -13,39 +13,50 @@ use super::golden;
 
 #[test]
 fn test_class_with_fields() {
-    let mut tb = TypeSpec::<DartLang>::builder("UserService", TypeKind::Class);
-    tb.doc("Service for managing users.");
-
-    // Fields.
-    let repo_field = FieldSpec::builder("repo", TypeName::primitive("UserRepository"));
-    tb.add_field(repo_field.build().unwrap());
-
-    let mut logger_field = FieldSpec::builder("logger", TypeName::primitive("Logger"));
-    logger_field.is_readonly();
-    tb.add_field(logger_field.build().unwrap());
-
     // Constructor.
-    let ctor_body =
-        CodeBlock::<DartLang>::of("this.repo = repo;\nthis.logger = logger;", ()).unwrap();
-    let mut ctor = FunSpec::<DartLang>::builder("UserService");
-    ctor.add_param(ParameterSpec::new("repo", TypeName::primitive("UserRepository")).unwrap());
-    ctor.add_param(ParameterSpec::new("logger", TypeName::primitive("Logger")).unwrap());
-    ctor.body(ctor_body);
-    tb.add_method(ctor.build().unwrap());
+    let ctor_body = CodeBlock::of("this.repo = repo;\nthis.logger = logger;", ()).unwrap();
 
     // Method.
-    let find_body = CodeBlock::<DartLang>::of("return repo.findById(id);", ()).unwrap();
-    let mut find = FunSpec::<DartLang>::builder("findUser");
-    find.returns(TypeName::primitive("User?"));
-    find.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    find.body(find_body);
-    tb.add_method(find.build().unwrap());
+    let find_body = CodeBlock::of("return repo.findById(id);", ()).unwrap();
 
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("UserService", TypeKind::Class)
+        .doc("Service for managing users.")
+        .add_field(
+            FieldSpec::builder("repo", TypeName::primitive("UserRepository"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("logger", TypeName::primitive("Logger"))
+                .is_readonly()
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("UserService")
+                .add_param(
+                    ParameterSpec::new("repo", TypeName::primitive("UserRepository")).unwrap(),
+                )
+                .add_param(ParameterSpec::new("logger", TypeName::primitive("Logger")).unwrap())
+                .body(ctor_body)
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("findUser")
+                .returns(TypeName::primitive("User?"))
+                .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+                .body(find_body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("user_service.dart", DartLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("user_service.dart", DartLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/class_with_fields.dart", &output);
@@ -53,28 +64,33 @@ fn test_class_with_fields() {
 
 #[test]
 fn test_abstract_class() {
-    let mut tb = TypeSpec::<DartLang>::builder("Shape", TypeKind::Class);
-    tb.doc("Abstract shape.");
-    tb.is_abstract();
-
     // Concrete method.
-    let desc_body = CodeBlock::<DartLang>::of("return runtimeType.toString();", ()).unwrap();
-    let mut desc = FunSpec::<DartLang>::builder("describe");
-    desc.returns(TypeName::primitive("String"));
-    desc.body(desc_body);
-    tb.add_method(desc.build().unwrap());
+    let desc_body = CodeBlock::of("return runtimeType.toString();", ()).unwrap();
 
-    // Abstract method.
-    let mut area = FunSpec::<DartLang>::builder("area");
-    area.is_abstract();
-    area.returns(TypeName::primitive("double"));
-    tb.add_method(area.build().unwrap());
+    let ts = TypeSpec::builder("Shape", TypeKind::Class)
+        .doc("Abstract shape.")
+        .is_abstract()
+        .add_method(
+            FunSpec::builder("describe")
+                .returns(TypeName::primitive("String"))
+                .body(desc_body)
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("area")
+                .is_abstract()
+                .returns(TypeName::primitive("double"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("shape.dart", DartLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("shape.dart", DartLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/abstract_class.dart", &output);
@@ -82,26 +98,29 @@ fn test_abstract_class() {
 
 #[test]
 fn test_class_extends_implements() {
-    let base = TypeName::<DartLang>::importable("package:myapp/base.dart", "BaseService");
-    let auth = TypeName::<DartLang>::importable("package:myapp/auth.dart", "Authenticatable");
-    let serial = TypeName::<DartLang>::importable("package:myapp/serial.dart", "Serializable");
+    let base = TypeName::importable("package:myapp/base.dart", "BaseService");
+    let auth = TypeName::importable("package:myapp/auth.dart", "Authenticatable");
+    let serial = TypeName::importable("package:myapp/serial.dart", "Serializable");
 
-    let mut tb = TypeSpec::<DartLang>::builder("AdminService", TypeKind::Class);
-    tb.extends(base);
-    tb.implements(auth);
-    tb.implements(serial);
+    let body = CodeBlock::of("return true;", ()).unwrap();
+    let ts = TypeSpec::builder("AdminService", TypeKind::Class)
+        .extends(base)
+        .implements(auth)
+        .implements(serial)
+        .add_method(
+            FunSpec::builder("isAdmin")
+                .returns(TypeName::primitive("bool"))
+                .body(body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let body = CodeBlock::<DartLang>::of("return true;", ()).unwrap();
-    let mut is_admin = FunSpec::<DartLang>::builder("isAdmin");
-    is_admin.returns(TypeName::primitive("bool"));
-    is_admin.body(body);
-    tb.add_method(is_admin.build().unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("admin_service.dart", DartLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("admin_service.dart", DartLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/class_extends_implements.dart", &output);
@@ -109,18 +128,18 @@ fn test_class_extends_implements() {
 
 #[test]
 fn test_enum() {
-    let mut tb = TypeSpec::<DartLang>::builder("Color", TypeKind::Enum);
-    tb.doc("Supported colors.");
+    let ts = TypeSpec::builder("Color", TypeKind::Enum)
+        .doc("Supported colors.")
+        .add_variant(EnumVariantSpec::new("red").unwrap())
+        .add_variant(EnumVariantSpec::new("green").unwrap())
+        .add_variant(EnumVariantSpec::new("blue").unwrap())
+        .build()
+        .unwrap();
 
-    tb.add_variant(EnumVariantSpec::new("red").unwrap());
-    tb.add_variant(EnumVariantSpec::new("green").unwrap());
-    tb.add_variant(EnumVariantSpec::new("blue").unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("color.dart", DartLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("color.dart", DartLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/enum.dart", &output);
@@ -128,28 +147,33 @@ fn test_enum() {
 
 #[test]
 fn test_generic_class() {
-    let tp = TypeParamSpec::<DartLang>::new("T").with_bound(TypeName::primitive("Comparable"));
+    let tp = TypeParamSpec::new("T").with_bound(TypeName::primitive("Comparable"));
 
-    let mut tb = TypeSpec::<DartLang>::builder("SortedList", TypeKind::Class);
-    tb.add_type_param(tp);
-    tb.doc("A sorted list with bounded type parameter.");
+    let add_body = CodeBlock::of("items.add(item);\nitems.sort();", ()).unwrap();
+    let ts = TypeSpec::builder("SortedList", TypeKind::Class)
+        .add_type_param(tp)
+        .doc("A sorted list with bounded type parameter.")
+        .add_field(
+            FieldSpec::builder("items", TypeName::primitive("List<T>"))
+                .is_readonly()
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("add")
+                .returns(TypeName::primitive("void"))
+                .add_param(ParameterSpec::new("item", TypeName::primitive("T")).unwrap())
+                .body(add_body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let mut items_field = FieldSpec::builder("items", TypeName::primitive("List<T>"));
-    items_field.is_readonly();
-    tb.add_field(items_field.build().unwrap());
-
-    let add_body = CodeBlock::<DartLang>::of("items.add(item);\nitems.sort();", ()).unwrap();
-    let mut add = FunSpec::<DartLang>::builder("add");
-    add.returns(TypeName::primitive("void"));
-    add.add_param(ParameterSpec::new("item", TypeName::primitive("T")).unwrap());
-    add.body(add_body);
-    tb.add_method(add.build().unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("sorted_list.dart", DartLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("sorted_list.dart", DartLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/generic_class.dart", &output);
@@ -157,31 +181,36 @@ fn test_generic_class() {
 
 #[test]
 fn test_static_final() {
-    let mut tb = TypeSpec::<DartLang>::builder("Constants", TypeKind::Class);
-
-    let mut max_field = FieldSpec::builder("maxSize", TypeName::primitive("int"));
-    max_field.is_static();
-    max_field.is_readonly();
-    max_field.initializer(CodeBlock::<DartLang>::of("100", ()).unwrap());
-    tb.add_field(max_field.build().unwrap());
-
-    let mut name_field = FieldSpec::builder("appName", TypeName::primitive("String"));
-    name_field.is_static();
-    name_field.is_readonly();
-    name_field.initializer(
-        CodeBlock::<DartLang>::of(
-            "%S",
-            (sigil_stitch::code_block::StringLitArg("MyApp".to_string()),),
+    let ts = TypeSpec::builder("Constants", TypeKind::Class)
+        .add_field(
+            FieldSpec::builder("maxSize", TypeName::primitive("int"))
+                .is_static()
+                .is_readonly()
+                .initializer(CodeBlock::of("100", ()).unwrap())
+                .build()
+                .unwrap(),
         )
-        .unwrap(),
-    );
-    tb.add_field(name_field.build().unwrap());
+        .add_field(
+            FieldSpec::builder("appName", TypeName::primitive("String"))
+                .is_static()
+                .is_readonly()
+                .initializer(
+                    CodeBlock::of(
+                        "%S",
+                        (sigil_stitch::code_block::StringLitArg("MyApp".to_string()),),
+                    )
+                    .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("constants.dart", DartLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("constants.dart", DartLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/static_final.dart", &output);

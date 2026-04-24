@@ -32,8 +32,8 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Use `annotation()` on builders for Java annotations:
 /// ```text
-/// fb.annotation(CodeBlock::<JavaLang>::of("@Override", ()).unwrap());
-/// fb.annotation(CodeBlock::<JavaLang>::of("@Nullable", ()).unwrap());
+/// fb.annotation(CodeBlock::of("@Override", ()).unwrap());
+/// fb.annotation(CodeBlock::of("@Nullable", ()).unwrap());
 /// ```
 ///
 /// # Constructors

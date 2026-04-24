@@ -5,7 +5,6 @@
 //! to the filesystem.
 
 use crate::error::SigilStitchError;
-use crate::lang::CodeLang;
 use crate::spec::file_spec::FileSpec;
 
 /// A rendered file produced by [`ProjectSpec::render()`]: path and content pair.
@@ -29,31 +28,30 @@ pub struct RenderedFile {
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let mut models_b = FileSpec::<TypeScript>::builder("src/models.ts");
-/// models_b.add_type(TypeSpec::builder("User", TypeKind::Interface).build().unwrap());
-/// let models = models_b.build().unwrap();
+/// let models = FileSpec::builder("src/models.ts")
+///     .add_type(TypeSpec::builder("User", TypeKind::Interface).build().unwrap())
+///     .build().unwrap();
 ///
-/// let mut index_b = FileSpec::<TypeScript>::builder("src/index.ts");
-/// index_b.add_code(CodeBlock::of("export {}", ()).unwrap());
-/// let index = index_b.build().unwrap();
+/// let index = FileSpec::builder("src/index.ts")
+///     .add_code(CodeBlock::of("export {}", ()).unwrap())
+///     .build().unwrap();
 ///
-/// let mut pb = ProjectSpec::<TypeScript>::builder();
-/// pb.add_file(models);
-/// pb.add_file(index);
-/// let project = pb.build();
+/// let project = ProjectSpec::builder()
+///     .add_file(models)
+///     .add_file(index)
+///     .build();
 ///
 /// let rendered = project.render(80).unwrap();
 /// assert_eq!(rendered.len(), 2);
 /// ```
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound(serialize = "", deserialize = "L: Default"))]
-pub struct ProjectSpec<L: CodeLang> {
-    pub(crate) files: Vec<FileSpec<L>>,
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ProjectSpec {
+    pub(crate) files: Vec<FileSpec>,
 }
 
-impl<L: CodeLang> ProjectSpec<L> {
+impl ProjectSpec {
     /// Create a new builder for a project specification.
-    pub fn builder() -> ProjectSpecBuilder<L> {
+    pub fn builder() -> ProjectSpecBuilder {
         ProjectSpecBuilder { files: Vec::new() }
     }
 
@@ -104,19 +102,19 @@ impl<L: CodeLang> ProjectSpec<L> {
 
 /// Builder for [`ProjectSpec`].
 #[derive(Debug)]
-pub struct ProjectSpecBuilder<L: CodeLang> {
-    files: Vec<FileSpec<L>>,
+pub struct ProjectSpecBuilder {
+    files: Vec<FileSpec>,
 }
 
-impl<L: CodeLang> ProjectSpecBuilder<L> {
+impl ProjectSpecBuilder {
     /// Add a file to the project.
-    pub fn add_file(&mut self, file: FileSpec<L>) -> &mut Self {
+    pub fn add_file(mut self, file: FileSpec) -> Self {
         self.files.push(file);
         self
     }
 
     /// Build the [`ProjectSpec`].
-    pub fn build(self) -> ProjectSpec<L> {
+    pub fn build(self) -> ProjectSpec {
         ProjectSpec { files: self.files }
     }
 }

@@ -12,8 +12,8 @@ use crate::lang::CodeLang;
 /// - Column tracking for width-aware `%T` rendering
 /// - `%W` soft break support via `pretty` crate
 /// - Proper indentation via `%>` / `%<`
-pub struct CodeRenderer<'a, L: CodeLang> {
-    lang: &'a L,
+pub struct CodeRenderer<'a> {
+    lang: &'a dyn CodeLang,
     imports: &'a ImportGroup,
     width: usize,
     output: String,
@@ -22,9 +22,9 @@ pub struct CodeRenderer<'a, L: CodeLang> {
     at_line_start: bool,
 }
 
-impl<'a, L: CodeLang> CodeRenderer<'a, L> {
+impl<'a> CodeRenderer<'a> {
     /// Create a new renderer with the given language, imports, and target width.
-    pub fn new(lang: &'a L, imports: &'a ImportGroup, width: usize) -> Self {
+    pub fn new(lang: &'a dyn CodeLang, imports: &'a ImportGroup, width: usize) -> Self {
         Self {
             lang,
             imports,
@@ -37,7 +37,7 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
     }
 
     /// Render a CodeBlock to string.
-    pub fn render(&mut self, block: &CodeBlock<L>) -> Result<String, SigilStitchError> {
+    pub fn render(&mut self, block: &CodeBlock) -> Result<String, SigilStitchError> {
         let mut arg_index = 0;
         self.render_parts(&block.parts, &block.args, &mut arg_index)?;
         Ok(std::mem::take(&mut self.output))
@@ -46,7 +46,7 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
     fn render_parts(
         &mut self,
         parts: &[FormatPart],
-        args: &[Arg<L>],
+        args: &[Arg],
         arg_index: &mut usize,
     ) -> Result<(), SigilStitchError> {
         // Check if this sequence of parts contains any %W (soft breaks).
@@ -64,7 +64,7 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
     fn render_direct(
         &mut self,
         parts: &[FormatPart],
-        args: &[Arg<L>],
+        args: &[Arg],
         arg_index: &mut usize,
     ) -> Result<(), SigilStitchError> {
         for part in parts {
@@ -204,7 +204,7 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
     fn render_with_pretty(
         &mut self,
         parts: &[FormatPart],
-        args: &[Arg<L>],
+        args: &[Arg],
         arg_index: &mut usize,
     ) -> Result<(), SigilStitchError> {
         // Build a BoxDoc from the parts, using softline() for %W.
@@ -235,7 +235,7 @@ impl<'a, L: CodeLang> CodeRenderer<'a, L> {
     fn build_doc_from_parts(
         &self,
         parts: &[FormatPart],
-        args: &[Arg<L>],
+        args: &[Arg],
         arg_index: &mut usize,
     ) -> BoxDoc<'static, ()> {
         let mut doc = BoxDoc::nil();
@@ -394,7 +394,7 @@ mod tests {
     use crate::lang::typescript::TypeScript;
     use crate::type_name::TypeName;
 
-    fn render_block(block: &CodeBlock<TypeScript>, width: usize) -> String {
+    fn render_block(block: &CodeBlock, width: usize) -> String {
         let ts = TypeScript::new();
         let imports = ImportGroup::new();
         let mut renderer = CodeRenderer::new(&ts, &imports, width);
@@ -403,7 +403,7 @@ mod tests {
 
     #[test]
     fn test_simple_statement() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const x = 42", ());
         let block = b.build().unwrap();
         let output = render_block(&block, 80);
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_control_flow() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow("if (x > 0)", ());
         b.add_statement("return x", ());
         b.end_control_flow();
@@ -425,7 +425,7 @@ mod tests {
 
     #[test]
     fn test_if_else() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow("if (x > 0)", ());
         b.add_statement("return x", ());
         b.next_control_flow("else", ());
@@ -440,7 +440,7 @@ mod tests {
 
     #[test]
     fn test_type_rendering() {
-        let user = TypeName::<TypeScript>::importable("./models", "User");
+        let user = TypeName::importable("./models", "User");
         let imports = ImportGroup {
             entries: vec![crate::import::ImportEntry {
                 module: "./models".to_string(),
@@ -452,7 +452,7 @@ mod tests {
             }],
         };
 
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement("const u: %T = getUser()", (user,));
         let block = b.build().unwrap();
 
@@ -464,7 +464,7 @@ mod tests {
 
     #[test]
     fn test_string_literal() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_statement(
             "const x = %S",
             (crate::code_block::StringLitArg("hello".to_string()),),
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_nested_indent() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow("if (a)", ());
         b.begin_control_flow("if (b)", ());
         b.add_statement("return c", ());
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_comment() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.add_comment("This is a comment");
         let block = b.build().unwrap();
         let output = render_block(&block, 80);
@@ -501,7 +501,7 @@ mod tests {
         // Simulate the FieldSpec/FunSpec doc-comment path: a multi-line string
         // flowing through %L (Arg::Literal) inside an indented block must have
         // every continuation line re-indented, not just the first.
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow("interface User", ());
         b.add("%L", "/**\n * The user's name.\n */".to_string());
         b.add_line();
@@ -536,7 +536,7 @@ mod tests {
     fn test_multiline_literal_direct_reindents_each_line() {
         // Exercises the FormatPart::Literal branch: the literal itself carries
         // an embedded newline (no %L substitution involved).
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow("function f()", ());
         b.add("line1\nline2\nline3", ());
         b.add_line();
@@ -564,7 +564,7 @@ mod tests {
 
     #[test]
     fn test_block_open_override() {
-        let mut b = CodeBlock::<TypeScript>::builder();
+        let mut b = CodeBlock::builder();
         b.begin_control_flow_with_open("class Functor f", (), " where");
         b.add_statement("fmap :: a -> b", ());
         b.end_control_flow();

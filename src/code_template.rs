@@ -5,10 +5,10 @@
 //!
 //! | Kind | Specifier | Argument Type |
 //! |------|-----------|---------------|
-//! | `T`  | `%T`      | `TypeName<L>` |
+//! | `T`  | `%T`      | `TypeName` |
 //! | `N`  | `%N`      | `NameArg`     |
 //! | `S`  | `%S`      | `StringLitArg`|
-//! | `L`  | `%L`      | `&str`, `String`, or `CodeBlock<L>` |
+//! | `L`  | `%L`      | `&str`, `String`, or `CodeBlock` |
 //!
 //! # Example
 //!
@@ -19,9 +19,9 @@
 //! use sigil_stitch::type_name::TypeName;
 //!
 //! let tmpl = CodeTemplate::new("const #{var:N}: #{type:T} = #{init:L}").unwrap();
-//! let user_type = TypeName::<TypeScript>::primitive("string");
+//! let user_type = TypeName::primitive("string");
 //!
-//! let block = tmpl.apply::<TypeScript>()
+//! let block = tmpl.apply()
 //!     .set("var", NameArg("user".into()))
 //!     .set("type", user_type)
 //!     .set("init", "null")
@@ -30,10 +30,8 @@
 //! ```
 
 use std::collections::HashMap;
-use std::marker::PhantomData;
 
 use crate::code_block::{Arg, CodeBlock};
-use crate::lang::CodeLang;
 
 /// The kind of a template parameter, matching the format specifier system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,7 +66,7 @@ impl ParamKind {
         }
     }
 
-    fn matches_arg<L: CodeLang>(&self, arg: &Arg<L>) -> bool {
+    fn matches_arg(&self, arg: &Arg) -> bool {
         matches!(
             (self, arg),
             (ParamKind::Type, Arg::TypeName(_))
@@ -115,9 +113,9 @@ struct TemplateParam {
 ///
 /// let tmpl = CodeTemplate::new("const #{var:N}: #{type:T} = #{init:L}").unwrap();
 ///
-/// let block = tmpl.apply::<TypeScript>()
+/// let block = tmpl.apply()
 ///     .set("var", NameArg("user".into()))
-///     .set("type", TypeName::<TypeScript>::primitive("string"))
+///     .set("type", TypeName::primitive("string"))
 ///     .set("init", "null")
 ///     .build()
 ///     .unwrap();
@@ -147,11 +145,10 @@ impl CodeTemplate {
     }
 
     /// Begin applying this template with concrete arguments.
-    pub fn apply<L: CodeLang>(&self) -> TemplateApply<'_, L> {
+    pub fn apply(&self) -> TemplateApply<'_> {
         TemplateApply {
             template: self,
             args: HashMap::new(),
-            _phantom: PhantomData,
         }
     }
 
@@ -170,26 +167,25 @@ impl CodeTemplate {
 ///
 /// Created by [`CodeTemplate::apply()`]. Set named parameters with `set()`,
 /// then call `build()` to produce a `CodeBlock`.
-pub struct TemplateApply<'t, L: CodeLang> {
+pub struct TemplateApply<'t> {
     template: &'t CodeTemplate,
-    args: HashMap<String, Arg<L>>,
-    _phantom: PhantomData<L>,
+    args: HashMap<String, Arg>,
 }
 
-impl<L: CodeLang> TemplateApply<'_, L> {
+impl TemplateApply<'_> {
     /// Set a named parameter value.
     ///
     /// The argument kind is validated against the declared parameter kind
     /// in [`build`](TemplateApply::build).
-    pub fn set(&mut self, name: &str, arg: impl Into<Arg<L>>) -> &mut Self {
+    pub fn set(&mut self, name: &str, arg: impl Into<Arg>) -> &mut Self {
         self.args.insert(name.to_string(), arg.into());
         self
     }
 
     /// Build the `CodeBlock`, validating all parameters are provided and
     /// kind-correct.
-    pub fn build(&mut self) -> Result<CodeBlock<L>, crate::error::SigilStitchError> {
-        let mut positional_args: Vec<Arg<L>> = Vec::with_capacity(self.template.params.len());
+    pub fn build(&mut self) -> Result<CodeBlock, crate::error::SigilStitchError> {
+        let mut positional_args: Vec<Arg> = Vec::with_capacity(self.template.params.len());
 
         for param in &self.template.params {
             let arg = self.args.get(&param.name).ok_or_else(|| {
@@ -220,7 +216,7 @@ impl<L: CodeLang> TemplateApply<'_, L> {
     }
 }
 
-fn arg_kind_label<L: CodeLang>(arg: &Arg<L>) -> &'static str {
+fn arg_kind_label(arg: &Arg) -> &'static str {
     match arg {
         Arg::TypeName(_) => "TypeName",
         Arg::Name(_) => "Name",
@@ -367,8 +363,7 @@ mod tests {
     use crate::code_block::NameArg;
     use crate::code_block::StringLitArg;
     use crate::import_collector;
-    use crate::lang::rust_lang::RustLang;
-    use crate::lang::typescript::TypeScript;
+
     use crate::type_name::TypeName;
 
     #[test]
@@ -385,9 +380,9 @@ mod tests {
     #[test]
     fn test_apply_simple() {
         let tmpl = CodeTemplate::new("const #{var:N}: #{type:T} = #{init:L}").unwrap();
-        let ty = TypeName::<TypeScript>::primitive("string");
+        let ty = TypeName::primitive("string");
         let block = tmpl
-            .apply::<TypeScript>()
+            .apply()
             .set("var", NameArg("user".into()))
             .set("type", ty)
             .set("init", "null")
@@ -399,10 +394,7 @@ mod tests {
     #[test]
     fn test_missing_param_error() {
         let tmpl = CodeTemplate::new("#{a:N} #{b:T}").unwrap();
-        let result = tmpl
-            .apply::<TypeScript>()
-            .set("a", NameArg("x".into()))
-            .build();
+        let result = tmpl.apply().set("a", NameArg("x".into())).build();
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -416,8 +408,8 @@ mod tests {
         let tmpl = CodeTemplate::new("#{name:N}").unwrap();
         // Pass a TypeName where Name is expected.
         let result = tmpl
-            .apply::<TypeScript>()
-            .set("name", TypeName::<TypeScript>::primitive("string"))
+            .apply()
+            .set("name", TypeName::primitive("string"))
             .build();
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -428,8 +420,8 @@ mod tests {
     #[test]
     fn test_duplicate_param_name() {
         let tmpl = CodeTemplate::new("#{t:T} and #{t:T}").unwrap();
-        let ty = TypeName::<TypeScript>::primitive("number");
-        let block = tmpl.apply::<TypeScript>().set("t", ty).build().unwrap();
+        let ty = TypeName::primitive("number");
+        let block = tmpl.apply().set("t", ty).build().unwrap();
         assert!(!block.is_empty());
         // Should have 2 args (one for each occurrence).
         assert_eq!(block.args.len(), 2);
@@ -482,8 +474,8 @@ mod tests {
     #[test]
     fn test_template_with_imports() {
         let tmpl = CodeTemplate::new("const x: #{type:T} = init()").unwrap();
-        let ty = TypeName::<TypeScript>::importable_type("./models", "User");
-        let block = tmpl.apply::<TypeScript>().set("type", ty).build().unwrap();
+        let ty = TypeName::importable_type("./models", "User");
+        let block = tmpl.apply().set("type", ty).build().unwrap();
         let refs = import_collector::collect_imports(&block);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].name, "User");
@@ -495,18 +487,18 @@ mod tests {
 
         // Apply to TypeScript.
         let ts_block = tmpl
-            .apply::<TypeScript>()
+            .apply()
             .set("name", NameArg("x".into()))
-            .set("type", TypeName::<TypeScript>::primitive("string"))
+            .set("type", TypeName::primitive("string"))
             .build()
             .unwrap();
         assert!(!ts_block.is_empty());
 
         // Same template applied to Rust.
         let rs_block = tmpl
-            .apply::<RustLang>()
+            .apply()
             .set("name", NameArg("x".into()))
-            .set("type", TypeName::<RustLang>::primitive("String"))
+            .set("type", TypeName::primitive("String"))
             .build()
             .unwrap();
         assert!(!rs_block.is_empty());
@@ -565,7 +557,7 @@ mod tests {
     fn test_string_lit_param() {
         let tmpl = CodeTemplate::new("console.log(#{msg:S})").unwrap();
         let block = tmpl
-            .apply::<TypeScript>()
+            .apply()
             .set("msg", StringLitArg("hello".into()))
             .build()
             .unwrap();
@@ -575,8 +567,8 @@ mod tests {
     #[test]
     fn test_code_block_param() {
         let tmpl = CodeTemplate::new("fn main() { #{body:L} }").unwrap();
-        let body = CodeBlock::<RustLang>::of("println!(\"hi\")", ()).unwrap();
-        let block = tmpl.apply::<RustLang>().set("body", body).build().unwrap();
+        let body = CodeBlock::of("println!(\"hi\")", ()).unwrap();
+        let block = tmpl.apply().set("body", body).build().unwrap();
         assert!(!block.is_empty());
     }
 }

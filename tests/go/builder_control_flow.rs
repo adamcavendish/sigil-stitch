@@ -6,7 +6,7 @@ use super::golden;
 
 #[test]
 fn test_control_flow() {
-    let mut b = CodeBlock::<GoLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add("func classify(x int) string {", ());
     b.add_line();
     b.add("%>", ());
@@ -22,10 +22,11 @@ fn test_control_flow() {
     b.add_line();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("classify.go", GoLang::new());
-    fb.header(CodeBlock::<GoLang>::of("package main", ()).unwrap());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("classify.go", GoLang::new())
+        .header(CodeBlock::of("package main", ()).unwrap())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("go/control_flow.go", &output);

@@ -7,10 +7,10 @@ use super::golden;
 
 #[test]
 fn test_function_with_imports() {
-    let http_server = TypeName::<GoLang>::importable("net/http", "Server");
-    let json_marshal = TypeName::<GoLang>::importable("encoding/json", "Marshal");
+    let http_server = TypeName::importable("net/http", "Server");
+    let json_marshal = TypeName::importable("encoding/json", "Marshal");
 
-    let mut b = CodeBlock::<GoLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add("func startServer() {", ());
     b.add_line();
     b.add("%>", ());
@@ -22,10 +22,11 @@ fn test_function_with_imports() {
     b.add_line();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("server.go", GoLang::new());
-    fb.header(CodeBlock::<GoLang>::of("package main", ()).unwrap());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("server.go", GoLang::new())
+        .header(CodeBlock::of("package main", ()).unwrap())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("go/function_with_imports.go", &output);
@@ -33,20 +34,21 @@ fn test_function_with_imports() {
 
 #[test]
 fn test_import_grouping() {
-    let fmt_println = TypeName::<GoLang>::importable("fmt", "Println");
-    let http_server = TypeName::<GoLang>::importable("net/http", "Server");
-    let gin_ctx = TypeName::<GoLang>::importable("github.com/gin-gonic/gin", "Context");
+    let fmt_println = TypeName::importable("fmt", "Println");
+    let http_server = TypeName::importable("net/http", "Server");
+    let gin_ctx = TypeName::importable("github.com/gin-gonic/gin", "Context");
 
-    let mut b = CodeBlock::<GoLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("%T(\"hello\")", (fmt_println,));
     b.add_statement("_ = %T{}", (http_server,));
     b.add_statement("_ = %T{}", (gin_ctx,));
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("main.go", GoLang::new());
-    fb.header(CodeBlock::<GoLang>::of("package main", ()).unwrap());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("main.go", GoLang::new())
+        .header(CodeBlock::of("package main", ()).unwrap())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("go/import_grouping.go", &output);
@@ -54,20 +56,21 @@ fn test_import_grouping() {
 
 #[test]
 fn test_same_package_symbols() {
-    let handler = TypeName::<GoLang>::importable("net/http", "Handler");
-    let server = TypeName::<GoLang>::importable("net/http", "Server");
-    let listen = TypeName::<GoLang>::importable("net/http", "ListenAndServe");
+    let handler = TypeName::importable("net/http", "Handler");
+    let server = TypeName::importable("net/http", "Server");
+    let listen = TypeName::importable("net/http", "ListenAndServe");
 
-    let mut b = CodeBlock::<GoLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("var _ %T", (handler,));
     b.add_statement("var _ %T", (server,));
     b.add_statement("_ = %T", (listen,));
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("http.go", GoLang::new());
-    fb.header(CodeBlock::<GoLang>::of("package main", ()).unwrap());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("http.go", GoLang::new())
+        .header(CodeBlock::of("package main", ()).unwrap())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("go/same_package_symbols.go", &output);

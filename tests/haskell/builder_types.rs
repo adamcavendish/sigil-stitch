@@ -12,30 +12,30 @@ use super::golden;
 
 #[test]
 fn test_data_type_with_record() {
-    let mut tb = TypeSpec::<Haskell>::builder("Person", TypeKind::Struct);
-    tb.doc("A person record type.");
+    let ts = TypeSpec::builder("Person", TypeKind::Struct)
+        .doc("A person record type.")
+        .add_field(
+            FieldSpec::builder("personName", TypeName::primitive("String"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("personAge", TypeName::primitive("Int"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("personEmail", TypeName::primitive("String"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    tb.add_field(
-        FieldSpec::builder("personName", TypeName::primitive("String"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("personAge", TypeName::primitive("Int"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("personEmail", TypeName::primitive("String"))
-            .build()
-            .unwrap(),
-    );
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Person.hs", Haskell::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Person.hs", Haskell::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/data_type_record.hs", &output);
@@ -43,18 +43,18 @@ fn test_data_type_with_record() {
 
 #[test]
 fn test_enum_type() {
-    let mut tb = TypeSpec::<Haskell>::builder("Color", TypeKind::Enum);
-    tb.doc("Supported colors.");
+    let ts = TypeSpec::builder("Color", TypeKind::Enum)
+        .doc("Supported colors.")
+        .add_variant(EnumVariantSpec::new("Red").unwrap())
+        .add_variant(EnumVariantSpec::new("Green").unwrap())
+        .add_variant(EnumVariantSpec::new("Blue").unwrap())
+        .build()
+        .unwrap();
 
-    tb.add_variant(EnumVariantSpec::new("Red").unwrap());
-    tb.add_variant(EnumVariantSpec::new("Green").unwrap());
-    tb.add_variant(EnumVariantSpec::new("Blue").unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Color.hs", Haskell::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Color.hs", Haskell::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/enum_type.hs", &output);
@@ -62,14 +62,15 @@ fn test_enum_type() {
 
 #[test]
 fn test_type_alias() {
-    let mut tb = TypeSpec::<Haskell>::builder("Name", TypeKind::TypeAlias);
-    tb.extends(TypeName::primitive("String"));
+    let ts = TypeSpec::builder("Name", TypeKind::TypeAlias)
+        .extends(TypeName::primitive("String"))
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Name.hs", Haskell::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Name.hs", Haskell::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/type_alias.hs", &output);
@@ -77,18 +78,19 @@ fn test_type_alias() {
 
 #[test]
 fn test_data_with_deriving() {
-    let mut tb = TypeSpec::<Haskell>::builder("Color", TypeKind::Enum);
-    tb.add_variant(EnumVariantSpec::new("Red").unwrap());
-    tb.add_variant(EnumVariantSpec::new("Green").unwrap());
-    tb.add_variant(EnumVariantSpec::new("Blue").unwrap());
-    tb.implements(TypeName::primitive("Show"));
-    tb.implements(TypeName::primitive("Eq"));
+    let ts = TypeSpec::builder("Color", TypeKind::Enum)
+        .add_variant(EnumVariantSpec::new("Red").unwrap())
+        .add_variant(EnumVariantSpec::new("Green").unwrap())
+        .add_variant(EnumVariantSpec::new("Blue").unwrap())
+        .implements(TypeName::primitive("Show"))
+        .implements(TypeName::primitive("Eq"))
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Color.hs", Haskell::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Color.hs", Haskell::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/data_with_deriving.hs", &output);
@@ -96,14 +98,15 @@ fn test_data_with_deriving() {
 
 #[test]
 fn test_newtype() {
-    let mut tb = TypeSpec::<Haskell>::builder("Meters", TypeKind::Newtype);
-    tb.extends(TypeName::primitive("Int"));
+    let ts = TypeSpec::builder("Meters", TypeKind::Newtype)
+        .extends(TypeName::primitive("Int"))
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Meters.hs", Haskell::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Meters.hs", Haskell::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/newtype.hs", &output);
@@ -111,19 +114,22 @@ fn test_newtype() {
 
 #[test]
 fn test_type_class_via_type_spec() {
-    let mut tb = TypeSpec::<Haskell>::builder("Printable", TypeKind::Trait);
-    tb.doc("Things that can be printed.");
+    let ts = TypeSpec::builder("Printable", TypeKind::Trait)
+        .doc("Things that can be printed.")
+        .add_method(
+            FunSpec::builder("prettyPrint")
+                .add_param(ParameterSpec::new("x", TypeName::primitive("a")).unwrap())
+                .returns(TypeName::primitive("String"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let mut pretty = FunSpec::<Haskell>::builder("prettyPrint");
-    pretty.add_param(ParameterSpec::new("x", TypeName::primitive("a")).unwrap());
-    pretty.returns(TypeName::primitive("String"));
-    tb.add_method(pretty.build().unwrap());
-
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Printable.hs", Haskell::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Printable.hs", Haskell::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/type_class_spec.hs", &output);
@@ -131,25 +137,26 @@ fn test_type_class_via_type_spec() {
 
 #[test]
 fn test_data_with_deriving_record() {
-    let mut tb = TypeSpec::<Haskell>::builder("Person", TypeKind::Struct);
-    tb.add_field(
-        FieldSpec::builder("personName", TypeName::primitive("String"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("personAge", TypeName::primitive("Int"))
-            .build()
-            .unwrap(),
-    );
-    tb.implements(TypeName::primitive("Show"));
-    tb.implements(TypeName::primitive("Eq"));
+    let ts = TypeSpec::builder("Person", TypeKind::Struct)
+        .add_field(
+            FieldSpec::builder("personName", TypeName::primitive("String"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("personAge", TypeName::primitive("Int"))
+                .build()
+                .unwrap(),
+        )
+        .implements(TypeName::primitive("Show"))
+        .implements(TypeName::primitive("Eq"))
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("Person.hs", Haskell::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Person.hs", Haskell::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/data_deriving_record.hs", &output);

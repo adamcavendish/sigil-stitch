@@ -30,7 +30,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Use `FileSpec::header` for `#pragma once` or include guards:
 /// ```text
-/// fb.header(CodeBlock::<CLang>::of("#pragma once", ()).unwrap());
+/// fb.header(CodeBlock::of("#pragma once", ()).unwrap());
 /// ```
 #[derive(Debug, Clone)]
 pub struct CLang {

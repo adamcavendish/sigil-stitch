@@ -11,29 +11,31 @@ use super::golden;
 
 #[test]
 fn test_struct_with_fields() {
-    let mut tb = TypeSpec::<CLang>::builder("Config", TypeKind::Struct);
-    tb.doc("Application configuration.");
-    tb.add_field(
-        FieldSpec::builder("timeout", TypeName::primitive("int"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("name", TypeName::primitive("char*"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("verbose", TypeName::primitive("int"))
-            .build()
-            .unwrap(),
-    );
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("Config", TypeKind::Struct)
+        .doc("Application configuration.")
+        .add_field(
+            FieldSpec::builder("timeout", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("name", TypeName::primitive("char*"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("verbose", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("config.h", CLang::header());
-    fb.header(CodeBlock::<CLang>::of("#pragma once", ()).unwrap());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("config.h", CLang::header())
+        .header(CodeBlock::of("#pragma once", ()).unwrap())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("c/struct_with_fields.c", &output);
@@ -41,17 +43,19 @@ fn test_struct_with_fields() {
 
 #[test]
 fn test_enum() {
-    let mut tb = TypeSpec::<CLang>::builder("Direction", TypeKind::Enum);
-    tb.doc("Cardinal directions.");
-    tb.add_variant(EnumVariantSpec::new("UP").unwrap());
-    tb.add_variant(EnumVariantSpec::new("DOWN").unwrap());
-    tb.add_variant(EnumVariantSpec::new("LEFT").unwrap());
-    tb.add_variant(EnumVariantSpec::new("RIGHT").unwrap());
-    let ts = tb.build().unwrap();
+    let ts = TypeSpec::builder("Direction", TypeKind::Enum)
+        .doc("Cardinal directions.")
+        .add_variant(EnumVariantSpec::new("UP").unwrap())
+        .add_variant(EnumVariantSpec::new("DOWN").unwrap())
+        .add_variant(EnumVariantSpec::new("LEFT").unwrap())
+        .add_variant(EnumVariantSpec::new("RIGHT").unwrap())
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("direction.h", CLang::header());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("direction.h", CLang::header())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("c/enum.c", &output);

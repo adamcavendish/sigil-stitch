@@ -13,10 +13,9 @@ use crate::type_name::TypeName;
 
 /// A setter definition: parameter name + body.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub struct SetterSpec<L: CodeLang> {
+pub struct SetterSpec {
     pub(crate) param_name: String,
-    pub(crate) body: CodeBlock<L>,
+    pub(crate) body: CodeBlock,
 }
 
 /// A computed property with optional getter and setter.
@@ -37,28 +36,27 @@ pub struct SetterSpec<L: CodeLang> {
 /// use sigil_stitch::spec::property_spec::PropertySpec;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let getter_body = CodeBlock::<TypeScript>::of("return this._name", ()).unwrap();
+/// let getter_body = CodeBlock::of("return this._name", ()).unwrap();
 ///
-/// let mut pb = PropertySpec::builder("name", TypeName::<TypeScript>::primitive("string"));
-/// pb.getter(getter_body);
-/// let prop = pb.build().unwrap();
+/// let prop = PropertySpec::builder("name", TypeName::primitive("string"))
+///     .getter(getter_body)
+///     .build().unwrap();
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub struct PropertySpec<L: CodeLang> {
+pub struct PropertySpec {
     pub(crate) name: String,
-    pub(crate) property_type: TypeName<L>,
+    pub(crate) property_type: TypeName,
     pub(crate) modifiers: Modifiers,
     pub(crate) doc: Vec<String>,
-    pub(crate) getter: Option<CodeBlock<L>>,
-    pub(crate) setter: Option<SetterSpec<L>>,
-    pub(crate) annotations: Vec<CodeBlock<L>>,
-    pub(crate) annotation_specs: Vec<AnnotationSpec<L>>,
+    pub(crate) getter: Option<CodeBlock>,
+    pub(crate) setter: Option<SetterSpec>,
+    pub(crate) annotations: Vec<CodeBlock>,
+    pub(crate) annotation_specs: Vec<AnnotationSpec>,
 }
 
-impl<L: CodeLang> PropertySpec<L> {
+impl PropertySpec {
     /// Create a new builder for a property with the given name and type.
-    pub fn builder(name: &str, property_type: TypeName<L>) -> PropertySpecBuilder<L> {
+    pub fn builder(name: &str, property_type: TypeName) -> PropertySpecBuilder {
         PropertySpecBuilder {
             name: name.to_string(),
             property_type,
@@ -82,9 +80,9 @@ impl<L: CodeLang> PropertySpec<L> {
     /// Field style returns 1 block (field with inline body).
     pub fn emit(
         &self,
-        lang: &L,
+        lang: &dyn CodeLang,
         ctx: DeclarationContext,
-    ) -> Result<Vec<CodeBlock<L>>, crate::error::SigilStitchError> {
+    ) -> Result<Vec<CodeBlock>, crate::error::SigilStitchError> {
         match lang.property_style() {
             PropertyStyle::Accessor => self.emit_accessor(lang, ctx),
             PropertyStyle::Field => self.emit_field(lang, ctx),
@@ -94,13 +92,13 @@ impl<L: CodeLang> PropertySpec<L> {
     /// Emit as accessor methods: `get name(): T { ... }` / `set name(v: T) { ... }`.
     fn emit_accessor(
         &self,
-        lang: &L,
+        lang: &dyn CodeLang,
         ctx: DeclarationContext,
-    ) -> Result<Vec<CodeBlock<L>>, crate::error::SigilStitchError> {
+    ) -> Result<Vec<CodeBlock>, crate::error::SigilStitchError> {
         let mut blocks = Vec::new();
 
         if let Some(getter_body) = &self.getter {
-            let mut cb = CodeBlock::<L>::builder();
+            let mut cb = CodeBlock::builder();
 
             // Annotations + doc on the getter.
             self.emit_preamble(&mut cb, lang)?;
@@ -108,7 +106,7 @@ impl<L: CodeLang> PropertySpec<L> {
             // Signature: [vis] get [name]()[return_type_sep][type][block_open]
             let vis = lang.render_visibility(self.modifiers.visibility, ctx);
             let mut sig = String::new();
-            let mut sig_args: Vec<Arg<L>> = Vec::new();
+            let mut sig_args: Vec<Arg> = Vec::new();
 
             sig.push_str(vis);
             if self.modifiers.is_static {
@@ -141,12 +139,12 @@ impl<L: CodeLang> PropertySpec<L> {
         }
 
         if let Some(setter) = &self.setter {
-            let mut cb = CodeBlock::<L>::builder();
+            let mut cb = CodeBlock::builder();
 
             // Setter signature: [vis] set [name]([param][sep][type])[block_open]
             let vis = lang.render_visibility(self.modifiers.visibility, ctx);
             let mut sig = String::new();
-            let mut sig_args: Vec<Arg<L>> = Vec::new();
+            let mut sig_args: Vec<Arg> = Vec::new();
 
             sig.push_str(vis);
             if self.modifiers.is_static {
@@ -186,10 +184,10 @@ impl<L: CodeLang> PropertySpec<L> {
     /// Emit as a field with inline getter/setter body (Swift/Kotlin).
     fn emit_field(
         &self,
-        lang: &L,
+        lang: &dyn CodeLang,
         ctx: DeclarationContext,
-    ) -> Result<Vec<CodeBlock<L>>, crate::error::SigilStitchError> {
-        let mut cb = CodeBlock::<L>::builder();
+    ) -> Result<Vec<CodeBlock>, crate::error::SigilStitchError> {
+        let mut cb = CodeBlock::builder();
 
         // Annotations + doc.
         self.emit_preamble(&mut cb, lang)?;
@@ -199,7 +197,7 @@ impl<L: CodeLang> PropertySpec<L> {
         let has_setter = self.setter.is_some();
 
         let mut sig = String::new();
-        let mut sig_args: Vec<Arg<L>> = Vec::new();
+        let mut sig_args: Vec<Arg> = Vec::new();
 
         sig.push_str(vis);
         if self.modifiers.is_static {
@@ -271,8 +269,8 @@ impl<L: CodeLang> PropertySpec<L> {
     /// Emit annotations and doc comment as a preamble.
     fn emit_preamble(
         &self,
-        cb: &mut crate::code_block::CodeBlockBuilder<L>,
-        lang: &L,
+        cb: &mut crate::code_block::CodeBlockBuilder,
+        lang: &dyn CodeLang,
     ) -> Result<(), crate::error::SigilStitchError> {
         let emit_doc = || -> Option<String> {
             if self.doc.is_empty() || lang.doc_comment_inside_body() {
@@ -311,26 +309,26 @@ impl<L: CodeLang> PropertySpec<L> {
 
 /// Builder for [`PropertySpec`].
 #[derive(Debug)]
-pub struct PropertySpecBuilder<L: CodeLang> {
+pub struct PropertySpecBuilder {
     name: String,
-    property_type: TypeName<L>,
+    property_type: TypeName,
     modifiers: Modifiers,
     doc: Vec<String>,
-    getter: Option<CodeBlock<L>>,
-    setter: Option<SetterSpec<L>>,
-    annotations: Vec<CodeBlock<L>>,
-    annotation_specs: Vec<AnnotationSpec<L>>,
+    getter: Option<CodeBlock>,
+    setter: Option<SetterSpec>,
+    annotations: Vec<CodeBlock>,
+    annotation_specs: Vec<AnnotationSpec>,
 }
 
-impl<L: CodeLang> PropertySpecBuilder<L> {
+impl PropertySpecBuilder {
     /// Set the getter body.
-    pub fn getter(&mut self, body: CodeBlock<L>) -> &mut Self {
+    pub fn getter(mut self, body: CodeBlock) -> Self {
         self.getter = Some(body);
         self
     }
 
     /// Set the setter parameter name and body.
-    pub fn setter(&mut self, param_name: &str, body: CodeBlock<L>) -> &mut Self {
+    pub fn setter(mut self, param_name: &str, body: CodeBlock) -> Self {
         self.setter = Some(SetterSpec {
             param_name: param_name.to_string(),
             body,
@@ -339,31 +337,31 @@ impl<L: CodeLang> PropertySpecBuilder<L> {
     }
 
     /// Set the visibility.
-    pub fn visibility(&mut self, vis: Visibility) -> &mut Self {
+    pub fn visibility(mut self, vis: Visibility) -> Self {
         self.modifiers.visibility = vis;
         self
     }
 
     /// Mark this property as static.
-    pub fn is_static(&mut self) -> &mut Self {
+    pub fn is_static(mut self) -> Self {
         self.modifiers.is_static = true;
         self
     }
 
     /// Add a doc comment line.
-    pub fn doc(&mut self, line: &str) -> &mut Self {
+    pub fn doc(mut self, line: &str) -> Self {
         self.doc.push(line.to_string());
         self
     }
 
     /// Add a raw annotation code block.
-    pub fn annotation(&mut self, ann: CodeBlock<L>) -> &mut Self {
+    pub fn annotation(mut self, ann: CodeBlock) -> Self {
         self.annotations.push(ann);
         self
     }
 
     /// Add a structured annotation.
-    pub fn annotate(&mut self, spec: AnnotationSpec<L>) -> &mut Self {
+    pub fn annotate(mut self, spec: AnnotationSpec) -> Self {
         self.annotation_specs.push(spec);
         self
     }
@@ -373,7 +371,7 @@ impl<L: CodeLang> PropertySpecBuilder<L> {
     /// # Errors
     ///
     /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
-    pub fn build(self) -> Result<PropertySpec<L>, crate::error::SigilStitchError> {
+    pub fn build(self) -> Result<PropertySpec, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),
             crate::error::EmptyNameSnafu {
@@ -396,11 +394,10 @@ impl<L: CodeLang> PropertySpecBuilder<L> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lang::typescript::TypeScript;
 
     #[test]
     fn test_build_empty_name_errors() {
-        let result = PropertySpec::builder("", TypeName::<TypeScript>::primitive("string")).build();
+        let result = PropertySpec::builder("", TypeName::primitive("string")).build();
         assert!(result.is_err());
         assert!(
             result

@@ -18,26 +18,25 @@ use crate::type_name::TypeName;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
 /// // Simple parameter:
-/// let param = ParameterSpec::<TypeScript>::new("id", TypeName::primitive("string")).unwrap();
+/// let param = ParameterSpec::new("id", TypeName::primitive("string")).unwrap();
 ///
 /// // Parameter with default value:
-/// let default_val = CodeBlock::<TypeScript>::of("0", ()).unwrap();
-/// let mut pb = ParameterSpec::builder("count", TypeName::<TypeScript>::primitive("number"));
-/// pb.default_value(default_val);
-/// let param = pb.build().unwrap();
+/// let default_val = CodeBlock::of("0", ()).unwrap();
+/// let param = ParameterSpec::builder("count", TypeName::primitive("number"))
+///     .default_value(default_val)
+///     .build().unwrap();
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub struct ParameterSpec<L: CodeLang> {
+pub struct ParameterSpec {
     pub(crate) name: String,
-    pub(crate) param_type: TypeName<L>,
-    pub(crate) default_value: Option<crate::code_block::CodeBlock<L>>,
+    pub(crate) param_type: TypeName,
+    pub(crate) default_value: Option<crate::code_block::CodeBlock>,
     pub(crate) is_variadic: bool,
 }
 
-impl<L: CodeLang> ParameterSpec<L> {
+impl ParameterSpec {
     /// Create a new builder for a parameter with the given name and type.
-    pub fn builder(name: &str, param_type: TypeName<L>) -> ParameterSpecBuilder<L> {
+    pub fn builder(name: &str, param_type: TypeName) -> ParameterSpecBuilder {
         ParameterSpecBuilder {
             name: name.to_string(),
             param_type,
@@ -47,11 +46,17 @@ impl<L: CodeLang> ParameterSpec<L> {
     }
 
     /// Convenience constructor for a simple parameter (name + type, no frills).
-    pub fn new(
-        name: &str,
-        param_type: TypeName<L>,
-    ) -> Result<Self, crate::error::SigilStitchError> {
+    pub fn new(name: &str, param_type: TypeName) -> Result<Self, crate::error::SigilStitchError> {
         Self::builder(name, param_type).build()
+    }
+
+    /// Infallible convenience constructor for a simple parameter.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
+    pub fn of(name: &str, param_type: TypeName) -> Self {
+        Self::new(name, param_type).expect("ParameterSpec name must not be empty")
     }
 
     /// Return the parameter name.
@@ -60,14 +65,14 @@ impl<L: CodeLang> ParameterSpec<L> {
     }
 
     /// Return the parameter type.
-    pub fn param_type(&self) -> &TypeName<L> {
+    pub fn param_type(&self) -> &TypeName {
         &self.param_type
     }
 
     /// Emit this parameter into a CodeBlockBuilder (appends format parts + args).
-    pub fn emit_into(&self, cb: &mut CodeBlockBuilder<L>, lang: &L) {
+    pub fn emit_into(&self, cb: &mut CodeBlockBuilder, lang: &dyn CodeLang) {
         let mut fmt = String::new();
-        let mut args: Vec<Arg<L>> = Vec::new();
+        let mut args: Vec<Arg> = Vec::new();
 
         if lang.type_before_name() {
             // C-style: type name
@@ -104,22 +109,22 @@ impl<L: CodeLang> ParameterSpec<L> {
 
 /// Builder for [`ParameterSpec`].
 #[derive(Debug)]
-pub struct ParameterSpecBuilder<L: CodeLang> {
+pub struct ParameterSpecBuilder {
     name: String,
-    param_type: TypeName<L>,
-    default_value: Option<crate::code_block::CodeBlock<L>>,
+    param_type: TypeName,
+    default_value: Option<crate::code_block::CodeBlock>,
     is_variadic: bool,
 }
 
-impl<L: CodeLang> ParameterSpecBuilder<L> {
+impl ParameterSpecBuilder {
     /// Set the default value for this parameter.
-    pub fn default_value(&mut self, value: crate::code_block::CodeBlock<L>) -> &mut Self {
+    pub fn default_value(mut self, value: crate::code_block::CodeBlock) -> Self {
         self.default_value = Some(value);
         self
     }
 
     /// Mark this parameter as variadic.
-    pub fn variadic(&mut self) -> &mut Self {
+    pub fn variadic(mut self) -> Self {
         self.is_variadic = true;
         self
     }
@@ -129,7 +134,7 @@ impl<L: CodeLang> ParameterSpecBuilder<L> {
     /// # Errors
     ///
     /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
-    pub fn build(self) -> Result<ParameterSpec<L>, crate::error::SigilStitchError> {
+    pub fn build(self) -> Result<ParameterSpec, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),
             crate::error::EmptyNameSnafu {
@@ -151,9 +156,9 @@ mod tests {
     use crate::code_block::CodeBlock;
     use crate::lang::typescript::TypeScript;
 
-    fn emit_param(spec: &ParameterSpec<TypeScript>) -> String {
+    fn emit_param(spec: &ParameterSpec) -> String {
         let lang = TypeScript::new();
-        let mut cb = CodeBlock::<TypeScript>::builder();
+        let mut cb = CodeBlock::builder();
         spec.emit_into(&mut cb, &lang);
         // Build and render the parts to a simple string for testing.
         let block = cb.build().unwrap();
@@ -165,34 +170,35 @@ mod tests {
 
     #[test]
     fn test_simple_param() {
-        let param = ParameterSpec::<TypeScript>::new("id", TypeName::primitive("string")).unwrap();
+        let param = ParameterSpec::new("id", TypeName::primitive("string")).unwrap();
         let output = emit_param(&param);
         assert_eq!(output, "id: string");
     }
 
     #[test]
     fn test_variadic_param() {
-        let mut pb = ParameterSpec::builder("args", TypeName::<TypeScript>::primitive("string"));
-        pb.variadic();
-        let param = pb.build().unwrap();
+        let param = ParameterSpec::builder("args", TypeName::primitive("string"))
+            .variadic()
+            .build()
+            .unwrap();
         let output = emit_param(&param);
         assert_eq!(output, "...args: string");
     }
 
     #[test]
     fn test_param_with_default() {
-        let default = CodeBlock::<TypeScript>::of("0", ()).unwrap();
-        let mut pb = ParameterSpec::builder("count", TypeName::<TypeScript>::primitive("number"));
-        pb.default_value(default);
-        let param = pb.build().unwrap();
+        let default = CodeBlock::of("0", ()).unwrap();
+        let param = ParameterSpec::builder("count", TypeName::primitive("number"))
+            .default_value(default)
+            .build()
+            .unwrap();
         let output = emit_param(&param);
         assert_eq!(output, "count: number = 0");
     }
 
     #[test]
     fn test_build_empty_name_errors() {
-        let result =
-            ParameterSpec::builder("", TypeName::<TypeScript>::primitive("string")).build();
+        let result = ParameterSpec::builder("", TypeName::primitive("string")).build();
         assert!(result.is_err());
         assert!(
             result

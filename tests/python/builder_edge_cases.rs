@@ -11,29 +11,32 @@ use super::golden;
 
 #[test]
 fn test_abstract_method() {
-    let abc = TypeName::<Python>::importable("abc", "ABC");
-    let abstractmethod = TypeName::<Python>::importable("abc", "abstractmethod");
+    let abc = TypeName::importable("abc", "ABC");
+    let abstractmethod = TypeName::importable("abc", "abstractmethod");
 
-    let mut tb = TypeSpec::<Python>::builder("BaseController", TypeKind::Class);
-    tb.extends(abc);
-
-    let mut handle = FunSpec::<Python>::builder("handle_request");
-    handle.annotation(CodeBlock::<Python>::of("@%T", (abstractmethod,)).unwrap());
-    handle.add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap());
-    handle.add_param(ParameterSpec::new("req", TypeName::primitive("Request")).unwrap());
-    handle.returns(TypeName::primitive("Response"));
+    let handle = FunSpec::builder("handle_request")
+        .annotation(CodeBlock::of("@%T", (abstractmethod,)).unwrap())
+        .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+        .add_param(ParameterSpec::new("req", TypeName::primitive("Request")).unwrap())
+        .returns(TypeName::primitive("Response"));
     // No body — should emit `...`
-    tb.add_method(handle.build().unwrap());
 
-    let mut log_fn = FunSpec::<Python>::builder("log");
-    log_fn.add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap());
-    log_fn.returns(TypeName::primitive("None"));
-    log_fn.body(CodeBlock::<Python>::of("print('handled')", ()).unwrap());
-    tb.add_method(log_fn.build().unwrap());
+    let tb = TypeSpec::builder("BaseController", TypeKind::Class)
+        .extends(abc)
+        .add_method(handle.build().unwrap())
+        .add_method(
+            FunSpec::builder("log")
+                .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+                .returns(TypeName::primitive("None"))
+                .body(CodeBlock::of("print('handled')", ()).unwrap())
+                .build()
+                .unwrap(),
+        );
 
-    let mut fb = FileSpec::builder_with("controller.py", Python::new());
-    fb.add_type(tb.build().unwrap());
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("controller.py", Python::new())
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/abstract_class.py", &output);
@@ -41,14 +44,17 @@ fn test_abstract_method() {
 
 #[test]
 fn test_decorated_function() {
-    let mut fb = FunSpec::<Python>::builder("my_view");
-    fb.annotation(CodeBlock::<Python>::of("@app.route('/hello')", ()).unwrap());
-    fb.returns(TypeName::primitive("str"));
-    fb.body(CodeBlock::<Python>::of("return 'Hello, World!'", ()).unwrap());
-
-    let mut file_b = FileSpec::builder_with("views.py", Python::new());
-    file_b.add_function(fb.build().unwrap());
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("views.py", Python::new())
+        .add_function(
+            FunSpec::builder("my_view")
+                .annotation(CodeBlock::of("@app.route('/hello')", ()).unwrap())
+                .returns(TypeName::primitive("str"))
+                .body(CodeBlock::of("return 'Hello, World!'", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/decorated_function.py", &output);

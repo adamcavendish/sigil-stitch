@@ -83,9 +83,9 @@ impl OCaml {
     /// multiple types and values), so they are built as raw `CodeBlock`s.
     pub fn module_block(
         name: &str,
-        body: crate::code_block::CodeBlock<OCaml>,
-    ) -> Result<crate::code_block::CodeBlock<OCaml>, crate::error::SigilStitchError> {
-        let mut cb = crate::code_block::CodeBlock::<OCaml>::builder();
+        body: crate::code_block::CodeBlock,
+    ) -> Result<crate::code_block::CodeBlock, crate::error::SigilStitchError> {
+        let mut cb = crate::code_block::CodeBlock::builder();
         cb.begin_control_flow_with_open(&format!("module {name}"), (), " = struct");
         cb.add_code(body);
         cb.end_control_flow();
@@ -96,9 +96,9 @@ impl OCaml {
     /// Build a `module type Name = sig ... end` block.
     pub fn module_sig_block(
         name: &str,
-        body: crate::code_block::CodeBlock<OCaml>,
-    ) -> Result<crate::code_block::CodeBlock<OCaml>, crate::error::SigilStitchError> {
-        let mut cb = crate::code_block::CodeBlock::<OCaml>::builder();
+        body: crate::code_block::CodeBlock,
+    ) -> Result<crate::code_block::CodeBlock, crate::error::SigilStitchError> {
+        let mut cb = crate::code_block::CodeBlock::builder();
         cb.begin_control_flow_with_open(&format!("module type {name}"), (), " = sig");
         cb.add_code(body);
         cb.end_control_flow();

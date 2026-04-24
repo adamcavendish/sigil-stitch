@@ -13,28 +13,32 @@ use super::golden;
 
 #[test]
 fn test_dataclass() {
-    let mut tb = TypeSpec::<Python>::builder("Config", TypeKind::Class);
-    tb.doc("Application configuration.");
-    tb.annotation(CodeBlock::<Python>::of("@dataclass", ()).unwrap());
-
-    tb.add_field(
-        FieldSpec::builder("name", TypeName::primitive("str"))
-            .build()
-            .unwrap(),
-    );
-    tb.add_field(
-        FieldSpec::builder("port", TypeName::primitive("int"))
-            .build()
-            .unwrap(),
-    );
-
-    let mut f3 = FieldSpec::builder("debug", TypeName::primitive("bool"));
-    f3.initializer(CodeBlock::<Python>::of("False", ()).unwrap());
-    tb.add_field(f3.build().unwrap());
-
-    let mut fb = FileSpec::builder_with("config.py", Python::new());
-    fb.add_type(tb.build().unwrap());
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("config.py", Python::new())
+        .add_type(
+            TypeSpec::builder("Config", TypeKind::Class)
+                .doc("Application configuration.")
+                .annotation(CodeBlock::of("@dataclass", ()).unwrap())
+                .add_field(
+                    FieldSpec::builder("name", TypeName::primitive("str"))
+                        .build()
+                        .unwrap(),
+                )
+                .add_field(
+                    FieldSpec::builder("port", TypeName::primitive("int"))
+                        .build()
+                        .unwrap(),
+                )
+                .add_field(
+                    FieldSpec::builder("debug", TypeName::primitive("bool"))
+                        .initializer(CodeBlock::of("False", ()).unwrap())
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/dataclass.py", &output);
@@ -42,32 +46,40 @@ fn test_dataclass() {
 
 #[test]
 fn test_class_with_methods() {
-    let mut tb = TypeSpec::<Python>::builder("UserService", TypeKind::Class);
-    tb.doc("Service for managing users.");
-
-    tb.add_field(
-        FieldSpec::builder("_repo", TypeName::primitive("UserRepository"))
-            .build()
-            .unwrap(),
-    );
-
-    let mut get_user = FunSpec::<Python>::builder("get_user");
-    get_user.add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap());
-    get_user.add_param(ParameterSpec::new("user_id", TypeName::primitive("str")).unwrap());
-    get_user.returns(TypeName::primitive("User"));
-    get_user.body(CodeBlock::<Python>::of("return self._repo.find(user_id)", ()).unwrap());
-    tb.add_method(get_user.build().unwrap());
-
-    let mut save_user = FunSpec::<Python>::builder("save_user");
-    save_user.add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap());
-    save_user.add_param(ParameterSpec::new("user", TypeName::primitive("User")).unwrap());
-    save_user.returns(TypeName::primitive("None"));
-    save_user.body(CodeBlock::<Python>::of("self._repo.save(user)", ()).unwrap());
-    tb.add_method(save_user.build().unwrap());
-
-    let mut fb = FileSpec::builder_with("service.py", Python::new());
-    fb.add_type(tb.build().unwrap());
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("service.py", Python::new())
+        .add_type(
+            TypeSpec::builder("UserService", TypeKind::Class)
+                .doc("Service for managing users.")
+                .add_field(
+                    FieldSpec::builder("_repo", TypeName::primitive("UserRepository"))
+                        .build()
+                        .unwrap(),
+                )
+                .add_method(
+                    FunSpec::builder("get_user")
+                        .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+                        .add_param(
+                            ParameterSpec::new("user_id", TypeName::primitive("str")).unwrap(),
+                        )
+                        .returns(TypeName::primitive("User"))
+                        .body(CodeBlock::of("return self._repo.find(user_id)", ()).unwrap())
+                        .build()
+                        .unwrap(),
+                )
+                .add_method(
+                    FunSpec::builder("save_user")
+                        .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+                        .add_param(ParameterSpec::new("user", TypeName::primitive("User")).unwrap())
+                        .returns(TypeName::primitive("None"))
+                        .body(CodeBlock::of("self._repo.save(user)", ()).unwrap())
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/class_with_methods.py", &output);
@@ -75,22 +87,27 @@ fn test_class_with_methods() {
 
 #[test]
 fn test_class_with_bases() {
-    let base = TypeName::<Python>::primitive("BaseService");
-    let auth = TypeName::<Python>::primitive("Authenticatable");
+    let base = TypeName::primitive("BaseService");
+    let auth = TypeName::primitive("Authenticatable");
 
-    let mut tb = TypeSpec::<Python>::builder("AdminService", TypeKind::Class);
-    tb.extends(base);
-    tb.implements(auth);
-
-    let mut method = FunSpec::<Python>::builder("is_admin");
-    method.add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap());
-    method.returns(TypeName::primitive("bool"));
-    method.body(CodeBlock::<Python>::of("return True", ()).unwrap());
-    tb.add_method(method.build().unwrap());
-
-    let mut fb = FileSpec::builder_with("admin.py", Python::new());
-    fb.add_type(tb.build().unwrap());
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("admin.py", Python::new())
+        .add_type(
+            TypeSpec::builder("AdminService", TypeKind::Class)
+                .extends(base)
+                .implements(auth)
+                .add_method(
+                    FunSpec::builder("is_admin")
+                        .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+                        .returns(TypeName::primitive("bool"))
+                        .body(CodeBlock::of("return True", ()).unwrap())
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/class_with_bases.py", &output);
@@ -98,27 +115,36 @@ fn test_class_with_bases() {
 
 #[test]
 fn test_protocol() {
-    let protocol = TypeName::<Python>::importable("typing", "Protocol");
+    let protocol = TypeName::importable("typing", "Protocol");
 
-    let mut tb = TypeSpec::<Python>::builder("Repository", TypeKind::Interface);
-    tb.doc("Repository defines data access methods.");
-    tb.extends(protocol);
-
-    let mut find = FunSpec::<Python>::builder("find_by_id");
-    find.add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap());
-    find.add_param(ParameterSpec::new("id", TypeName::primitive("str")).unwrap());
-    find.returns(TypeName::primitive("Entity"));
-    tb.add_method(find.build().unwrap());
-
-    let mut save = FunSpec::<Python>::builder("save");
-    save.add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap());
-    save.add_param(ParameterSpec::new("entity", TypeName::primitive("Entity")).unwrap());
-    save.returns(TypeName::primitive("None"));
-    tb.add_method(save.build().unwrap());
-
-    let mut fb = FileSpec::builder_with("repo.py", Python::new());
-    fb.add_type(tb.build().unwrap());
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("repo.py", Python::new())
+        .add_type(
+            TypeSpec::builder("Repository", TypeKind::Interface)
+                .doc("Repository defines data access methods.")
+                .extends(protocol)
+                .add_method(
+                    FunSpec::builder("find_by_id")
+                        .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+                        .add_param(ParameterSpec::new("id", TypeName::primitive("str")).unwrap())
+                        .returns(TypeName::primitive("Entity"))
+                        .build()
+                        .unwrap(),
+                )
+                .add_method(
+                    FunSpec::builder("save")
+                        .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+                        .add_param(
+                            ParameterSpec::new("entity", TypeName::primitive("Entity")).unwrap(),
+                        )
+                        .returns(TypeName::primitive("None"))
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/protocol.py", &output);
@@ -126,31 +152,39 @@ fn test_protocol() {
 
 #[test]
 fn test_enum() {
-    let enum_base = TypeName::<Python>::importable("enum", "Enum");
+    let enum_base = TypeName::importable("enum", "Enum");
 
-    let mut tb = TypeSpec::<Python>::builder("Direction", TypeKind::Enum);
-    tb.extends(enum_base);
+    let tb = TypeSpec::builder("Direction", TypeKind::Enum)
+        .extends(enum_base)
+        .add_variant(
+            EnumVariantSpec::builder("UP")
+                .value(CodeBlock::of("'UP'", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("DOWN")
+                .value(CodeBlock::of("'DOWN'", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("LEFT")
+                .value(CodeBlock::of("'LEFT'", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("RIGHT")
+                .value(CodeBlock::of("'RIGHT'", ()).unwrap())
+                .build()
+                .unwrap(),
+        );
 
-    // Enum members as variants with values.
-    let mut v_up = EnumVariantSpec::<Python>::builder("UP");
-    v_up.value(CodeBlock::<Python>::of("'UP'", ()).unwrap());
-    tb.add_variant(v_up.build().unwrap());
-
-    let mut v_down = EnumVariantSpec::<Python>::builder("DOWN");
-    v_down.value(CodeBlock::<Python>::of("'DOWN'", ()).unwrap());
-    tb.add_variant(v_down.build().unwrap());
-
-    let mut v_left = EnumVariantSpec::<Python>::builder("LEFT");
-    v_left.value(CodeBlock::<Python>::of("'LEFT'", ()).unwrap());
-    tb.add_variant(v_left.build().unwrap());
-
-    let mut v_right = EnumVariantSpec::<Python>::builder("RIGHT");
-    v_right.value(CodeBlock::<Python>::of("'RIGHT'", ()).unwrap());
-    tb.add_variant(v_right.build().unwrap());
-
-    let mut fb = FileSpec::builder_with("direction.py", Python::new());
-    fb.add_type(tb.build().unwrap());
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("direction.py", Python::new())
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("python/enum.py", &output);

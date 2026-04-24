@@ -365,10 +365,7 @@ impl CodeLang for Haskell {
         crate::spec::fun_spec::FunctionSignatureStyle::Split
     }
 
-    fn render_type_context(
-        &self,
-        type_params: &[crate::spec::fun_spec::TypeParamSpec<Self>],
-    ) -> String {
+    fn render_type_context(&self, type_params: &[crate::spec::fun_spec::TypeParamSpec]) -> String {
         let resolve = |_module: &str, name: &str| name.to_string();
         let mut constraints: Vec<String> = Vec::new();
         for tp in type_params {
@@ -593,7 +590,7 @@ mod tests {
     #[test]
     fn test_render_type_context_empty() {
         let hs = Haskell::new();
-        let params: Vec<crate::spec::fun_spec::TypeParamSpec<Haskell>> = vec![];
+        let params: Vec<crate::spec::fun_spec::TypeParamSpec> = vec![];
         assert_eq!(hs.render_type_context(&params), "");
     }
 

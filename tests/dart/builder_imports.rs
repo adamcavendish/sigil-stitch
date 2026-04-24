@@ -7,16 +7,17 @@ use super::golden;
 
 #[test]
 fn test_function_with_imports() {
-    let future = TypeName::<DartLang>::importable("dart:async", "Future");
-    let user = TypeName::<DartLang>::importable("package:myapp/models/user.dart", "User");
+    let future = TypeName::importable("dart:async", "Future");
+    let user = TypeName::importable("package:myapp/models/user.dart", "User");
 
-    let mut b = CodeBlock::<DartLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("%T<%T> users = fetchAll()", (future, user));
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("app.dart", DartLang::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("app.dart", DartLang::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/function_with_imports.dart", &output);
@@ -24,14 +25,14 @@ fn test_function_with_imports() {
 
 #[test]
 fn test_import_grouping() {
-    let future = TypeName::<DartLang>::importable("dart:async", "Future");
-    let convert = TypeName::<DartLang>::importable("dart:convert", "json");
-    let http = TypeName::<DartLang>::importable("package:http/http.dart", "Client");
-    let provider = TypeName::<DartLang>::importable("package:provider/provider.dart", "Provider");
-    let user = TypeName::<DartLang>::importable("../models/user.dart", "User");
-    let config = TypeName::<DartLang>::importable("./config.dart", "Config");
+    let future = TypeName::importable("dart:async", "Future");
+    let convert = TypeName::importable("dart:convert", "json");
+    let http = TypeName::importable("package:http/http.dart", "Client");
+    let provider = TypeName::importable("package:provider/provider.dart", "Provider");
+    let user = TypeName::importable("../models/user.dart", "User");
+    let config = TypeName::importable("./config.dart", "Config");
 
-    let mut b = CodeBlock::<DartLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add(
         "// %T %T %T %T %T %T",
         (future, convert, http, provider, user, config),
@@ -39,9 +40,10 @@ fn test_import_grouping() {
     b.add_line();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("imports.dart", DartLang::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("imports.dart", DartLang::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/import_grouping.dart", &output);

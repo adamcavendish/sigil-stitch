@@ -12,73 +12,87 @@ use super::golden;
 
 #[test]
 fn test_full_module() {
-    let url = TypeName::<Swift>::importable("Foundation", "URL");
-    let data = TypeName::<Swift>::importable("Foundation", "Data");
+    let url = TypeName::importable("Foundation", "URL");
+    let data = TypeName::importable("Foundation", "Data");
 
     // Protocol.
-    let mut proto = TypeSpec::<Swift>::builder("DataFetcher", TypeKind::Interface);
-
-    let mut fetch = FunSpec::<Swift>::builder("fetchData");
-    fetch.is_async();
-    fetch.returns(data.clone());
-    fetch.add_param(ParameterSpec::new("from", TypeName::primitive("URL")).unwrap());
-    proto.add_method(fetch.build().unwrap());
-
-    let proto_spec = proto.build().unwrap();
+    let proto_spec = TypeSpec::builder("DataFetcher", TypeKind::Interface)
+        .add_method(
+            FunSpec::builder("fetchData")
+                .is_async()
+                .returns(data.clone())
+                .add_param(ParameterSpec::new("from", TypeName::primitive("URL")).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     // Struct.
-    let mut model = TypeSpec::<Swift>::builder("Response", TypeKind::Struct);
-    model.doc("API response model.");
-
-    let mut status_field = FieldSpec::builder("statusCode", TypeName::primitive("Int"));
-    status_field.is_readonly();
-    model.add_field(status_field.build().unwrap());
-
-    let mut body_field = FieldSpec::builder("body", TypeName::primitive("Data"));
-    body_field.is_readonly();
-    model.add_field(body_field.build().unwrap());
-
-    let model_spec = model.build().unwrap();
+    let model_spec = TypeSpec::builder("Response", TypeKind::Struct)
+        .doc("API response model.")
+        .add_field(
+            FieldSpec::builder("statusCode", TypeName::primitive("Int"))
+                .is_readonly()
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("body", TypeName::primitive("Data"))
+                .is_readonly()
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
     // Implementation class.
-    let mut cls = TypeSpec::<Swift>::builder("NetworkFetcher", TypeKind::Class);
-    cls.extends(TypeName::primitive("DataFetcher"));
-    cls.doc("Network-based data fetcher.");
+    let cls = TypeSpec::builder("NetworkFetcher", TypeKind::Class);
+    let cls = cls.extends(TypeName::primitive("DataFetcher"));
+    let cls = cls.doc("Network-based data fetcher.");
 
-    let mut session_field = FieldSpec::builder("session", TypeName::primitive("URLSession"));
-    session_field.visibility(Visibility::Private);
-    session_field.is_readonly();
-    cls.add_field(session_field.build().unwrap());
+    let cls = cls.add_field(
+        FieldSpec::builder("session", TypeName::primitive("URLSession"))
+            .visibility(Visibility::Private)
+            .is_readonly()
+            .build()
+            .unwrap(),
+    );
 
     // fetchData implementation.
-    let fetch_body = CodeBlock::<Swift>::of(
+    let fetch_body = CodeBlock::of(
         "let (data, _) = try await session.data(from: from)\nreturn data",
         (),
     )
     .unwrap();
-    let mut fetch_impl = FunSpec::<Swift>::builder("fetchData");
-    fetch_impl.is_async();
-    fetch_impl.returns(data);
-    fetch_impl.add_param(ParameterSpec::new("from", TypeName::primitive("URL")).unwrap());
-    fetch_impl.body(fetch_body);
-    cls.add_method(fetch_impl.build().unwrap());
+    let cls = cls.add_method(
+        FunSpec::builder("fetchData")
+            .is_async()
+            .returns(data)
+            .add_param(ParameterSpec::new("from", TypeName::primitive("URL")).unwrap())
+            .body(fetch_body)
+            .build()
+            .unwrap(),
+    );
 
     let cls_spec = cls.build().unwrap();
 
     // Standalone function using URL import.
-    let make_body = CodeBlock::<Swift>::of("return %T(string: urlString)!", (url,)).unwrap();
-    let mut make_fn = FunSpec::<Swift>::builder("makeURL");
-    make_fn.returns(TypeName::primitive("URL"));
-    make_fn.add_param(ParameterSpec::new("urlString", TypeName::primitive("String")).unwrap());
-    make_fn.body(make_body);
-    let make_url = make_fn.build().unwrap();
+    let make_body = CodeBlock::of("return %T(string: urlString)!", (url,)).unwrap();
+    let make_url = FunSpec::builder("makeURL")
+        .returns(TypeName::primitive("URL"))
+        .add_param(ParameterSpec::new("urlString", TypeName::primitive("String")).unwrap())
+        .body(make_body)
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("Network.swift", Swift::new());
-    fb.add_type(proto_spec);
-    fb.add_type(model_spec);
-    fb.add_type(cls_spec);
-    fb.add_function(make_url);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Network.swift", Swift::new())
+        .add_type(proto_spec)
+        .add_type(model_spec)
+        .add_type(cls_spec)
+        .add_function(make_url)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("swift/full_module.swift", &output);
@@ -86,7 +100,7 @@ fn test_full_module() {
 
 #[test]
 fn test_string_interpolation_escape() {
-    let body = CodeBlock::<Swift>::of(
+    let body = CodeBlock::of(
         "let greeting = %S\nlet escaped = %S\nprint(greeting)",
         (
             StringLitArg("Hello \\(name)!".into()),
@@ -94,14 +108,16 @@ fn test_string_interpolation_escape() {
         ),
     )
     .unwrap();
-    let mut fb = FunSpec::<Swift>::builder("greet");
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap());
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let fun = FunSpec::builder("greet")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap())
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::builder_with("greet.swift", Swift::new());
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("greet.swift", Swift::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("swift/string_interpolation_escape.swift", &output);

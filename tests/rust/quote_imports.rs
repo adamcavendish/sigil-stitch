@@ -6,16 +6,19 @@ use sigil_stitch::type_name::TypeName;
 
 use super::golden;
 
-fn render(block: &CodeBlock<RustLang>) -> String {
-    let mut fb = FileSpec::builder_with("test.rs", RustLang::new());
-    fb.add_code(block.clone());
-    fb.build().unwrap().render(80).unwrap()
+fn render(block: &CodeBlock) -> String {
+    FileSpec::builder_with("test.rs", RustLang::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }
 
 #[test]
 fn test_imports() {
-    let hashmap = TypeName::<RustLang>::importable("std::collections", "HashMap");
-    let vec_deque = TypeName::<RustLang>::importable("std::collections", "VecDeque");
+    let hashmap = TypeName::importable("std::collections", "HashMap");
+    let vec_deque = TypeName::importable("std::collections", "VecDeque");
     let block = sigil_quote!(RustLang {
         let map: $T(hashmap.clone()) = $T(hashmap)::new();
         let deque: $T(vec_deque.clone()) = $T(vec_deque)::new();

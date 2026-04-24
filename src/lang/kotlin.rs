@@ -42,7 +42,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Use annotations for modifier-like keywords:
 /// ```text
-/// tb.annotation(CodeBlock::<Kotlin>::of("sealed", ()).unwrap());
+/// tb.annotation(CodeBlock::of("sealed", ()).unwrap());
 /// // Combined with TypeKind::Class → "sealed\nclass Foo {"
 /// ```
 ///
@@ -50,7 +50,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Use `add_primary_constructor_param()` on `TypeSpecBuilder`:
 /// ```text
-/// let mut tb = TypeSpec::<Kotlin>::builder("Person", TypeKind::Class);
+/// let mut tb = TypeSpec::builder("Person", TypeKind::Class);
 /// tb.add_primary_constructor_param(ParameterSpec::new("val name", TypeName::primitive("String")));
 /// tb.add_primary_constructor_param(ParameterSpec::new("val age", TypeName::primitive("Int")));
 /// // Emits: class Person(val name: String, val age: Int) {
@@ -61,7 +61,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// Use `delegation()` on `FunSpecBuilder` for `super(...)` / `this(...)` calls.
 /// Kotlin places delegation in the signature (after params, before body):
 /// ```text
-/// let mut ctor = FunSpec::<Kotlin>::builder("constructor");
+/// let mut ctor = FunSpec::builder("constructor");
 /// ctor.is_constructor();
 /// ctor.add_param(ParameterSpec::new("name", TypeName::primitive("String")));
 /// ctor.delegation(CodeBlock::of("this(name, 0)", ()).unwrap());

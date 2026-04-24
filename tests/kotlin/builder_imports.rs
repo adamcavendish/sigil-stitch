@@ -7,16 +7,17 @@ use super::golden;
 
 #[test]
 fn test_function_with_imports() {
-    let list = TypeName::<Kotlin>::importable("kotlin.collections", "List");
-    let user = TypeName::<Kotlin>::importable("com.example.model", "User");
+    let list = TypeName::importable("kotlin.collections", "List");
+    let user = TypeName::importable("com.example.model", "User");
 
-    let mut b = CodeBlock::<Kotlin>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement("val users: %T<%T> = getAll()", (list, user));
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("App.kt", Kotlin::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("App.kt", Kotlin::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/function_with_imports.kt", &output);
@@ -24,14 +25,14 @@ fn test_function_with_imports() {
 
 #[test]
 fn test_import_grouping() {
-    let list = TypeName::<Kotlin>::importable("kotlin.collections", "List");
-    let scope = TypeName::<Kotlin>::importable("kotlinx.coroutines", "CoroutineScope");
-    let uuid = TypeName::<Kotlin>::importable("java.util", "UUID");
-    let inject = TypeName::<Kotlin>::importable("javax.inject", "Inject");
-    let user = TypeName::<Kotlin>::importable("com.example.model", "User");
-    let helper = TypeName::<Kotlin>::importable("io.ktor.server", "Application");
+    let list = TypeName::importable("kotlin.collections", "List");
+    let scope = TypeName::importable("kotlinx.coroutines", "CoroutineScope");
+    let uuid = TypeName::importable("java.util", "UUID");
+    let inject = TypeName::importable("javax.inject", "Inject");
+    let user = TypeName::importable("com.example.model", "User");
+    let helper = TypeName::importable("io.ktor.server", "Application");
 
-    let mut b = CodeBlock::<Kotlin>::builder();
+    let mut b = CodeBlock::builder();
     b.add(
         "// %T %T %T %T %T %T",
         (list, scope, uuid, inject, user, helper),
@@ -39,9 +40,10 @@ fn test_import_grouping() {
     b.add_line();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("Imports.kt", Kotlin::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Imports.kt", Kotlin::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("kotlin/import_grouping.kt", &output);

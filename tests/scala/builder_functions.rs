@@ -10,18 +10,20 @@ use super::golden;
 
 #[test]
 fn test_function_with_return() {
-    let user = TypeName::<Scala>::importable("com.example.model", "User");
+    let user = TypeName::importable("com.example.model", "User");
 
-    let body = CodeBlock::<Scala>::of("api.fetchUser(id)", ()).unwrap();
-    let mut fb_fun = FunSpec::<Scala>::builder("fetchUser");
-    fb_fun.returns(user);
-    fb_fun.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    fb_fun.body(body);
-    let fun = fb_fun.build().unwrap();
+    let body = CodeBlock::of("api.fetchUser(id)", ()).unwrap();
+    let fun = FunSpec::builder("fetchUser")
+        .returns(user)
+        .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut fb = FileSpec::builder_with("Api.scala", Scala::new());
-    fb.add_function(fun);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Api.scala", Scala::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("scala/function_with_return.scala", &output);
@@ -29,18 +31,20 @@ fn test_function_with_return() {
 
 #[test]
 fn test_function_with_doc() {
-    let body = CodeBlock::<Scala>::of("s\"Hello, $name!\"", ()).unwrap();
-    let mut fb = FunSpec::<Scala>::builder("greet");
-    fb.visibility(Visibility::Public);
-    fb.doc("Greet the user by name.");
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap());
-    fb.returns(TypeName::primitive("String"));
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let body = CodeBlock::of("s\"Hello, $name!\"", ()).unwrap();
+    let fun = FunSpec::builder("greet")
+        .visibility(Visibility::Public)
+        .doc("Greet the user by name.")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap())
+        .returns(TypeName::primitive("String"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::<Scala>::builder("greet.scala");
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder("greet.scala")
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("scala/function_with_doc.scala", &output);

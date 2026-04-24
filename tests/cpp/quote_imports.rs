@@ -6,16 +6,19 @@ use sigil_stitch::type_name::TypeName;
 
 use super::golden;
 
-fn render(block: &CodeBlock<CppLang>) -> String {
-    let mut fb = FileSpec::builder_with("test.cpp", CppLang::new());
-    fb.add_code(block.clone());
-    fb.build().unwrap().render(80).unwrap()
+fn render(block: &CodeBlock) -> String {
+    FileSpec::builder_with("test.cpp", CppLang::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }
 
 #[test]
 fn test_imports() {
-    let vector = TypeName::<CppLang>::importable("vector", "vector");
-    let string = TypeName::<CppLang>::importable("string", "string");
+    let vector = TypeName::importable("vector", "vector");
+    let string = TypeName::importable("string", "string");
     let block = sigil_quote!(CppLang {
         $T(vector) items;
         $T(string) name = $S("Alice");

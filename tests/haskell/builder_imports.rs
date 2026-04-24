@@ -7,19 +7,20 @@ use super::golden;
 
 #[test]
 fn test_function_with_imports() {
-    let map_type = TypeName::<Haskell>::importable("Data.Map", "Map");
-    let text_type = TypeName::<Haskell>::importable("Data.Text", "Text");
+    let map_type = TypeName::importable("Data.Map", "Map");
+    let text_type = TypeName::importable("Data.Text", "Text");
 
-    let mut b = CodeBlock::<Haskell>::builder();
+    let mut b = CodeBlock::builder();
     b.add_statement(
         "let users = %T.fromList [(%T.pack \"alice\", 1)]",
         (map_type, text_type),
     );
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("App.hs", Haskell::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("App.hs", Haskell::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/function_with_imports.hs", &output);
@@ -27,13 +28,13 @@ fn test_function_with_imports() {
 
 #[test]
 fn test_import_grouping() {
-    let put_str_ln = TypeName::<Haskell>::importable("Prelude", "putStrLn");
-    let map_type = TypeName::<Haskell>::importable("Data.Map", "Map");
-    let from_list = TypeName::<Haskell>::importable("Data.Map", "fromList");
-    let when_fn = TypeName::<Haskell>::importable("Control.Monad", "when");
-    let user = TypeName::<Haskell>::importable("MyApp.Types", "User");
+    let put_str_ln = TypeName::importable("Prelude", "putStrLn");
+    let map_type = TypeName::importable("Data.Map", "Map");
+    let from_list = TypeName::importable("Data.Map", "fromList");
+    let when_fn = TypeName::importable("Control.Monad", "when");
+    let user = TypeName::importable("MyApp.Types", "User");
 
-    let mut b = CodeBlock::<Haskell>::builder();
+    let mut b = CodeBlock::builder();
     b.add(
         "-- %T %T %T %T %T",
         (put_str_ln, map_type, from_list, when_fn, user),
@@ -41,9 +42,10 @@ fn test_import_grouping() {
     b.add_line();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("Imports.hs", Haskell::new());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("Imports.hs", Haskell::new())
+        .add_code(block)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("haskell/import_grouping.hs", &output);

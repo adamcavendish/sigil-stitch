@@ -11,20 +11,20 @@ use sigil_stitch::type_name::TypeName;
 use super::golden;
 
 /// Helper: emit a FunSpec as a CodeBlock for embedding in extra_member.
-fn emit_fun(fun: &FunSpec<CppLang>) -> CodeBlock<CppLang> {
+fn emit_fun(fun: &FunSpec) -> CodeBlock {
     let lang = CppLang::new();
     fun.emit(&lang, DeclarationContext::Member).unwrap()
 }
 
 /// Helper: emit a FieldSpec as a CodeBlock for embedding in extra_member.
-fn emit_field(field: &FieldSpec<CppLang>) -> CodeBlock<CppLang> {
+fn emit_field(field: &FieldSpec) -> CodeBlock {
     let lang = CppLang::new();
     field.emit(&lang, DeclarationContext::Member).unwrap()
 }
 
 #[test]
 fn test_namespace_wrapping() {
-    let mut b = CodeBlock::<CppLang>::builder();
+    let mut b = CodeBlock::builder();
     b.add("int square(int x) {", ());
     b.add_line();
     b.add("%>", ());
@@ -35,12 +35,13 @@ fn test_namespace_wrapping() {
     b.add_line();
     let block = b.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("math.hpp", CppLang::header());
-    fb.header(CodeBlock::<CppLang>::of("#pragma once", ()).unwrap());
-    fb.add_raw("namespace math {\n");
-    fb.add_code(block);
-    fb.add_raw("\n} // namespace math\n");
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("math.hpp", CppLang::header())
+        .header(CodeBlock::of("#pragma once", ()).unwrap())
+        .add_raw("namespace math {\n")
+        .add_code(block)
+        .add_raw("\n} // namespace math\n")
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("cpp/namespace_wrapping.cpp", &output);
@@ -48,19 +49,19 @@ fn test_namespace_wrapping() {
 
 #[test]
 fn test_full_header() {
-    let iostream = TypeName::<CppLang>::importable("iostream", "std::cout");
-    let string_h = TypeName::<CppLang>::importable("string", "std::string");
+    let iostream = TypeName::importable("iostream", "std::cout");
+    let string_h = TypeName::importable("string", "std::string");
 
     // Logger class inheriting from Base.
-    let mut tb = sigil_stitch::spec::type_spec::TypeSpec::<CppLang>::builder(
+    let tb = sigil_stitch::spec::type_spec::TypeSpec::builder(
         "Logger",
         sigil_stitch::spec::modifiers::TypeKind::Class,
-    );
-    tb.extends(TypeName::primitive("Base"));
-    tb.doc("Application logger.");
+    )
+    .extends(TypeName::primitive("Base"))
+    .doc("Application logger.");
 
     // private: section
-    let mut priv_section = CodeBlock::<CppLang>::builder();
+    let mut priv_section = CodeBlock::builder();
     priv_section.add("%<", ());
     priv_section.add("private:", ());
     priv_section.add_line();
@@ -69,10 +70,10 @@ fn test_full_header() {
         .build()
         .unwrap();
     priv_section.add_code(emit_field(&field));
-    tb.extra_member(priv_section.build().unwrap());
+    let tb = tb.extra_member(priv_section.build().unwrap());
 
     // public: section
-    let mut pub_section = CodeBlock::<CppLang>::builder();
+    let mut pub_section = CodeBlock::builder();
     pub_section.add_line();
     pub_section.add("%<", ());
     pub_section.add("public:", ());
@@ -80,50 +81,60 @@ fn test_full_header() {
     pub_section.add("%>", ());
 
     // Constructor
-    let ctor_body = CodeBlock::<CppLang>::of("name_ = name;", ()).unwrap();
-    let mut ctor = FunSpec::<CppLang>::builder("Logger");
-    ctor.add_param(ParameterSpec::new("name", TypeName::primitive("const std::string&")).unwrap());
-    ctor.body(ctor_body);
-    pub_section.add_code(emit_fun(&ctor.build().unwrap()));
+    let ctor_body = CodeBlock::of("name_ = name;", ()).unwrap();
+    pub_section.add_code(emit_fun(
+        &FunSpec::builder("Logger")
+            .add_param(
+                ParameterSpec::new("name", TypeName::primitive("const std::string&")).unwrap(),
+            )
+            .body(ctor_body)
+            .build()
+            .unwrap(),
+    ));
 
     // log method using imports
     pub_section.add_line();
-    let log_body = CodeBlock::<CppLang>::of(
+    let log_body = CodeBlock::of(
         "%T << name_ << \": \" << %T(msg) << std::endl;",
         (iostream, string_h),
     )
     .unwrap();
-    let mut log = FunSpec::<CppLang>::builder("log");
-    log.add_param(ParameterSpec::new("msg", TypeName::primitive("const char*")).unwrap());
-    log.returns(TypeName::primitive("void"));
-    log.body(log_body);
-    pub_section.add_code(emit_fun(&log.build().unwrap()));
+    pub_section.add_code(emit_fun(
+        &FunSpec::builder("log")
+            .add_param(ParameterSpec::new("msg", TypeName::primitive("const char*")).unwrap())
+            .returns(TypeName::primitive("void"))
+            .body(log_body)
+            .build()
+            .unwrap(),
+    ));
 
     // name getter — const
     pub_section.add_line();
-    let name_body = CodeBlock::<CppLang>::of("return name_;", ()).unwrap();
-    let mut name_fn = FunSpec::<CppLang>::builder("name");
-    name_fn.returns(TypeName::primitive("const std::string&"));
-    name_fn.suffix("const");
-    name_fn.body(name_body);
-    pub_section.add_code(emit_fun(&name_fn.build().unwrap()));
+    let name_body = CodeBlock::of("return name_;", ()).unwrap();
+    pub_section.add_code(emit_fun(
+        &FunSpec::builder("name")
+            .returns(TypeName::primitive("const std::string&"))
+            .suffix("const")
+            .body(name_body)
+            .build()
+            .unwrap(),
+    ));
 
-    tb.extra_member(pub_section.build().unwrap());
-
-    let ts = tb.build().unwrap();
+    let ts = tb
+        .extra_member(pub_section.build().unwrap())
+        .build()
+        .unwrap();
 
     // Trigger base.hpp import.
-    let import_trigger = CodeBlock::<CppLang>::of(
-        "// Uses %T",
-        (TypeName::<CppLang>::importable("./base.hpp", "Base"),),
-    )
-    .unwrap();
+    let import_trigger =
+        CodeBlock::of("// Uses %T", (TypeName::importable("./base.hpp", "Base"),)).unwrap();
 
-    let mut fb = FileSpec::builder_with("logger.hpp", CppLang::header());
-    fb.header(CodeBlock::<CppLang>::of("#pragma once", ()).unwrap());
-    fb.add_code(import_trigger);
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("logger.hpp", CppLang::header())
+        .header(CodeBlock::of("#pragma once", ()).unwrap())
+        .add_code(import_trigger)
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("cpp/full_header.cpp", &output);
@@ -131,16 +142,18 @@ fn test_full_header() {
 
 #[test]
 fn test_annotation_attribute() {
-    let mut fb = FunSpec::<CppLang>::builder("compute");
-    fb.annotate(AnnotationSpec::new("nodiscard"));
-    fb.returns(TypeName::primitive("int"));
-    fb.body(CodeBlock::of("return 42;", ()).unwrap());
-    let fun = fb.build().unwrap();
+    let fun = FunSpec::builder("compute")
+        .annotate(AnnotationSpec::new("nodiscard"))
+        .returns(TypeName::primitive("int"))
+        .body(CodeBlock::of("return 42;", ()).unwrap())
+        .build()
+        .unwrap();
 
     let rendered = emit_fun(&fun);
-    let mut file_b = FileSpec::builder_with("compute.hpp", CppLang::header());
-    file_b.add_code(rendered);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder_with("compute.hpp", CppLang::header())
+        .add_code(rendered)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("cpp/annotation_attribute.cpp", &output);

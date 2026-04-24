@@ -23,21 +23,20 @@ use crate::type_name::TypeName;
 /// use sigil_stitch::prelude::*;
 /// use sigil_stitch::lang::typescript::TypeScript;
 ///
-/// let mut fb = FieldSpec::builder("name", TypeName::<TypeScript>::primitive("string"));
-/// fb.visibility(Visibility::Private);
-/// fb.is_readonly();
-/// let field = fb.build().unwrap();
+/// let field = FieldSpec::builder("name", TypeName::primitive("string"))
+///     .visibility(Visibility::Private)
+///     .is_readonly()
+///     .build().unwrap();
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "")]
-pub struct FieldSpec<L: CodeLang> {
+pub struct FieldSpec {
     pub(crate) name: String,
-    pub(crate) field_type: TypeName<L>,
+    pub(crate) field_type: TypeName,
     pub(crate) modifiers: Modifiers,
     pub(crate) doc: Vec<String>,
-    pub(crate) initializer: Option<CodeBlock<L>>,
-    pub(crate) annotations: Vec<CodeBlock<L>>,
-    pub(crate) annotation_specs: Vec<AnnotationSpec<L>>,
+    pub(crate) initializer: Option<CodeBlock>,
+    pub(crate) annotations: Vec<CodeBlock>,
+    pub(crate) annotation_specs: Vec<AnnotationSpec>,
     /// Struct tag (e.g., Go: `` `json:"name"` ``). Emitted inline after the type.
     pub(crate) tag: Option<String>,
     /// Whether this field is optional (key may be absent from the containing value).
@@ -48,9 +47,9 @@ pub struct FieldSpec<L: CodeLang> {
     pub(crate) is_optional: bool,
 }
 
-impl<L: CodeLang> FieldSpec<L> {
+impl FieldSpec {
     /// Create a new [`FieldSpecBuilder`] with the given name and type.
-    pub fn builder(name: &str, field_type: TypeName<L>) -> FieldSpecBuilder<L> {
+    pub fn builder(name: &str, field_type: TypeName) -> FieldSpecBuilder {
         FieldSpecBuilder {
             name: name.to_string(),
             field_type,
@@ -64,23 +63,37 @@ impl<L: CodeLang> FieldSpec<L> {
         }
     }
 
+    /// Convenience constructor for a simple field (name + type, no modifiers).
+    pub fn new(name: &str, field_type: TypeName) -> Result<Self, crate::error::SigilStitchError> {
+        Self::builder(name, field_type).build()
+    }
+
+    /// Infallible convenience constructor for a simple field.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` is empty.
+    pub fn of(name: &str, field_type: TypeName) -> Self {
+        Self::new(name, field_type).expect("FieldSpec name must not be empty")
+    }
+
     /// Returns the field name.
     pub fn name(&self) -> &str {
         &self.name
     }
 
     /// Returns the field type.
-    pub fn field_type(&self) -> &TypeName<L> {
+    pub fn field_type(&self) -> &TypeName {
         &self.field_type
     }
 
     /// Emit this field as a CodeBlock.
     pub fn emit(
         &self,
-        lang: &L,
+        lang: &dyn CodeLang,
         ctx: DeclarationContext,
-    ) -> Result<CodeBlock<L>, crate::error::SigilStitchError> {
-        let mut cb = CodeBlock::<L>::builder();
+    ) -> Result<CodeBlock, crate::error::SigilStitchError> {
+        let mut cb = CodeBlock::builder();
 
         let emit_doc = || -> Option<String> {
             if self.doc.is_empty() {
@@ -118,7 +131,7 @@ impl<L: CodeLang> FieldSpec<L> {
         let term = lang.field_terminator();
 
         let mut fmt = String::new();
-        let mut args: Vec<Arg<L>> = Vec::new();
+        let mut args: Vec<Arg> = Vec::new();
 
         fmt.push_str(vis);
         if self.modifiers.is_static {
@@ -213,33 +226,33 @@ impl<L: CodeLang> FieldSpec<L> {
 
 /// Builder for [`FieldSpec`].
 #[derive(Debug)]
-pub struct FieldSpecBuilder<L: CodeLang> {
+pub struct FieldSpecBuilder {
     name: String,
-    field_type: TypeName<L>,
+    field_type: TypeName,
     modifiers: Modifiers,
     doc: Vec<String>,
-    initializer: Option<CodeBlock<L>>,
-    annotations: Vec<CodeBlock<L>>,
-    annotation_specs: Vec<AnnotationSpec<L>>,
+    initializer: Option<CodeBlock>,
+    annotations: Vec<CodeBlock>,
+    annotation_specs: Vec<AnnotationSpec>,
     tag: Option<String>,
     is_optional: bool,
 }
 
-impl<L: CodeLang> FieldSpecBuilder<L> {
+impl FieldSpecBuilder {
     /// Set the visibility modifier.
-    pub fn visibility(&mut self, vis: Visibility) -> &mut Self {
+    pub fn visibility(mut self, vis: Visibility) -> Self {
         self.modifiers.visibility = vis;
         self
     }
 
     /// Mark this field as static.
-    pub fn is_static(&mut self) -> &mut Self {
+    pub fn is_static(mut self) -> Self {
         self.modifiers.is_static = true;
         self
     }
 
     /// Mark this field as readonly.
-    pub fn is_readonly(&mut self) -> &mut Self {
+    pub fn is_readonly(mut self) -> Self {
         self.modifiers.is_readonly = true;
         self
     }
@@ -251,37 +264,37 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
     /// emits `Option<T>`, Go emits `*T`, etc. Languages that cannot express
     /// optionality (JavaScript, Bash, Zsh) render the field as if it were
     /// required.
-    pub fn is_optional(&mut self) -> &mut Self {
+    pub fn is_optional(mut self) -> Self {
         self.is_optional = true;
         self
     }
 
     /// Add a doc comment line.
-    pub fn doc(&mut self, line: &str) -> &mut Self {
+    pub fn doc(mut self, line: &str) -> Self {
         self.doc.push(line.to_string());
         self
     }
 
     /// Set the field initializer expression.
-    pub fn initializer(&mut self, init: CodeBlock<L>) -> &mut Self {
+    pub fn initializer(mut self, init: CodeBlock) -> Self {
         self.initializer = Some(init);
         self
     }
 
     /// Add a raw annotation [`CodeBlock`].
-    pub fn annotation(&mut self, ann: CodeBlock<L>) -> &mut Self {
+    pub fn annotation(mut self, ann: CodeBlock) -> Self {
         self.annotations.push(ann);
         self
     }
 
     /// Add a structured [`AnnotationSpec`].
-    pub fn annotate(&mut self, spec: AnnotationSpec<L>) -> &mut Self {
+    pub fn annotate(mut self, spec: AnnotationSpec) -> Self {
         self.annotation_specs.push(spec);
         self
     }
 
     /// Set the struct tag (e.g., Go's `` `json:"name"` ``).
-    pub fn tag(&mut self, t: &str) -> &mut Self {
+    pub fn tag(mut self, t: &str) -> Self {
         self.tag = Some(t.to_string());
         self
     }
@@ -291,7 +304,7 @@ impl<L: CodeLang> FieldSpecBuilder<L> {
     /// # Errors
     ///
     /// Returns [`SigilStitchError::EmptyName`](crate::error::SigilStitchError::EmptyName) if `name` is empty.
-    pub fn build(self) -> Result<FieldSpec<L>, crate::error::SigilStitchError> {
+    pub fn build(self) -> Result<FieldSpec, crate::error::SigilStitchError> {
         snafu::ensure!(
             !self.name.is_empty(),
             crate::error::EmptyNameSnafu {
@@ -318,7 +331,7 @@ mod tests {
     use crate::lang::rust_lang::RustLang;
     use crate::lang::typescript::TypeScript;
 
-    fn emit_field_ts(spec: &FieldSpec<TypeScript>, ctx: DeclarationContext) -> String {
+    fn emit_field_ts(spec: &FieldSpec, ctx: DeclarationContext) -> String {
         let lang = TypeScript::new();
         let block = spec.emit(&lang, ctx).unwrap();
         let imports = crate::import::ImportGroup::new();
@@ -326,7 +339,7 @@ mod tests {
         renderer.render(&block).unwrap()
     }
 
-    fn emit_field_rs(spec: &FieldSpec<RustLang>, ctx: DeclarationContext) -> String {
+    fn emit_field_rs(spec: &FieldSpec, ctx: DeclarationContext) -> String {
         let lang = RustLang::new();
         let block = spec.emit(&lang, ctx).unwrap();
         let imports = crate::import::ImportGroup::new();
@@ -336,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_ts_field_basic() {
-        let field = FieldSpec::builder("name", TypeName::<TypeScript>::primitive("string"))
+        let field = FieldSpec::builder("name", TypeName::primitive("string"))
             .build()
             .unwrap();
         let output = emit_field_ts(&field, DeclarationContext::Member);
@@ -345,35 +358,38 @@ mod tests {
 
     #[test]
     fn test_ts_field_with_visibility() {
-        let mut fb = FieldSpec::builder("name", TypeName::<TypeScript>::primitive("string"));
-        fb.visibility(Visibility::Private);
-        let field = fb.build().unwrap();
+        let field = FieldSpec::builder("name", TypeName::primitive("string"))
+            .visibility(Visibility::Private)
+            .build()
+            .unwrap();
         let output = emit_field_ts(&field, DeclarationContext::Member);
         assert_eq!(output.trim(), "private name: string;");
     }
 
     #[test]
     fn test_rust_field_basic() {
-        let mut fb = FieldSpec::builder("name", TypeName::<RustLang>::primitive("String"));
-        fb.visibility(Visibility::Public);
-        let field = fb.build().unwrap();
+        let field = FieldSpec::builder("name", TypeName::primitive("String"))
+            .visibility(Visibility::Public)
+            .build()
+            .unwrap();
         let output = emit_field_rs(&field, DeclarationContext::Member);
         assert_eq!(output.trim(), "pub name: String,");
     }
 
     #[test]
     fn test_ts_field_readonly_static() {
-        let mut fb = FieldSpec::builder("MAX", TypeName::<TypeScript>::primitive("number"));
-        fb.is_static();
-        fb.is_readonly();
-        let field = fb.build().unwrap();
+        let field = FieldSpec::builder("MAX", TypeName::primitive("number"))
+            .is_static()
+            .is_readonly()
+            .build()
+            .unwrap();
         let output = emit_field_ts(&field, DeclarationContext::Member);
         assert_eq!(output.trim(), "static readonly MAX: number;");
     }
 
     #[test]
     fn test_build_empty_name_errors() {
-        let result = FieldSpec::builder("", TypeName::<TypeScript>::primitive("string")).build();
+        let result = FieldSpec::builder("", TypeName::primitive("string")).build();
         assert!(result.is_err());
         assert!(
             result
@@ -385,29 +401,30 @@ mod tests {
 
     // --- Optional field rendering across languages ---
 
-    fn emit_for<L: CodeLang>(lang: &L, spec: &FieldSpec<L>, ctx: DeclarationContext) -> String {
+    fn emit_for(lang: &dyn CodeLang, spec: &FieldSpec, ctx: DeclarationContext) -> String {
         let block = spec.emit(lang, ctx).unwrap();
         let imports = crate::import::ImportGroup::new();
         let mut renderer = crate::code_renderer::CodeRenderer::new(lang, &imports, 80);
         renderer.render(&block).unwrap()
     }
 
-    fn optional_field<L: CodeLang>(type_name: TypeName<L>) -> FieldSpec<L> {
-        let mut fb = FieldSpec::builder("name", type_name);
-        fb.is_optional();
-        fb.build().unwrap()
+    fn optional_field(type_name: TypeName) -> FieldSpec {
+        FieldSpec::builder("name", type_name)
+            .is_optional()
+            .build()
+            .unwrap()
     }
 
     #[test]
     fn test_ts_optional_field_uses_name_suffix() {
-        let field = optional_field(TypeName::<TypeScript>::primitive("string"));
+        let field = optional_field(TypeName::primitive("string"));
         let out = emit_for(&TypeScript::new(), &field, DeclarationContext::Member);
         assert_eq!(out.trim(), "name?: string;");
     }
 
     #[test]
     fn test_rust_optional_field_wraps_with_option() {
-        let field = optional_field(TypeName::<RustLang>::primitive("String"));
+        let field = optional_field(TypeName::primitive("String"));
         let out = emit_for(&RustLang::new(), &field, DeclarationContext::Member);
         assert_eq!(out.trim(), "name: Option<String>,");
     }
@@ -415,7 +432,7 @@ mod tests {
     #[test]
     fn test_go_optional_field_prefixes_type_with_pointer() {
         use crate::lang::go_lang::GoLang;
-        let field = optional_field(TypeName::<GoLang>::primitive("string"));
+        let field = optional_field(TypeName::primitive("string"));
         let out = emit_for(&GoLang::new(), &field, DeclarationContext::Member);
         assert_eq!(out.trim(), "name *string");
     }
@@ -423,7 +440,7 @@ mod tests {
     #[test]
     fn test_python_optional_field_unions_with_none() {
         use crate::lang::python::Python;
-        let field = optional_field(TypeName::<Python>::primitive("str"));
+        let field = optional_field(TypeName::primitive("str"));
         let out = emit_for(&Python::new(), &field, DeclarationContext::Member);
         assert_eq!(out.trim(), "name: str | None");
     }
@@ -431,7 +448,7 @@ mod tests {
     #[test]
     fn test_java_optional_field_wraps_with_optional() {
         use crate::lang::java_lang::JavaLang;
-        let field = optional_field(TypeName::<JavaLang>::primitive("String"));
+        let field = optional_field(TypeName::primitive("String"));
         let out = emit_for(&JavaLang::new(), &field, DeclarationContext::Member);
         assert_eq!(out.trim(), "Optional<String> name;");
     }
@@ -439,7 +456,7 @@ mod tests {
     #[test]
     fn test_kotlin_optional_field_suffixes_type() {
         use crate::lang::kotlin::Kotlin;
-        let field = optional_field(TypeName::<Kotlin>::primitive("String"));
+        let field = optional_field(TypeName::primitive("String"));
         let out = emit_for(&Kotlin::new(), &field, DeclarationContext::Member);
         // Kotlin renders a mutable `var` and its default visibility keyword.
         assert!(
@@ -451,7 +468,7 @@ mod tests {
     #[test]
     fn test_swift_optional_field_suffixes_type() {
         use crate::lang::swift::Swift;
-        let field = optional_field(TypeName::<Swift>::primitive("String"));
+        let field = optional_field(TypeName::primitive("String"));
         let out = emit_for(&Swift::new(), &field, DeclarationContext::Member);
         // Swift prepends `var` for mutable stored properties.
         assert!(
@@ -463,7 +480,7 @@ mod tests {
     #[test]
     fn test_dart_optional_field_suffixes_type() {
         use crate::lang::dart::DartLang;
-        let field = optional_field(TypeName::<DartLang>::primitive("String"));
+        let field = optional_field(TypeName::primitive("String"));
         let out = emit_for(&DartLang::new(), &field, DeclarationContext::Member);
         assert_eq!(out.trim(), "String? name;");
     }
@@ -471,7 +488,7 @@ mod tests {
     #[test]
     fn test_c_optional_field_prefixes_name_with_pointer() {
         use crate::lang::c_lang::CLang;
-        let field = optional_field(TypeName::<CLang>::primitive("int"));
+        let field = optional_field(TypeName::primitive("int"));
         let out = emit_for(&CLang::new(), &field, DeclarationContext::Member);
         assert_eq!(out.trim(), "int *name;");
     }
@@ -479,7 +496,7 @@ mod tests {
     #[test]
     fn test_cpp_optional_field_wraps_with_std_optional() {
         use crate::lang::cpp_lang::CppLang;
-        let field = optional_field(TypeName::<CppLang>::primitive("int"));
+        let field = optional_field(TypeName::primitive("int"));
         let out = emit_for(&CppLang::new(), &field, DeclarationContext::Member);
         assert_eq!(out.trim(), "std::optional<int> name;");
     }
@@ -487,7 +504,7 @@ mod tests {
     #[test]
     fn test_javascript_optional_field_is_ignored() {
         use crate::lang::javascript::JavaScript;
-        let field = optional_field(TypeName::<JavaScript>::primitive("any"));
+        let field = optional_field(TypeName::primitive("any"));
         let out = emit_for(&JavaScript::new(), &field, DeclarationContext::Member);
         // JavaScript cannot express optional fields, so renders as required.
         assert!(out.contains("name"), "expected name in output, got {out:?}");

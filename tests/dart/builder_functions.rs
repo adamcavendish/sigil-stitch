@@ -11,22 +11,24 @@ use super::golden;
 
 #[test]
 fn test_async_function() {
-    let user = TypeName::<DartLang>::importable("package:myapp/models/user.dart", "User");
+    let user = TypeName::importable("package:myapp/models/user.dart", "User");
 
-    let body = CodeBlock::<DartLang>::of("return await api.fetchUser(id);", ()).unwrap();
-    let mut fb_fun = FunSpec::<DartLang>::builder("fetchUser");
-    fb_fun.returns(TypeName::primitive("Future<User>"));
-    fb_fun.add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap());
-    fb_fun.body(body);
-    let fun = fb_fun.build().unwrap();
+    let body = CodeBlock::of("return await api.fetchUser(id);", ()).unwrap();
+    let fun = FunSpec::builder("fetchUser")
+        .returns(TypeName::primitive("Future<User>"))
+        .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+        .body(body)
+        .build()
+        .unwrap();
 
     // Trigger User import.
-    let trigger = CodeBlock::<DartLang>::of("// %T", (user,)).unwrap();
+    let trigger = CodeBlock::of("// %T", (user,)).unwrap();
 
-    let mut fb = FileSpec::builder_with("api.dart", DartLang::new());
-    fb.add_code(trigger);
-    fb.add_function(fun);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("api.dart", DartLang::new())
+        .add_code(trigger)
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/async_function.dart", &output);
@@ -34,25 +36,28 @@ fn test_async_function() {
 
 #[test]
 fn test_annotated_method() {
-    let mut tb = TypeSpec::<DartLang>::builder("Dog", TypeKind::Class);
-    tb.extends(TypeName::primitive("Animal"));
-
-    let body = CodeBlock::<DartLang>::of(
+    let body = CodeBlock::of(
         "return %S;",
         (sigil_stitch::code_block::StringLitArg("Woof!".to_string()),),
     )
     .unwrap();
-    let mut speak = FunSpec::<DartLang>::builder("speak");
-    speak.returns(TypeName::primitive("String"));
-    speak.annotation(CodeBlock::<DartLang>::of("@override", ()).unwrap());
-    speak.body(body);
-    tb.add_method(speak.build().unwrap());
+    let ts = TypeSpec::builder("Dog", TypeKind::Class)
+        .extends(TypeName::primitive("Animal"))
+        .add_method(
+            FunSpec::builder("speak")
+                .returns(TypeName::primitive("String"))
+                .annotation(CodeBlock::of("@override", ()).unwrap())
+                .body(body)
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
 
-    let ts = tb.build().unwrap();
-
-    let mut fb = FileSpec::builder_with("dog.dart", DartLang::new());
-    fb.add_type(ts);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("dog.dart", DartLang::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/annotated_method.dart", &output);
@@ -60,17 +65,19 @@ fn test_annotated_method() {
 
 #[test]
 fn test_function_with_doc() {
-    let body = CodeBlock::<DartLang>::of("return 'Hello, $name!';", ()).unwrap();
-    let mut fb = FunSpec::<DartLang>::builder("greet");
-    fb.doc("Greet the user by name.");
-    fb.add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap());
-    fb.returns(TypeName::primitive("String"));
-    fb.body(body);
-    let fun = fb.build().unwrap();
+    let body = CodeBlock::of("return 'Hello, $name!';", ()).unwrap();
+    let fun = FunSpec::builder("greet")
+        .doc("Greet the user by name.")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap())
+        .returns(TypeName::primitive("String"))
+        .body(body)
+        .build()
+        .unwrap();
 
-    let mut file_b = FileSpec::<DartLang>::builder("greet.dart");
-    file_b.add_function(fun);
-    let file = file_b.build().unwrap();
+    let file = FileSpec::builder("greet.dart")
+        .add_function(fun)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
 
     golden::assert_golden("dart/function_with_doc.dart", &output);

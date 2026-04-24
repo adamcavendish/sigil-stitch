@@ -1,5 +1,4 @@
 use sigil_stitch::code_block::CodeBlock;
-use sigil_stitch::lang::typescript::TypeScript;
 use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
 use sigil_stitch::spec::field_spec::FieldSpec;
 use sigil_stitch::spec::file_spec::FileSpec;
@@ -13,161 +12,208 @@ use super::golden;
 
 #[test]
 fn test_class_with_fields_and_methods() {
-    let mut tb = TypeSpec::<TypeScript>::builder("UserService", TypeKind::Class);
-    tb.visibility(Visibility::Public);
-    tb.doc("Service for managing users.");
+    let body = CodeBlock::of("return this.userRepo.findById(id)", ()).unwrap();
+    let tb = TypeSpec::builder("UserService", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .doc("Service for managing users.")
+        .add_field(
+            FieldSpec::builder("userRepo", TypeName::primitive("UserRepository"))
+                .visibility(Visibility::Private)
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("logger", TypeName::primitive("Logger"))
+                .visibility(Visibility::Private)
+                .is_readonly()
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("getUser")
+                .is_async()
+                .add_param(ParameterSpec::new("id", TypeName::primitive("string")).unwrap())
+                .returns(TypeName::generic(
+                    TypeName::primitive("Promise"),
+                    vec![TypeName::importable_type("./models", "User")],
+                ))
+                .body(body)
+                .build()
+                .unwrap(),
+        );
 
-    let mut field_b = FieldSpec::builder("userRepo", TypeName::primitive("UserRepository"));
-    field_b.visibility(Visibility::Private);
-    tb.add_field(field_b.build().unwrap());
-
-    let mut field_b2 = FieldSpec::builder("logger", TypeName::primitive("Logger"));
-    field_b2.visibility(Visibility::Private);
-    field_b2.is_readonly();
-    tb.add_field(field_b2.build().unwrap());
-
-    let body = CodeBlock::<TypeScript>::of("return this.userRepo.findById(id)", ()).unwrap();
-    let mut fb = FunSpec::builder("getUser");
-    fb.is_async();
-    fb.add_param(ParameterSpec::new("id", TypeName::primitive("string")).unwrap());
-    fb.returns(TypeName::generic(
-        TypeName::primitive("Promise"),
-        vec![TypeName::importable_type("./models", "User")],
-    ));
-    fb.body(body);
-    tb.add_method(fb.build().unwrap());
-
-    let mut file = FileSpec::<TypeScript>::builder("UserService.ts");
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("UserService.ts")
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("typescript/class_with_methods.ts", &output);
 }
 
 #[test]
 fn test_interface_generic() {
-    let mut tb = TypeSpec::<TypeScript>::builder("Repository", TypeKind::Interface);
-    tb.visibility(Visibility::Public);
+    let tp = TypeParamSpec::new("T");
+    let tb = TypeSpec::builder("Repository", TypeKind::Interface)
+        .visibility(Visibility::Public)
+        .add_type_param(tp)
+        .add_method(
+            FunSpec::builder("findById")
+                .add_param(ParameterSpec::new("id", TypeName::primitive("string")).unwrap())
+                .returns(TypeName::generic(
+                    TypeName::primitive("Promise"),
+                    vec![TypeName::primitive("T")],
+                ))
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("save")
+                .add_param(ParameterSpec::new("entity", TypeName::primitive("T")).unwrap())
+                .returns(TypeName::generic(
+                    TypeName::primitive("Promise"),
+                    vec![TypeName::primitive("void")],
+                ))
+                .build()
+                .unwrap(),
+        );
 
-    let tp = TypeParamSpec::<TypeScript>::new("T");
-    tb.add_type_param(tp);
-
-    let mut fb = FunSpec::builder("findById");
-    fb.add_param(ParameterSpec::new("id", TypeName::primitive("string")).unwrap());
-    fb.returns(TypeName::generic(
-        TypeName::primitive("Promise"),
-        vec![TypeName::primitive("T")],
-    ));
-    tb.add_method(fb.build().unwrap());
-
-    let mut fb2 = FunSpec::builder("save");
-    fb2.add_param(ParameterSpec::new("entity", TypeName::primitive("T")).unwrap());
-    fb2.returns(TypeName::generic(
-        TypeName::primitive("Promise"),
-        vec![TypeName::primitive("void")],
-    ));
-    tb.add_method(fb2.build().unwrap());
-
-    let mut file = FileSpec::<TypeScript>::builder("Repository.ts");
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("Repository.ts")
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("typescript/interface_generic.ts", &output);
 }
 
 #[test]
 fn test_abstract_class() {
-    let mut tb = TypeSpec::<TypeScript>::builder("BaseController", TypeKind::Class);
-    tb.visibility(Visibility::Public);
-    tb.is_abstract();
+    let body = CodeBlock::of("console.log('handled')", ()).unwrap();
+    let tb = TypeSpec::builder("BaseController", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .is_abstract()
+        .add_method(
+            FunSpec::builder("handleRequest")
+                .is_abstract()
+                .add_param(ParameterSpec::new("req", TypeName::primitive("Request")).unwrap())
+                .returns(TypeName::primitive("Response"))
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("log")
+                .visibility(Visibility::Protected)
+                .body(body)
+                .build()
+                .unwrap(),
+        );
 
-    let mut fb = FunSpec::builder("handleRequest");
-    fb.is_abstract();
-    fb.add_param(ParameterSpec::new("req", TypeName::primitive("Request")).unwrap());
-    fb.returns(TypeName::primitive("Response"));
-    tb.add_method(fb.build().unwrap());
-
-    let body = CodeBlock::<TypeScript>::of("console.log('handled')", ()).unwrap();
-    let mut fb2 = FunSpec::builder("log");
-    fb2.visibility(Visibility::Protected);
-    fb2.body(body);
-    tb.add_method(fb2.build().unwrap());
-
-    let mut file = FileSpec::<TypeScript>::builder("BaseController.ts");
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("BaseController.ts")
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("typescript/abstract_class.ts", &output);
 }
 
 #[test]
 fn test_class_extends_implements() {
-    let mut tb = TypeSpec::<TypeScript>::builder("AdminService", TypeKind::Class);
-    tb.visibility(Visibility::Public);
-    tb.extends(TypeName::importable("./base", "BaseService"));
-    tb.implements(TypeName::importable("./auth", "Authenticatable"));
-    tb.implements(TypeName::importable_type("./serial", "Serializable"));
+    let body = CodeBlock::of("return true", ()).unwrap();
+    let tb = TypeSpec::builder("AdminService", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .extends(TypeName::importable("./base", "BaseService"))
+        .implements(TypeName::importable("./auth", "Authenticatable"))
+        .implements(TypeName::importable_type("./serial", "Serializable"))
+        .add_method(
+            FunSpec::builder("isAdmin")
+                .returns(TypeName::primitive("boolean"))
+                .body(body)
+                .build()
+                .unwrap(),
+        );
 
-    let body = CodeBlock::<TypeScript>::of("return true", ()).unwrap();
-    let mut fb = FunSpec::builder("isAdmin");
-    fb.returns(TypeName::primitive("boolean"));
-    fb.body(body);
-    tb.add_method(fb.build().unwrap());
-
-    let mut file = FileSpec::<TypeScript>::builder("AdminService.ts");
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("AdminService.ts")
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("typescript/class_extends_implements.ts", &output);
 }
 
 #[test]
 fn test_enum() {
-    let mut tb = TypeSpec::<TypeScript>::builder("Direction", TypeKind::Enum);
-    tb.visibility(Visibility::Public);
-
-    let mut v_up = EnumVariantSpec::<TypeScript>::builder("Up");
-    v_up.value(CodeBlock::<TypeScript>::of("'UP'", ()).unwrap());
-    tb.add_variant(v_up.build().unwrap());
-
-    let mut v_down = EnumVariantSpec::<TypeScript>::builder("Down");
-    v_down.value(CodeBlock::<TypeScript>::of("'DOWN'", ()).unwrap());
-    tb.add_variant(v_down.build().unwrap());
-
-    let mut v_left = EnumVariantSpec::<TypeScript>::builder("Left");
-    v_left.value(CodeBlock::<TypeScript>::of("'LEFT'", ()).unwrap());
-    tb.add_variant(v_left.build().unwrap());
-
-    let mut v_right = EnumVariantSpec::<TypeScript>::builder("Right");
-    v_right.value(CodeBlock::<TypeScript>::of("'RIGHT'", ()).unwrap());
-    tb.add_variant(v_right.build().unwrap());
-
-    let mut file = FileSpec::<TypeScript>::builder("Direction.ts");
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("Direction.ts")
+        .add_type(
+            TypeSpec::builder("Direction", TypeKind::Enum)
+                .visibility(Visibility::Public)
+                .add_variant(
+                    EnumVariantSpec::builder("Up")
+                        .value(CodeBlock::of("'UP'", ()).unwrap())
+                        .build()
+                        .unwrap(),
+                )
+                .add_variant(
+                    EnumVariantSpec::builder("Down")
+                        .value(CodeBlock::of("'DOWN'", ()).unwrap())
+                        .build()
+                        .unwrap(),
+                )
+                .add_variant(
+                    EnumVariantSpec::builder("Left")
+                        .value(CodeBlock::of("'LEFT'", ()).unwrap())
+                        .build()
+                        .unwrap(),
+                )
+                .add_variant(
+                    EnumVariantSpec::builder("Right")
+                        .value(CodeBlock::of("'RIGHT'", ()).unwrap())
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     golden::assert_golden("typescript/enum.ts", &output);
 }
 
 #[test]
 fn test_readonly_array_field() {
-    let mut tb = TypeSpec::<TypeScript>::builder("Pet", TypeKind::Interface);
-    tb.visibility(Visibility::Public);
+    let tb = TypeSpec::builder("Pet", TypeKind::Interface)
+        .visibility(Visibility::Public)
+        .add_field(
+            FieldSpec::builder("name", TypeName::primitive("string"))
+                .is_readonly()
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder(
+                "tags",
+                TypeName::readonly_array(TypeName::primitive("string")),
+            )
+            .is_readonly()
+            .build()
+            .unwrap(),
+        );
 
-    let mut name = FieldSpec::builder("name", TypeName::<TypeScript>::primitive("string"));
-    name.is_readonly();
-    tb.add_field(name.build().unwrap());
-
-    let mut tags = FieldSpec::builder(
-        "tags",
-        TypeName::<TypeScript>::readonly_array(TypeName::primitive("string")),
-    );
-    tags.is_readonly();
-    tb.add_field(tags.build().unwrap());
-
-    let mut file = FileSpec::<TypeScript>::builder("Pet.ts");
-    file.add_type(tb.build().unwrap());
-    let output = file.build().unwrap().render(80).unwrap();
+    let output = FileSpec::builder("Pet.ts")
+        .add_type(tb.build().unwrap())
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap();
 
     assert!(
         output.contains("readonly tags: readonly string[];"),

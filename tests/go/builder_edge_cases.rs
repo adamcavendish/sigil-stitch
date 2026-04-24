@@ -14,7 +14,7 @@ fn test_enum() {
     // This doesn't fit TypeSpec, so we build it as a raw CodeBlock.
     let go = GoLang::new();
 
-    let mut cb = CodeBlock::<GoLang>::builder();
+    let mut cb = CodeBlock::builder();
     let doc = go.render_doc_comment(&["Direction represents a cardinal direction."]);
     cb.add("%L", doc);
     cb.add_line();
@@ -37,10 +37,11 @@ fn test_enum() {
     cb.add_line();
     let block = cb.build().unwrap();
 
-    let mut fb = FileSpec::builder_with("direction.go", GoLang::new());
-    fb.header(CodeBlock::<GoLang>::of("package direction", ()).unwrap());
-    fb.add_code(block);
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("direction.go", GoLang::new())
+        .header(CodeBlock::of("package direction", ()).unwrap())
+        .add_code(block)
+        .build()
+        .unwrap();
 
     let output = file.render(80).unwrap();
     golden::assert_golden("go/enum.go", &output);

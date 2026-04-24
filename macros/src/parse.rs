@@ -7,7 +7,10 @@ use proc_macro2::{Delimiter, Spacing, Span, TokenStream, TokenTree};
 
 /// A parsed `sigil_quote!` invocation.
 pub(crate) struct ParsedInput {
-    /// The language type tokens (e.g., `TypeScript`).
+    /// The language type tokens (e.g., `TypeScript`). Parsed for backwards
+    /// compatibility but no longer used in code generation since types are
+    /// no longer parameterized by language.
+    #[allow(dead_code)]
     pub lang_type: TokenStream,
     /// The parsed body statements.
     pub statements: Vec<Statement>,

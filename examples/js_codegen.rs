@@ -21,12 +21,12 @@ use sigil_stitch::spec::type_spec::TypeSpec;
 use sigil_stitch::type_name::TypeName;
 
 /// Shorthand for a JS parameter (no type annotation).
-fn param(name: &str) -> ParameterSpec<JavaScript> {
+fn param(name: &str) -> ParameterSpec {
     ParameterSpec::new(name, TypeName::primitive("")).unwrap()
 }
 
 /// Shorthand for a JS field (no type annotation).
-fn field(name: &str) -> FieldSpec<JavaScript> {
+fn field(name: &str) -> FieldSpec {
     FieldSpec::builder(name, TypeName::primitive(""))
         .build()
         .unwrap()
@@ -34,134 +34,151 @@ fn field(name: &str) -> FieldSpec<JavaScript> {
 
 fn main() {
     // --- Imports (triggered by usage in code) ---
-    let event_emitter = TypeName::<JavaScript>::importable("events", "EventEmitter");
-    let uuid = TypeName::<JavaScript>::importable("uuid", "v4");
-    let format = TypeName::<JavaScript>::importable("./utils", "formatMessage");
+    let event_emitter = TypeName::importable("events", "EventEmitter");
+    let uuid = TypeName::importable("uuid", "v4");
+    let format = TypeName::importable("./utils", "formatMessage");
 
     // --- Base class: Logger ---
-    let mut logger_tb = TypeSpec::<JavaScript>::builder("Logger", TypeKind::Class);
-    logger_tb.visibility(Visibility::Public);
-    logger_tb.doc("Base logger class.");
-    logger_tb.doc("");
-    logger_tb.doc("@abstract");
+    let logger_tb = TypeSpec::builder("Logger", TypeKind::Class);
+    let logger_tb = logger_tb.visibility(Visibility::Public);
+    let logger_tb = logger_tb.doc("Base logger class.");
+    let logger_tb = logger_tb.doc("");
+    let logger_tb = logger_tb.doc("@abstract");
 
-    logger_tb.add_field(field("#name"));
-    logger_tb.add_field(field("#level"));
+    let logger_tb = logger_tb.add_field(field("#name"));
+    let logger_tb = logger_tb.add_field(field("#level"));
 
     // Constructor
     let ctor_body =
-        CodeBlock::<JavaScript>::of("this.#name = name;\nthis.#level = level || 'info';", ())
-            .unwrap();
-    let mut ctor = FunSpec::<JavaScript>::builder("constructor");
-    ctor.add_param(param("name"));
-    ctor.add_param(param("level"));
-    ctor.body(ctor_body);
-    logger_tb.add_method(ctor.build().unwrap());
+        CodeBlock::of("this.#name = name;\nthis.#level = level || 'info';", ()).unwrap();
+    let logger_tb = logger_tb.add_method(
+        FunSpec::builder("constructor")
+            .add_param(param("name"))
+            .add_param(param("level"))
+            .body(ctor_body)
+            .build()
+            .unwrap(),
+    );
 
     // getName method
-    let get_name_body = CodeBlock::<JavaScript>::of("return this.#name;", ()).unwrap();
-    let mut get_name = FunSpec::<JavaScript>::builder("getName");
-    get_name.body(get_name_body);
-    logger_tb.add_method(get_name.build().unwrap());
+    let get_name_body = CodeBlock::of("return this.#name;", ()).unwrap();
+    let logger_tb = logger_tb.add_method(
+        FunSpec::builder("getName")
+            .body(get_name_body)
+            .build()
+            .unwrap(),
+    );
 
     let logger = logger_tb.build().unwrap();
 
     // --- Derived class: ConsoleLogger ---
-    let mut console_tb = TypeSpec::<JavaScript>::builder("ConsoleLogger", TypeKind::Class);
-    console_tb.visibility(Visibility::Public);
-    console_tb.extends(TypeName::primitive("Logger"));
-    console_tb.doc("Logger that writes formatted messages to the console.");
+    let console_tb = TypeSpec::builder("ConsoleLogger", TypeKind::Class);
+    let console_tb = console_tb.visibility(Visibility::Public);
+    let console_tb = console_tb.extends(TypeName::primitive("Logger"));
+    let console_tb = console_tb.doc("Logger that writes formatted messages to the console.");
 
     // Constructor
-    let ctor_body2 = CodeBlock::<JavaScript>::of("super(name, 'info');", ()).unwrap();
-    let mut ctor2 = FunSpec::<JavaScript>::builder("constructor");
-    ctor2.add_param(param("name"));
-    ctor2.body(ctor_body2);
-    console_tb.add_method(ctor2.build().unwrap());
+    let ctor_body2 = CodeBlock::of("super(name, 'info');", ()).unwrap();
+    let console_tb = console_tb.add_method(
+        FunSpec::builder("constructor")
+            .add_param(param("name"))
+            .body(ctor_body2)
+            .build()
+            .unwrap(),
+    );
 
     // log method — uses imports
-    let log_body = CodeBlock::<JavaScript>::of(
+    let log_body = CodeBlock::of(
         "const msg = %T(this.getName(), message);\nconsole.log(msg);",
         (format,),
     )
     .unwrap();
-    let mut log_fn = FunSpec::<JavaScript>::builder("log");
-    log_fn.add_param(param("message"));
-    log_fn.body(log_body);
-    console_tb.add_method(log_fn.build().unwrap());
+    let console_tb = console_tb.add_method(
+        FunSpec::builder("log")
+            .add_param(param("message"))
+            .body(log_body)
+            .build()
+            .unwrap(),
+    );
 
     let console_logger = console_tb.build().unwrap();
 
     // --- EventBus class ---
-    let mut bus_tb = TypeSpec::<JavaScript>::builder("EventBus", TypeKind::Class);
-    bus_tb.visibility(Visibility::Public);
-    bus_tb.extends(TypeName::primitive("EventEmitter"));
-    bus_tb.doc("Publish-subscribe event bus.");
+    let bus_tb = TypeSpec::builder("EventBus", TypeKind::Class);
+    let bus_tb = bus_tb.visibility(Visibility::Public);
+    let bus_tb = bus_tb.extends(TypeName::primitive("EventEmitter"));
+    let bus_tb = bus_tb.doc("Publish-subscribe event bus.");
 
-    bus_tb.add_field(field("#subscribers"));
+    let bus_tb = bus_tb.add_field(field("#subscribers"));
 
-    let bus_ctor_body =
-        CodeBlock::<JavaScript>::of("super();\nthis.#subscribers = new Map();", ()).unwrap();
-    let mut bus_ctor = FunSpec::<JavaScript>::builder("constructor");
-    bus_ctor.body(bus_ctor_body);
-    bus_tb.add_method(bus_ctor.build().unwrap());
+    let bus_ctor_body = CodeBlock::of("super();\nthis.#subscribers = new Map();", ()).unwrap();
+    let bus_tb = bus_tb.add_method(
+        FunSpec::builder("constructor")
+            .body(bus_ctor_body)
+            .build()
+            .unwrap(),
+    );
 
-    let emit_body = CodeBlock::<JavaScript>::of(
+    let emit_body = CodeBlock::of(
         "const id = %T();\nthis.emit(event, { id, ...data });\nreturn id;",
         (uuid,),
     )
     .unwrap();
-    let mut emit_fn = FunSpec::<JavaScript>::builder("publish");
-    emit_fn.add_param(param("event"));
-    emit_fn.add_param(param("data"));
-    emit_fn.body(emit_body);
-    bus_tb.add_method(emit_fn.build().unwrap());
+    let bus_tb = bus_tb.add_method(
+        FunSpec::builder("publish")
+            .add_param(param("event"))
+            .add_param(param("data"))
+            .body(emit_body)
+            .build()
+            .unwrap(),
+    );
 
     let event_bus = bus_tb.build().unwrap();
 
     // --- Standalone exported functions ---
-    let create_logger_body =
-        CodeBlock::<JavaScript>::of("return new ConsoleLogger(name);", ()).unwrap();
-    let mut create_logger = FunSpec::<JavaScript>::builder("createLogger");
-    create_logger.visibility(Visibility::Public);
-    create_logger.add_param(param("name"));
-    create_logger.body(create_logger_body);
-    let create_logger_fn = create_logger.build().unwrap();
+    let create_logger_body = CodeBlock::of("return new ConsoleLogger(name);", ()).unwrap();
+    let create_logger_fn = FunSpec::builder("createLogger")
+        .visibility(Visibility::Public)
+        .add_param(param("name"))
+        .body(create_logger_body)
+        .build()
+        .unwrap();
 
-    let create_bus_body = CodeBlock::<JavaScript>::of("return new EventBus();", ()).unwrap();
-    let mut create_bus = FunSpec::<JavaScript>::builder("createEventBus");
-    create_bus.visibility(Visibility::Public);
-    create_bus.body(create_bus_body);
-    let create_bus_fn = create_bus.build().unwrap();
+    let create_bus_body = CodeBlock::of("return new EventBus();", ()).unwrap();
+    let create_bus_fn = FunSpec::builder("createEventBus")
+        .visibility(Visibility::Public)
+        .body(create_bus_body)
+        .build()
+        .unwrap();
 
     // Async function
-    let fetch_body = CodeBlock::<JavaScript>::of(
+    let fetch_body = CodeBlock::of(
         "const response = await fetch(url);\nif (!response.ok) {\n  throw new Error(%S + response.status);\n}\nreturn response.json();",
         (StringLitArg("HTTP error: ".to_string()),),
     )
     .unwrap();
-    let mut fetch_fn = FunSpec::<JavaScript>::builder("fetchJSON");
-    fetch_fn.visibility(Visibility::Public);
-    fetch_fn.is_async();
-    fetch_fn.add_param(param("url"));
-    fetch_fn.body(fetch_body);
-    let fetch_json = fetch_fn.build().unwrap();
+    let fetch_json = FunSpec::builder("fetchJSON")
+        .visibility(Visibility::Public)
+        .is_async()
+        .add_param(param("url"))
+        .body(fetch_body)
+        .build()
+        .unwrap();
 
     // --- Trigger imports for extends base types ---
-    let import_trigger =
-        CodeBlock::<JavaScript>::of("// Base classes: %T", (event_emitter,)).unwrap();
+    let import_trigger = CodeBlock::of("// Base classes: %T", (event_emitter,)).unwrap();
 
     // --- Assemble file ---
-    let mut fb = FileSpec::builder_with("app.js", JavaScript::new());
-    fb.add_code(import_trigger);
-    fb.add_type(logger);
-    fb.add_type(console_logger);
-    fb.add_type(event_bus);
-    fb.add_function(create_logger_fn);
-    fb.add_function(create_bus_fn);
-    fb.add_function(fetch_json);
-
-    let file = fb.build().unwrap();
+    let file = FileSpec::builder_with("app.js", JavaScript::new())
+        .add_code(import_trigger)
+        .add_type(logger)
+        .add_type(console_logger)
+        .add_type(event_bus)
+        .add_function(create_logger_fn)
+        .add_function(create_bus_fn)
+        .add_function(fetch_json)
+        .build()
+        .unwrap();
     let output = file.render(80).unwrap();
     print!("{output}");
 }

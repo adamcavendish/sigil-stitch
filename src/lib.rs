@@ -13,10 +13,10 @@
 //!
 //! | Specifier | Name | Argument Type | Purpose |
 //! |-----------|------|---------------|---------|
-//! | `%T` | Type | `TypeName<L>` | Emit type reference, track import |
+//! | `%T` | Type | `TypeName` | Emit type reference, track import |
 //! | `%N` | Name | `&str` or `Nameable` | Emit identifier name |
 //! | `%S` | String | `&str` | Emit escaped string literal |
-//! | `%L` | Literal | `&str`, number, `CodeBlock<L>` | Emit raw value or nested block |
+//! | `%L` | Literal | `&str`, number, `CodeBlock` | Emit raw value or nested block |
 //! | `%W` | Wrap | (none) | Soft line break point |
 //! | `%>` | Indent | (none) | Increase indent level |
 //! | `%<` | Dedent | (none) | Decrease indent level |
@@ -29,16 +29,16 @@
 //! use sigil_stitch::prelude::*;
 //! use sigil_stitch::lang::typescript::TypeScript;
 //!
-//! let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+//! let user_type = TypeName::importable_type("./models", "User");
 //!
-//! let mut cb = CodeBlock::<TypeScript>::builder();
+//! let mut cb = CodeBlock::builder();
 //! cb.add_statement("const user = await getUser(%S)", ("id",));
 //! cb.add_statement("return user as %T", (user_type.clone(),));
 //! let body = cb.build().unwrap();
 //!
-//! let mut fb = FileSpec::<TypeScript>::builder("user.ts");
-//! fb.add_code(body);
-//! let file = fb.build().unwrap();
+//! let file = FileSpec::builder("user.ts")
+//!     .add_code(body)
+//!     .build().unwrap();
 //!
 //! let output = file.render(80).unwrap();
 //! assert!(output.contains("import type { User } from './models'"));
@@ -52,7 +52,7 @@
 //! use sigil_stitch::prelude::*;
 //! use sigil_stitch::lang::typescript::TypeScript;
 //!
-//! let user_type = TypeName::<TypeScript>::importable_type("./models", "User");
+//! let user_type = TypeName::importable_type("./models", "User");
 //!
 //! let block = sigil_quote!(TypeScript {
 //!     const user: $T(user_type) = await getUser($S("id"));
@@ -92,18 +92,22 @@ pub mod type_name;
 
 /// Common re-exports for convenient usage.
 pub mod prelude {
-    pub use crate::code_block::{CodeBlock, CodeBlockBuilder};
+    pub use crate::code_block::{CodeBlock, CodeBlockBuilder, NameArg, StringLitArg};
     pub use crate::code_template::{CodeTemplate, ParamKind};
     pub use crate::error::SigilStitchError;
     pub use crate::lang::CodeLang;
+    pub use crate::spec::annotation_spec::AnnotationSpec;
+    pub use crate::spec::enum_variant_spec::EnumVariantSpec;
     pub use crate::spec::field_spec::FieldSpec;
-    pub use crate::spec::file_spec::FileSpec;
+    pub use crate::spec::file_spec::{FileMember, FileSpec};
     pub use crate::spec::fun_spec::{
         FunSpec, TypeParamKind, TypeParamSpec, WhereClauseStyle, WhereConstraint,
     };
+    pub use crate::spec::import_spec::ImportSpec;
     pub use crate::spec::modifiers::{DeclarationContext, Modifiers, TypeKind, Visibility};
     pub use crate::spec::parameter_spec::ParameterSpec;
     pub use crate::spec::project_spec::{ProjectSpec, RenderedFile};
+    pub use crate::spec::property_spec::PropertySpec;
     pub use crate::spec::type_spec::TypeSpec;
     pub use crate::type_name::TypeName;
     pub use sigil_stitch_macros::sigil_quote;

@@ -33,7 +33,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// C++ uses section-header access specifiers. Add them as `extra_member`:
 /// ```text
-/// let mut access = CodeBlock::<CppLang>::builder();
+/// let mut access = CodeBlock::builder();
 /// access.add("%<", ());          // dedent
 /// access.add("public:", ());
 /// access.add_line();
@@ -45,7 +45,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// Use annotations for `template<typename T>`:
 /// ```text
-/// fb.annotation(CodeBlock::<CppLang>::of("template<typename T>", ()).unwrap());
+/// fb.annotation(CodeBlock::of("template<typename T>", ()).unwrap());
 /// ```
 ///
 /// # Virtual / pure virtual
