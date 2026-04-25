@@ -327,6 +327,10 @@ impl CodeLang for Haskell {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     fn block_syntax(&self) -> crate::lang::config::BlockSyntaxConfig<'_> {
         crate::lang::config::BlockSyntaxConfig {
             block_open: " =",
@@ -619,5 +623,11 @@ mod tests {
             hs.function_syntax().function_signature_style,
             crate::spec::fun_spec::FunctionSignatureStyle::Split
         );
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let hs = Haskell::new();
+        assert_eq!(hs.module_separator(), Some("."));
     }
 }

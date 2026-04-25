@@ -345,6 +345,10 @@ impl CodeLang for Kotlin {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     fn block_syntax(&self) -> crate::lang::config::BlockSyntaxConfig<'_> {
         crate::lang::config::BlockSyntaxConfig {
             indent_unit: &self.indent,
@@ -632,5 +636,11 @@ mod tests {
         let kt = Kotlin::new().with_indent("  ").with_extension("kts");
         assert_eq!(kt.file_extension(), "kts");
         assert_eq!(kt.block_syntax().indent_unit, "  ");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let kt = Kotlin::new();
+        assert_eq!(kt.module_separator(), Some("."));
     }
 }

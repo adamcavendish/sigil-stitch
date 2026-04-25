@@ -303,6 +303,10 @@ impl CodeLang for CppLang {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some("::")
+    }
+
     fn block_syntax(&self) -> crate::lang::config::BlockSyntaxConfig<'_> {
         crate::lang::config::BlockSyntaxConfig {
             indent_unit: &self.indent,
@@ -559,5 +563,11 @@ mod tests {
         let cpp = CppLang::new().with_indent("  ").with_extension("cxx");
         assert_eq!(cpp.file_extension(), "cxx");
         assert_eq!(cpp.block_syntax().indent_unit, "  ");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let cpp = CppLang::new();
+        assert_eq!(cpp.module_separator(), Some("::"));
     }
 }

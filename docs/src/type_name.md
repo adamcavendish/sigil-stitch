@@ -40,6 +40,43 @@ let n = TypeName::primitive("number");
 let t = TypeName::primitive("T");  // type parameter
 ```
 
+## Qualified types
+
+For types that should render with their full module path inline *without* generating an import statement:
+
+```rust,ignore
+// Rust: serde_json::Value  (no `use serde_json::Value;`)
+let val = TypeName::qualified("serde_json", "Value");
+
+// Rust: super::Foo
+let foo = TypeName::qualified("super", "Foo");
+
+// Java: java.util.HashMap
+let map = TypeName::qualified("java.util", "HashMap");
+```
+
+The separator between module and name comes from `CodeLang::module_separator()` — `"::"` for Rust/C++, `"."` for Go/Python/Java/Kotlin/Scala/Swift/Dart/Haskell/OCaml. Languages without module-qualified paths (TypeScript, JavaScript, C, Bash, Zsh) silently fall back to rendering just the name.
+
+Qualified types work anywhere a `TypeName` is accepted, including inside generics:
+
+```rust,ignore
+// Rust: std::collections::HashMap<String, serde_json::Value>
+let map = TypeName::generic(
+    TypeName::qualified("std::collections", "HashMap"),
+    vec![
+        TypeName::primitive("String"),
+        TypeName::qualified("serde_json", "Value"),
+    ],
+);
+```
+
+You can also convert an existing importable type to qualified rendering with `.qualify()`:
+
+```rust,ignore
+// Equivalent to TypeName::qualified("serde_json", "Value")
+let val = TypeName::importable("serde_json", "Value").qualify();
+```
+
 ## Collections
 
 ### Arrays

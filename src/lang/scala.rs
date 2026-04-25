@@ -296,6 +296,10 @@ impl CodeLang for Scala {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     fn block_syntax(&self) -> crate::lang::config::BlockSyntaxConfig<'_> {
         crate::lang::config::BlockSyntaxConfig {
             indent_unit: &self.indent,
@@ -609,5 +613,11 @@ mod tests {
             sc.render_newtype_line("", "Meters", "Double"),
             "class Meters(val value: Double)"
         );
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let sc = Scala::new();
+        assert_eq!(sc.module_separator(), Some("."));
     }
 }

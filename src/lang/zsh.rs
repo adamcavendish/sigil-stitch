@@ -318,4 +318,10 @@ mod tests {
         assert_eq!(zsh.file_extension(), "sh");
         assert_eq!(zsh.block_syntax().indent_unit, "\t");
     }
+
+    #[test]
+    fn test_module_separator() {
+        let zsh = Zsh::new();
+        assert_eq!(zsh.module_separator(), None);
+    }
 }

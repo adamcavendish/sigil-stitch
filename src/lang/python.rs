@@ -324,6 +324,10 @@ impl CodeLang for Python {
         crate::lang::config::OptionalFieldStyle::UnionWithNone(" | ")
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     // --- Config struct accessors ---
 
     fn type_presentation(&self) -> TypePresentationConfig<'_> {
@@ -586,5 +590,11 @@ mod tests {
         assert_eq!(py.file_extension(), "pyi");
         assert_eq!(py.block_syntax().indent_unit, "  ");
         assert_eq!(py.render_string_literal("hi"), "\"hi\"");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let py = Python::new();
+        assert_eq!(py.module_separator(), Some("."));
     }
 }

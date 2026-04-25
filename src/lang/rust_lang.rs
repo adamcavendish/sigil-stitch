@@ -230,6 +230,10 @@ impl CodeLang for RustLang {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some("::")
+    }
+
     // --- Config struct accessors ---
 
     fn type_presentation(&self) -> TypePresentationConfig<'_> {
@@ -411,5 +415,11 @@ mod tests {
         let rs = RustLang::new().with_indent("\t").with_extension("rsi");
         assert_eq!(rs.file_extension(), "rsi");
         assert_eq!(rs.block_syntax().indent_unit, "\t");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let rs = RustLang::new();
+        assert_eq!(rs.module_separator(), Some("::"));
     }
 }

@@ -110,6 +110,18 @@ pub trait CodeLang: std::fmt::Debug + 'static {
         resolved_name.to_string()
     }
 
+    /// The separator between module path and type name for qualified inline
+    /// references (e.g., `"::"` for Rust/C++, `"."` for Go/Python/Java).
+    ///
+    /// Return `Some(sep)` if [`crate::type_name::TypeName::qualified()`] should render
+    /// `module{sep}name` inline. Return `None` if the language has no concept
+    /// of module-qualified inline type references (e.g., TypeScript, Bash),
+    /// in which case [`crate::type_name::TypeName::qualified()`] silently falls back to
+    /// unqualified rendering.
+    fn module_separator(&self) -> Option<&str> {
+        None
+    }
+
     /// Optional kind suffix after the type name (e.g., Go's `type Foo struct`).
     ///
     /// Default: empty (TS/Rust put the kind keyword before the name).

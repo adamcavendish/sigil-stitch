@@ -322,6 +322,10 @@ impl CodeLang for Swift {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     fn block_syntax(&self) -> crate::lang::config::BlockSyntaxConfig<'_> {
         crate::lang::config::BlockSyntaxConfig {
             indent_unit: &self.indent,
@@ -575,5 +579,11 @@ mod tests {
             .with_extension("swiftinterface");
         assert_eq!(sw.file_extension(), "swiftinterface");
         assert_eq!(sw.block_syntax().indent_unit, "  ");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let sw = Swift::new();
+        assert_eq!(sw.module_separator(), Some("."));
     }
 }

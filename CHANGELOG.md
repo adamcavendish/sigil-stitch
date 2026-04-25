@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1
+
+### Added
+
+- `TypeName::qualified()` constructor for inline module-qualified type rendering
+  (e.g., `serde_json::Value`, `super::Foo`) without generating import statements.
+- `.qualify()` modifier to convert an existing `TypeName::importable()` into
+  qualified inline rendering.
+- `CodeLang::module_separator()` trait method returning `Option<&str>`. Languages
+  with module-qualified paths (`::` for Rust/C++, `.` for Go/Python/Java/Kotlin/
+  Scala/Swift/Dart/Haskell/OCaml) return `Some(sep)`. Languages without inline
+  qualification (TypeScript, JavaScript, C, Bash, Zsh) return `None`, and
+  qualified types silently fall back to unqualified rendering.
+
 ## 0.3.0
 
 ### Breaking

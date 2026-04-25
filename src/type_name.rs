@@ -190,6 +190,12 @@ pub enum TypeName {
         is_type_only: bool,
         /// Optional preferred alias for this import (e.g., `Foo as Bar`).
         alias: Option<String>,
+        /// When true, render as `module{sep}name` inline (e.g., `serde_json::Value`)
+        /// and skip import generation. The separator comes from
+        /// [`CodeLang::module_separator()`]. Falls back to unqualified rendering
+        /// if the language returns `None`.
+        #[serde(default)]
+        qualified: bool,
     },
     /// A primitive/built-in type (no import needed).
     Primitive(String),
@@ -381,6 +387,7 @@ impl TypeName {
             name: name.to_string(),
             is_type_only: false,
             alias: None,
+            qualified: false,
         }
     }
 
@@ -391,12 +398,36 @@ impl TypeName {
             name: name.to_string(),
             is_type_only: true,
             alias: None,
+            qualified: false,
         }
     }
 
     /// Create a primitive type name (no import).
     pub fn primitive(name: &str) -> Self {
         TypeName::Primitive(name.to_string())
+    }
+
+    /// Create a qualified type name that renders inline as `module{sep}name`.
+    ///
+    /// The separator comes from [`CodeLang::module_separator()`] — `"::"` for
+    /// Rust/C++, `"."` for Go/Python/Java/etc.  No import statement is generated.
+    ///
+    /// If the target language returns `None` from `module_separator()`, the
+    /// qualified flag is silently ignored and the type renders as just `name`.
+    ///
+    /// ```ignore
+    /// TypeName::qualified("serde_json", "Value")      // Rust: serde_json::Value
+    /// TypeName::qualified("super", "Foo")              // Rust: super::Foo
+    /// TypeName::qualified("java.util", "HashMap")      // Java: java.util.HashMap
+    /// ```
+    pub fn qualified(module: &str, name: &str) -> Self {
+        TypeName::Importable {
+            module: module.to_string(),
+            name: name.to_string(),
+            is_type_only: false,
+            alias: None,
+            qualified: true,
+        }
     }
 
     /// Returns true if this type name renders to an empty string.
@@ -419,6 +450,24 @@ impl TypeName {
         } = self
         {
             *a = Some(alias.to_string());
+        }
+        self
+    }
+
+    /// Mark this type for qualified inline rendering (`module{sep}name`).
+    ///
+    /// When qualified, no import statement is generated and the type renders
+    /// with its full module path. Only affects `Importable` variants; other
+    /// variants are returned unchanged.
+    ///
+    /// See [`TypeName::qualified()`] for details on separator and fallback behavior.
+    pub fn qualify(mut self) -> Self {
+        if let TypeName::Importable {
+            qualified: ref mut q,
+            ..
+        } = self
+        {
+            *q = true;
         }
         self
     }
@@ -609,10 +658,14 @@ impl TypeName {
     pub fn collect_imports(&self, out: &mut Vec<ImportRef>) {
         match self {
             TypeName::Importable {
+                qualified: true, ..
+            } => {}
+            TypeName::Importable {
                 module,
                 name,
                 is_type_only,
                 alias,
+                ..
             } => {
                 out.push(ImportRef {
                     module: module.clone(),
@@ -1073,6 +1126,19 @@ impl TypeName {
                     BoxDoc::text(tp.wildcard.lower_keyword.to_string()).append(lb_doc)
                 } else {
                     BoxDoc::text(tp.wildcard.unbounded.to_string())
+                }
+            }
+            TypeName::Importable {
+                module,
+                name,
+                qualified: true,
+                ..
+            } => {
+                if let Some(sep) = lang.module_separator() {
+                    BoxDoc::text(format!("{module}{sep}{name}"))
+                } else {
+                    let display = resolve(module, name);
+                    BoxDoc::text(display)
                 }
             }
             // Leaf variants delegate to to_doc (no recursion needed).
@@ -1938,5 +2004,80 @@ mod tests {
         let mut buf = Vec::new();
         doc.render(80, &mut buf).unwrap();
         assert_eq!(String::from_utf8(buf).unwrap(), "&String");
+    }
+
+    #[test]
+    fn test_qualified_renders_with_rust_separator() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::qualified("serde_json", "Value");
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "serde_json::Value");
+    }
+
+    #[test]
+    fn test_qualified_renders_with_go_separator() {
+        use crate::lang::go_lang::GoLang;
+        let lang = GoLang::new();
+        let t = TypeName::qualified("net/http", "Server");
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "net/http.Server");
+    }
+
+    #[test]
+    fn test_qualified_skips_import_collection() {
+        let t = TypeName::qualified("serde_json", "Value");
+        let mut imports = Vec::new();
+        t.collect_imports(&mut imports);
+        assert!(imports.is_empty());
+    }
+
+    #[test]
+    fn test_qualify_modifier() {
+        let t = TypeName::importable("serde_json", "Value").qualify();
+        let mut imports = Vec::new();
+        t.collect_imports(&mut imports);
+        assert!(imports.is_empty());
+
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "serde_json::Value");
+    }
+
+    #[test]
+    fn test_qualified_in_generic() {
+        use crate::lang::rust_lang::RustLang;
+        let lang = RustLang::new();
+        let t = TypeName::generic(
+            TypeName::qualified("std::collections", "HashMap"),
+            vec![
+                TypeName::primitive("String"),
+                TypeName::qualified("serde_json", "Value"),
+            ],
+        );
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            "std::collections::HashMap<String, serde_json::Value>"
+        );
+    }
+
+    #[test]
+    fn test_qualified_fallback_unsupported_lang() {
+        let lang = TypeScript::new();
+        let t = TypeName::qualified("serde_json", "Value");
+        let doc = t.to_doc_with_lang(&identity_resolve, &lang);
+        let mut buf = Vec::new();
+        doc.render(80, &mut buf).unwrap();
+        assert_eq!(String::from_utf8(buf).unwrap(), "Value");
     }
 }
