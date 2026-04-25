@@ -497,4 +497,10 @@ mod tests {
         assert_eq!(c.file_extension(), "h");
         assert_eq!(c.block_syntax().indent_unit, "\t");
     }
+
+    #[test]
+    fn test_module_separator() {
+        let c = CLang::new();
+        assert_eq!(c.module_separator(), None);
+    }
 }

@@ -423,4 +423,10 @@ mod tests {
         assert_eq!(bash.file_extension(), "sh");
         assert_eq!(bash.block_syntax().indent_unit, "  ");
     }
+
+    #[test]
+    fn test_module_separator() {
+        let bash = Bash::new();
+        assert_eq!(bash.module_separator(), None);
+    }
 }

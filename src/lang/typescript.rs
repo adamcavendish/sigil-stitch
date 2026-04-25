@@ -493,4 +493,10 @@ mod tests {
         assert!(doc.contains(" *\n"));
         assert!(doc.ends_with(" */"));
     }
+
+    #[test]
+    fn test_module_separator() {
+        let ts = TypeScript::new();
+        assert_eq!(ts.module_separator(), None);
+    }
 }

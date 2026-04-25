@@ -140,6 +140,7 @@ These methods don't belong to a config struct but have sensible defaults you can
 
 - `escape_reserved()` -- how reserved words are escaped.
 - `qualify_import_name()` -- default passthrough. Go overrides to return `"http.Server"` (package-qualified names).
+- `module_separator()` -- returns `Option<&str>`. Default `None`. Override to `Some("::")` (Rust/C++) or `Some(".")` (Go/Python/Java/etc.) to enable `TypeName::qualified()` inline rendering.
 - `type_kind_suffix()` -- suffix after type close for specific type kinds.
 - `render_newtype_line()` -- default emits Rust tuple struct `struct Name(Inner);`. Go: `type Name Inner`, Kotlin: `value class Name(val value: Inner)`, Python: `Name = NewType("Name", Inner)`, C: `typedef Inner Name;`.
 - `fun_block_open()` -- custom block opener for functions.

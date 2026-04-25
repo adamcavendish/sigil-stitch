@@ -255,6 +255,10 @@ impl CodeLang for DartLang {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     fn block_syntax(&self) -> crate::lang::config::BlockSyntaxConfig<'_> {
         crate::lang::config::BlockSyntaxConfig {
             indent_unit: &self.indent,
@@ -521,5 +525,11 @@ mod tests {
         let d = DartLang::new().with_indent("    ").with_extension("g.dart");
         assert_eq!(d.file_extension(), "g.dart");
         assert_eq!(d.block_syntax().indent_unit, "    ");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let d = DartLang::new();
+        assert_eq!(d.module_separator(), Some("."));
     }
 }

@@ -263,6 +263,10 @@ impl CodeLang for GoLang {
         crate::lang::config::OptionalFieldStyle::TypePrefix("*")
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     // --- Config struct accessors ---
 
     fn type_presentation(&self) -> TypePresentationConfig<'_> {
@@ -508,5 +512,11 @@ mod tests {
         let go = GoLang::new().with_indent("    ").with_extension("go2");
         assert_eq!(go.file_extension(), "go2");
         assert_eq!(go.block_syntax().indent_unit, "    ");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let go = GoLang::new();
+        assert_eq!(go.module_separator(), Some("."));
     }
 }

@@ -260,6 +260,10 @@ impl CodeLang for JavaLang {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     fn block_syntax(&self) -> crate::lang::config::BlockSyntaxConfig<'_> {
         crate::lang::config::BlockSyntaxConfig {
             indent_unit: &self.indent,
@@ -539,5 +543,11 @@ mod tests {
         let java = JavaLang::new().with_indent("\t").with_extension("jav");
         assert_eq!(java.file_extension(), "jav");
         assert_eq!(java.block_syntax().indent_unit, "\t");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let java = JavaLang::new();
+        assert_eq!(java.module_separator(), Some("."));
     }
 }

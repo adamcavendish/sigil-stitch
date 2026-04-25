@@ -160,3 +160,31 @@ let type_spec = TypeSpec::builder("Result", TypeKind::TypeAlias)
 ```rust
 pub type Result<T> = std::result::Result<T, MyError>;
 ```
+
+## Qualified paths (no import)
+
+Use `TypeName::qualified()` to render types with their full module path inline without generating a `use` statement:
+
+```rust,ignore
+use sigil_stitch::prelude::*;
+
+let field = FieldSpec::builder("data", TypeName::qualified("serde_json", "Value"))
+    .visibility(Visibility::Public)
+    .build()
+    .unwrap();
+
+// In a generic:
+let map_type = TypeName::generic(
+    TypeName::qualified("std::collections", "HashMap"),
+    vec![
+        TypeName::primitive("String"),
+        TypeName::qualified("serde_json", "Value"),
+    ],
+);
+```
+
+```rust
+pub data: serde_json::Value
+
+std::collections::HashMap<String, serde_json::Value>
+```

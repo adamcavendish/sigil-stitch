@@ -243,6 +243,10 @@ impl CodeLang for OCaml {
         }
     }
 
+    fn module_separator(&self) -> Option<&str> {
+        Some(".")
+    }
+
     // --- Config struct accessors ---
 
     fn type_presentation(&self) -> TypePresentationConfig<'_> {
@@ -457,5 +461,11 @@ mod tests {
         let ml = OCaml::new().with_indent("\t").with_extension("mli");
         assert_eq!(ml.file_extension(), "mli");
         assert_eq!(ml.block_syntax().indent_unit, "\t");
+    }
+
+    #[test]
+    fn test_module_separator() {
+        let ml = OCaml::new();
+        assert_eq!(ml.module_separator(), Some("."));
     }
 }

@@ -553,4 +553,10 @@ mod tests {
         assert_eq!(js.type_keyword(TypeKind::Interface), "class");
         assert_eq!(js.type_keyword(TypeKind::Enum), "class");
     }
+
+    #[test]
+    fn test_module_separator() {
+        let js = JavaScript::new();
+        assert_eq!(js.module_separator(), None);
+    }
 }
