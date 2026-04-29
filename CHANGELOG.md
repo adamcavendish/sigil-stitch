@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.2
+
+### Added
+
+- `VariantValueFormat` enum in `EnumAndAnnotationConfig` to control how enum
+  variant values render: `Assignment` (`= val`) vs `ConstructorArg` (`(val)`).
+- `variants_before_fields` flag to emit enum variants before fields in the type
+  body (Java/Kotlin pattern).
+- `variant_section_terminator` field to emit a separator (e.g., `;`) after the
+  last enum variant when fields or methods follow.
+
+### Fixed
+
+- Java and Kotlin enum rendering now produces valid syntax: constructor-arg values,
+  variants-first ordering, and semicolon terminator between variants and class body.
+
 ## 0.3.1
 
 ### Added
