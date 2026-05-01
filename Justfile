@@ -4,26 +4,32 @@ default:
 
 # Run all tests
 test:
-    cargo test
+    cargo nextest run --workspace
+    cargo test --doc --workspace
 
-# Run tests with nextest (requires cargo-nextest installed)
-test-nextest:
-    cargo nextest run
+# Run all tests with junit output
+test-ci:
+    cargo nextest run --workspace --profile ci
+    cargo test --doc --workspace
 
 # Run doctests only
 test-doc:
-    cargo test --doc
+    cargo test --doc --workspace
+
+# Check formatting
+fmt-check:
+    cargo fmt --all -- --check
 
 # Run clippy
 lint:
-    cargo clippy -- -D warnings
+    cargo clippy --workspace --all-targets -- -D warnings
 
 # Build the project
 build:
-    cargo build
+    cargo build --workspace
 
-# Run all checks (test + lint)
-check: test lint
+# Run all checks (fmt + lint + test)
+check: fmt-check lint test
 
 # Show coverage summary table
 coverage:
@@ -40,14 +46,14 @@ coverage-lcov:
     mkdir -p coverage
     cargo llvm-cov --lcov --output-path coverage/lcov.info
 
-# Generate LCOV output using nextest (matches CI)
+# Generate LCOV output using nextest
 coverage-nextest:
     mkdir -p coverage
     cargo llvm-cov nextest --lcov --output-path coverage/lcov.info
 
 # Update golden test files
 bless:
-    BLESS=1 cargo test
+    BLESS=1 cargo test --workspace
 
 # Build docs
 doc:
