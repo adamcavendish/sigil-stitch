@@ -15,6 +15,36 @@ pub(super) enum PrevTokenKind {
     Specifier,
 }
 
+/// Context for how `:` should be spaced.
+#[derive(Clone, Copy, PartialEq)]
+pub(super) enum ColonContext {
+    /// `name: Type`, `param: Type` — no space before `:`.
+    TypeAnnotation,
+    /// `key: value` in map/object literals — no space before `:`.
+    MapEntry,
+    /// `cond ? a : b` — space before `:`.
+    Ternary,
+    /// `std::mem` — no space before `:`.
+    PathSeparator,
+    /// `x := 42` — space before `:`.
+    WalrusAssign,
+}
+
+/// Accumulated state threaded through the format-string builder.
+pub(super) struct SpacingState {
+    pub prev: PrevTokenKind,
+    pub colon_ctx: ColonContext,
+}
+
+impl SpacingState {
+    pub fn new() -> Self {
+        Self {
+            prev: PrevTokenKind::None,
+            colon_ctx: ColonContext::TypeAnnotation,
+        }
+    }
+}
+
 #[rustfmt::skip]
 pub(super) const CONTROL_FLOW_KEYWORDS: &[&str] = &[
     "if", "else", "for", "while", "do", "switch", "catch",
@@ -33,9 +63,9 @@ pub(crate) fn tokens_to_format(
 ) -> Result<(String, Vec<TypedArg>), CompileError> {
     let mut format = String::new();
     let mut args: Vec<TypedArg> = Vec::new();
-    let mut prev_kind = PrevTokenKind::None;
+    let mut state = SpacingState::new();
 
-    tokens_to_format_inner(tokens, &mut format, &mut args, &mut prev_kind)?;
+    tokens_to_format_inner(tokens, &mut format, &mut args, &mut state)?;
 
     Ok((format, args))
 }
@@ -44,7 +74,7 @@ fn tokens_to_format_inner(
     tokens: &[TokenTree],
     format: &mut String,
     args: &mut Vec<TypedArg>,
-    prev_kind: &mut PrevTokenKind,
+    state: &mut SpacingState,
 ) -> Result<(), CompileError> {
     let mut pos = 0;
 
@@ -69,9 +99,9 @@ fn tokens_to_format_inner(
             if let TokenTree::Punct(p2) = next
                 && p2.as_char() == '$'
             {
-                maybe_space(format, *prev_kind, PrevTokenKind::Literal);
+                maybe_space(format, state, PrevTokenKind::Literal);
                 format.push('$');
-                *prev_kind = PrevTokenKind::Literal;
+                state.prev = PrevTokenKind::Literal;
                 pos += 1;
                 continue;
             }
@@ -81,7 +111,7 @@ fn tokens_to_format_inner(
                 && p2.as_char() == '>'
             {
                 format.push_str("%>");
-                *prev_kind = PrevTokenKind::Specifier;
+                state.prev = PrevTokenKind::Specifier;
                 pos += 1;
                 continue;
             }
@@ -91,7 +121,7 @@ fn tokens_to_format_inner(
                 && p2.as_char() == '<'
             {
                 format.push_str("%<");
-                *prev_kind = PrevTokenKind::Specifier;
+                state.prev = PrevTokenKind::Specifier;
                 pos += 1;
                 continue;
             }
@@ -99,7 +129,7 @@ fn tokens_to_format_inner(
             // `$W` -> `%W` (no arg, no parens)
             if is_ident(next, "W") {
                 format.push_str("%W");
-                *prev_kind = PrevTokenKind::Specifier;
+                state.prev = PrevTokenKind::Specifier;
                 pos += 1;
                 continue;
             }
@@ -149,9 +179,9 @@ fn tokens_to_format_inner(
 
                 let (sep_expr, iter_expr) = split_join_args(group)?;
 
-                maybe_space(format, *prev_kind, PrevTokenKind::Specifier);
+                maybe_space(format, state, PrevTokenKind::Specifier);
                 format.push_str("%L");
-                *prev_kind = PrevTokenKind::Specifier;
+                state.prev = PrevTokenKind::Specifier;
 
                 let join_expr: TokenStream = quote::quote! {
                     {
@@ -221,9 +251,9 @@ fn tokens_to_format_inner(
                     InterpolationKind::Literal | InterpolationKind::Code => "%L",
                 };
 
-                maybe_space(format, *prev_kind, PrevTokenKind::Specifier);
+                maybe_space(format, state, PrevTokenKind::Specifier);
                 format.push_str(specifier);
-                *prev_kind = PrevTokenKind::Specifier;
+                state.prev = PrevTokenKind::Specifier;
 
                 args.push(TypedArg {
                     kind,
@@ -249,26 +279,48 @@ fn tokens_to_format_inner(
                 } else {
                     PrevTokenKind::Ident
                 };
-                maybe_space(format, *prev_kind, kind);
+                maybe_space(format, state, kind);
                 format.push_str(&s.replace('%', "%%"));
-                *prev_kind = kind;
+                state.prev = kind;
             }
             TokenTree::Punct(p) => {
                 let ch = p.as_char();
                 let new_kind = PrevTokenKind::Punct(ch, p.spacing());
-                maybe_space(format, *prev_kind, new_kind);
+
+                // Set colon context before spacing decision so `maybe_space`
+                // can use it for the current `:` token.
+                if ch == ':'
+                    && p.spacing() == Spacing::Joint
+                    && pos + 1 < tokens.len()
+                    && let TokenTree::Punct(next_p) = &tokens[pos + 1]
+                {
+                    match next_p.as_char() {
+                        '=' => state.colon_ctx = ColonContext::WalrusAssign,
+                        ':' => state.colon_ctx = ColonContext::PathSeparator,
+                        _ => {}
+                    }
+                }
+
+                maybe_space(format, state, new_kind);
                 if ch == '%' {
                     format.push_str("%%");
                 } else {
                     format.push(ch);
                 }
-                *prev_kind = new_kind;
+                // Context transitions after emitting the token.
+                match (ch, p.spacing()) {
+                    ('?', Spacing::Alone) => state.colon_ctx = ColonContext::Ternary,
+                    (':', _) => state.colon_ctx = ColonContext::TypeAnnotation,
+                    (';', _) => state.colon_ctx = ColonContext::TypeAnnotation,
+                    _ => {}
+                }
+                state.prev = new_kind;
             }
             TokenTree::Literal(lit) => {
-                maybe_space(format, *prev_kind, PrevTokenKind::Literal);
+                maybe_space(format, state, PrevTokenKind::Literal);
                 let s = lit.to_string();
                 format.push_str(&s.replace('%', "%%"));
-                *prev_kind = PrevTokenKind::Literal;
+                state.prev = PrevTokenKind::Literal;
             }
             TokenTree::Group(g) => {
                 let (open, close) = match g.delimiter() {
@@ -278,15 +330,21 @@ fn tokens_to_format_inner(
                     Delimiter::None => ("", ""),
                 };
                 let new_kind = PrevTokenKind::GroupOpen;
-                maybe_space(format, *prev_kind, new_kind);
+                maybe_space(format, state, new_kind);
                 format.push_str(open);
-                *prev_kind = PrevTokenKind::GroupOpen;
+
+                let saved_ctx = state.colon_ctx;
+                if g.delimiter() == Delimiter::Brace {
+                    state.colon_ctx = ColonContext::MapEntry;
+                }
+                state.prev = PrevTokenKind::GroupOpen;
 
                 let inner: Vec<TokenTree> = g.stream().into_iter().collect();
-                tokens_to_format_inner(&inner, format, args, prev_kind)?;
+                tokens_to_format_inner(&inner, format, args, state)?;
 
+                state.colon_ctx = saved_ctx;
                 format.push_str(close);
-                *prev_kind = PrevTokenKind::Literal;
+                state.prev = PrevTokenKind::Literal;
             }
         }
         pos += 1;
@@ -341,7 +399,9 @@ pub(super) fn split_join_args(
 }
 
 /// Insert a space between the previous and current tokens if needed.
-pub(super) fn maybe_space(format: &mut String, prev: PrevTokenKind, current: PrevTokenKind) {
+pub(super) fn maybe_space(format: &mut String, state: &SpacingState, current: PrevTokenKind) {
+    let prev = state.prev;
+
     if prev == PrevTokenKind::None || prev == PrevTokenKind::GroupOpen {
         return;
     }
@@ -350,9 +410,12 @@ pub(super) fn maybe_space(format: &mut String, prev: PrevTokenKind, current: Pre
     if let PrevTokenKind::Punct(ch, _) = current {
         match ch {
             ',' | ';' | ')' | ']' | '.' => return,
-            ':' => {
-                return;
-            }
+            ':' => match state.colon_ctx {
+                ColonContext::Ternary | ColonContext::WalrusAssign => {}
+                ColonContext::TypeAnnotation
+                | ColonContext::MapEntry
+                | ColonContext::PathSeparator => return,
+            },
             _ => {}
         }
     }

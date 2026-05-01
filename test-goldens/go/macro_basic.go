@@ -1,3 +1,3 @@
-x:= 42
-name:= "Alice"
+x := 42
+name := "Alice"
 fmt.Println(name, x)

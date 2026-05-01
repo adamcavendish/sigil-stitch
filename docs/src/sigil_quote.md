@@ -336,6 +336,11 @@ Each item in the iterable is converted via `Into<CodeBlock>`, so you can pass an
 type that implements the conversion. An optional trailing `;` after `$C_each(expr)`
 is consumed silently.
 
+`$C_each` is newline-aware: blocks that already end with a newline (e.g., from
+`add_statement`) are spliced as-is, while blocks that don't (e.g., from
+`CodeBlock::of`) get an automatic line break appended. This prevents double blank
+lines when splicing statement-built blocks.
+
 ## Meta-Conditionals (`$if` / `$else_if` / `$else`)
 
 Meta-conditionals control which builder calls are emitted **at Rust runtime**, as
@@ -460,25 +465,43 @@ as Rust tokens, not as the target language's tokens. This creates some edge case
 1. **Single-quoted strings don't work.** `'hello'` is tokenized as a Rust lifetime.
    Use `$S("hello")` instead.
 
-2. **Spacing around operators.** Multi-character operators like `:=`, `::`, `===`
-   are tokenized as separate punctuation characters. The macro reconstructs them
-   but spacing may differ slightly:
-   - `x := 42` may render as `x:= 42` (`:` suppresses leading space)
-   - `std::mem::size_of` works but `<u32>` may get extra spaces around `<` and `>`
+2. **Colon spacing is context-aware.** The macro tracks a `ColonContext` to decide
+   whether `:` gets a space before it:
 
-3. **Keyword spacing before `(`.** Control-flow keywords (`if`, `for`, `while`,
+   | Context | Example | Space before `:` |
+   |---------|---------|-------------------|
+   | Type annotation | `name: string` | no |
+   | Map entry | `{ key: value }` | no |
+   | Path separator | `std::mem` | no |
+   | Ternary | `x ? y : z` | yes |
+   | Walrus assign | `x := 42` | yes |
+
+   The context is set automatically: `?` (standalone) enters ternary mode,
+   `:` and `;` reset to type-annotation mode, `{` enters map-entry mode,
+   and `:=` / `::` are detected via one-token lookahead. The `::` pair is
+   always glued (`std::mem`), but because proc_macro2 tokenizes the second
+   `:` as standalone, a space appears before the following identifier
+   (`std:: mem`). This is a tokenization artifact common to all multi-char
+   punctuation.
+
+3. **Other multi-character operators.** Operators like `===`, `!==`, `->`
+   are tokenized as separate punctuation characters. The macro reconstructs
+   them via proc_macro2's `Spacing::Joint` flag, but spacing may differ
+   slightly — `<u32>` may get extra spaces around `<` and `>`.
+
+4. **Keyword spacing before `(`.** Control-flow keywords (`if`, `for`, `while`,
    `else`, `match`, `return`, `try`, `catch`, etc.) automatically get a space
    before `(`. Regular identifiers do not, so `myFunc(x)` stays tight while
    `if (x)` gets the expected space. This covers the common case but isn't
    configurable per-language.
 
-4. **Negative number literals.** `-1` tokenizes as `-` then `1`, so it renders as
+5. **Negative number literals.** `-1` tokenizes as `-` then `1`, so it renders as
    `- 1` with a space. Functionally identical in all target languages.
 
-5. **Template literals.** Backtick strings (`` `${expr}` ``) aren't representable.
+6. **Template literals.** Backtick strings (`` `${expr}` ``) aren't representable.
    Use `$L(expr)` for dynamic content.
 
-6. **Percent signs.** Literal `%` in your code is auto-escaped to `%%` in the
+7. **Percent signs.** Literal `%` in your code is auto-escaped to `%%` in the
    format string, so it renders correctly.
 
 ### Comments

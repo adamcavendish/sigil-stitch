@@ -112,7 +112,7 @@ impl CodeBlock {
     }
 
     /// Check if this code block ends with a newline or block close.
-    pub(crate) fn ends_with_newline_or_block_close(&self) -> bool {
+    pub fn ends_with_newline_or_block_close(&self) -> bool {
         fn check_last(nodes: &[CodeNode]) -> bool {
             match nodes.last() {
                 Some(CodeNode::Newline | CodeNode::BlockClose) => true,
