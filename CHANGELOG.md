@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.4
+
+### Changed
+
+- Colon spacing in `sigil_quote!` redesigned with a `ColonContext` enum
+  (`TypeAnnotation`, `MapEntry`, `Ternary`, `PathSeparator`, `WalrusAssign`)
+  and `SpacingState` struct. All colon spacing decisions now go through the
+  enum via exhaustive match, replacing the previous unconditional suppress.
+
+### Fixed
+
+- Ternary `? :` colon spacing — `x ? y : z` now renders with a space before
+  `:` instead of `x ? y: z`. Context resets at statement boundaries.
+- Go/walrus `:=` spacing — `x := 42` now renders with a space before `:`
+  instead of `x:= 42`. Detected via one-token lookahead.
+- `$C_each` trailing blank line — spliced blocks that already end with a
+  newline (from `add_statement`) no longer produce an extra blank line before
+  the next statement.
+
 ## 0.3.3
 
 ### Added

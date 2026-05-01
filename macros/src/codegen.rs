@@ -89,9 +89,14 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
             Statement::SpliceEach { expr } => {
                 calls.push(quote! {
                     for __sigil_item in #expr {
-                        __sigil_builder.add_code(
-                            ::std::convert::Into::<::sigil_stitch::code_block::CodeBlock>::into(__sigil_item)
-                        );
+                        let __sigil_block: ::sigil_stitch::code_block::CodeBlock =
+                            ::std::convert::Into::into(__sigil_item);
+                        let __sigil_needs_nl =
+                            !__sigil_block.ends_with_newline_or_block_close();
+                        __sigil_builder.add_code(__sigil_block);
+                        if __sigil_needs_nl {
+                            __sigil_builder.add_line();
+                        }
                     }
                 });
             }
