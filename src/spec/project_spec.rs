@@ -2,7 +2,10 @@
 //!
 //! `ProjectSpec` orchestrates rendering multiple `FileSpec`s as a unit,
 //! returning an in-memory collection of rendered files or writing them
-//! to the filesystem.
+//! to the filesystem. It validates cross-file invariants (e.g. no
+//! duplicate filenames) that individual `FileSpec`s cannot check alone.
+
+use std::collections::HashMap;
 
 use crate::error::SigilStitchError;
 use crate::spec::file_spec::FileSpec;
@@ -20,7 +23,8 @@ pub struct RenderedFile {
 ///
 /// `ProjectSpec` orchestrates rendering multiple [`FileSpec`]s, returning an
 /// in-memory collection of [`RenderedFile`]s or writing them to the filesystem.
-/// Each file resolves imports independently.
+/// Each file resolves imports independently. Cross-file invariants — such as
+/// unique filenames — are validated at build time.
 ///
 /// # Examples
 ///
@@ -39,7 +43,7 @@ pub struct RenderedFile {
 /// let project = ProjectSpec::builder()
 ///     .add_file(models)
 ///     .add_file(index)
-///     .build();
+///     .build().unwrap();
 ///
 /// let rendered = project.render(80).unwrap();
 /// assert_eq!(rendered.len(), 2);
@@ -114,7 +118,22 @@ impl ProjectSpecBuilder {
     }
 
     /// Build the [`ProjectSpec`].
-    pub fn build(self) -> ProjectSpec {
-        ProjectSpec { files: self.files }
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SigilStitchError::DuplicateFileName`] if any two files
+    /// share the same filename.
+    pub fn build(self) -> Result<ProjectSpec, SigilStitchError> {
+        let mut counts: HashMap<&str, usize> = HashMap::new();
+        for file in &self.files {
+            *counts.entry(file.filename()).or_insert(0) += 1;
+        }
+        if let Some((&filename, count)) = counts.iter().find(|(_, c)| **c > 1) {
+            return Err(SigilStitchError::DuplicateFileName {
+                filename: filename.to_string(),
+                count: *count,
+            });
+        }
+        Ok(ProjectSpec { files: self.files })
     }
 }

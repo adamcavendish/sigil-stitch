@@ -9,7 +9,7 @@ use sigil_stitch::type_name::TypeName;
 
 #[test]
 fn test_empty_project_renders_empty_vec() {
-    let project = ProjectSpec::builder().build();
+    let project = ProjectSpec::builder().build().unwrap();
     let rendered = project.render(80).unwrap();
     assert!(rendered.is_empty());
 }
@@ -25,7 +25,8 @@ fn test_single_file_project() {
                 .build()
                 .unwrap(),
         )
-        .build();
+        .build()
+        .unwrap();
 
     let rendered = project.render(80).unwrap();
     assert_eq!(rendered.len(), 1);
@@ -50,7 +51,8 @@ fn test_multi_file_project_with_imports() {
     let project = ProjectSpec::builder()
         .add_file(f1.build().unwrap())
         .add_file(f2.build().unwrap())
-        .build();
+        .build()
+        .unwrap();
 
     let rendered = project.render(80).unwrap();
     assert_eq!(rendered.len(), 2);
@@ -77,7 +79,7 @@ fn test_file_ordering_preserved() {
                 .unwrap(),
         );
     }
-    let rendered = pb.build().render(80).unwrap();
+    let rendered = pb.build().unwrap().render(80).unwrap();
     let paths: Vec<&str> = rendered.iter().map(|r| r.path.as_str()).collect();
     assert_eq!(paths, vec!["c.ts", "a.ts", "b.ts"]);
 }
@@ -86,11 +88,6 @@ fn test_file_ordering_preserved() {
 
 #[test]
 fn test_render_error_includes_filename() {
-    // ProjectSpec wraps each file's render error with `"{filename}: {e}"`.
-    // We can't easily trigger a render-time error since CodeBlock catches
-    // arity mismatches at build time. This test verifies the error
-    // formatting indirectly: a project with a valid file renders fine,
-    // confirming the error path is the only code branch producing errors.
     let result = ProjectSpec::builder()
         .add_file(
             FileSpec::builder("app.ts")
@@ -99,7 +96,55 @@ fn test_render_error_includes_filename() {
                 .unwrap(),
         )
         .build()
+        .unwrap()
         .render(80);
+    assert!(result.is_ok());
+}
+
+// ── Duplicate filename detection ────────────────────────
+
+#[test]
+fn test_duplicate_filename_rejected() {
+    let result = ProjectSpec::builder()
+        .add_file(
+            FileSpec::builder("user.ts")
+                .add_code(CodeBlock::of("// first", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_file(
+            FileSpec::builder("user.ts")
+                .add_code(CodeBlock::of("// second", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .build();
+
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("duplicate filename") && err.contains("user.ts"),
+        "Expected duplicate filename error, got: {err}"
+    );
+}
+
+#[test]
+fn test_distinct_filenames_accepted() {
+    let result = ProjectSpec::builder()
+        .add_file(
+            FileSpec::builder("a.ts")
+                .add_code(CodeBlock::of("// a", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_file(
+            FileSpec::builder("b.ts")
+                .add_code(CodeBlock::of("// b", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .build();
+
     assert!(result.is_ok());
 }
 
@@ -119,6 +164,7 @@ fn test_write_to_creates_files() {
                 .unwrap(),
         )
         .build()
+        .unwrap()
         .write_to(&dir, 80)
         .unwrap();
     assert_eq!(written.len(), 1);
@@ -145,6 +191,7 @@ fn test_write_to_creates_nested_dirs() {
                 .unwrap(),
         )
         .build()
+        .unwrap()
         .write_to(&dir, 80)
         .unwrap();
     assert_eq!(written.len(), 1);
@@ -173,6 +220,7 @@ fn test_rust_project() {
                 .unwrap(),
         )
         .build()
+        .unwrap()
         .render(80)
         .unwrap();
 
@@ -195,6 +243,7 @@ fn test_multi_file_rust_project() {
         .add_file(f1.build().unwrap())
         .add_file(f2.build().unwrap())
         .build()
+        .unwrap()
         .render(80)
         .unwrap();
 

@@ -104,6 +104,15 @@ pub enum SigilStitchError {
         reason: String,
     },
 
+    /// Duplicate filename in a project specification.
+    #[snafu(display("duplicate filename {filename:?} in ProjectSpec (appears {count} times)"))]
+    DuplicateFileName {
+        /// The duplicated filename.
+        filename: String,
+        /// How many times it appeared.
+        count: usize,
+    },
+
     /// FileSpec has no language set (e.g. after deserialization).
     #[snafu(display(
         "FileSpec {filename:?} has no language — call .with_lang() after deserialization \
