@@ -34,11 +34,13 @@ pub(super) fn parse_one_statement(
     // Collect tokens for this statement, looking for `;` or a brace group.
     let mut pos = start;
     let mut collected: Vec<TokenTree> = Vec::new();
+    let mut prev_end_line: Option<usize> = None;
 
     while pos < tokens.len() {
         let tt = &tokens[pos];
 
         // Check for `;` — statement terminator.
+        // (Any trailing `$+` in collected is handled by tokens_to_format_inner.)
         if is_semicolon(tt) {
             let (format, args) = tokens_to_format(&collected)?;
             return Ok((Statement::Statement { format, args }, pos + 1));
@@ -54,9 +56,12 @@ pub(super) fn parse_one_statement(
             if next < tokens.len() && is_semicolon(&tokens[next]) {
                 // Part of a statement: `const x = { ... };`
                 collected.push(tt.clone());
+                prev_end_line = Some(tt.span().end().line);
                 pos += 1;
                 continue;
             }
+
+            // (Any trailing `$+` in collected is handled by tokens_to_format_inner.)
 
             // Check for $open("...") at end of collected tokens.
             let (condition_tokens, block_open_override) = try_extract_open_override(&collected)?;
@@ -65,11 +70,33 @@ pub(super) fn parse_one_statement(
             return parse_control_flow(tokens, &condition_tokens, g, pos, block_open_override);
         }
 
+        // Line-break detection: split statement when tokens span multiple lines.
+        if !collected.is_empty()
+            && let Some(pel) = prev_end_line
+            && tt.span().start().line > pel
+        {
+            let n = collected.len();
+            if n >= 2
+                && matches!(&collected[n - 2], TokenTree::Punct(p) if p.as_char() == '$')
+                && matches!(&collected[n - 1], TokenTree::Punct(p) if p.as_char() == '+')
+            {
+                collected.pop();
+                collected.pop();
+            } else {
+                let (format, args) = tokens_to_format(&collected)?;
+                return Ok((Statement::Line { format, args }, pos));
+            }
+        }
+
         collected.push(tt.clone());
+        prev_end_line = Some(tt.span().end().line);
         pos += 1;
     }
 
     // End of input without `;` — emit as a Line.
+    // Strip here (not just in tokens_to_format_inner) so a bare `$+` yields
+    // an empty `collected` → `BlankLine` instead of `Line { format: "" }`.
+    strip_trailing_continuation(&mut collected);
     if collected.is_empty() {
         Ok((Statement::BlankLine, pos))
     } else {
@@ -398,6 +425,18 @@ fn try_parse_meta_if(
     }
 
     Ok(Some((Statement::MetaIf { branches }, pos)))
+}
+
+/// Strip a trailing `$+` continuation marker from collected tokens.
+fn strip_trailing_continuation(collected: &mut Vec<TokenTree>) {
+    let n = collected.len();
+    if n >= 2
+        && matches!(&collected[n - 2], TokenTree::Punct(p) if p.as_char() == '$')
+        && matches!(&collected[n - 1], TokenTree::Punct(p) if p.as_char() == '+')
+    {
+        collected.pop();
+        collected.pop();
+    }
 }
 
 /// Check for `$>` or `$<` at position `start`.
