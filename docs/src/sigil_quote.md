@@ -45,6 +45,7 @@ It returns `Result<CodeBlock, SigilStitchError>`.
 | `$C_each(expr)` | — | `impl IntoIterator<Item: Into<CodeBlock>>` | Splice each code block from iterable |
 | `$if(cond) { ... }` | — | Rust expression | Meta-conditional (runtime codegen control) |
 | `$join(sep, iter)` | `%L` | separator + `impl IntoIterator<Item: ToString>` | Separator-joined list |
+| `$+` | — | (none) | Line continuation (suppress line-break split) |
 
 ### Types (`$T`)
 
@@ -425,6 +426,41 @@ sigil_quote!(TypeScript {
 // this.age = age;
 // this.email = email
 ```
+
+## Line Continuation (`$+`)
+
+`sigil_quote!` splits statements on line breaks — each source line becomes a
+separate statement in the generated code. This works well for languages like
+Kotlin and Python where each line is typically a statement.
+
+For expressions that span multiple lines (common in Haskell, OCaml, or long
+function calls), place `$+` at the end of a line to suppress the split and
+continue the statement on the next line:
+
+```rust,ignore
+use sigil_stitch::lang::haskell::Haskell;
+
+sigil_quote!(Haskell {
+    mapM_ $+
+        putStrLn $+
+        items
+})
+// Output: mapM_ putStrLn items
+```
+
+```rust,ignore
+use sigil_stitch::lang::kotlin::Kotlin;
+
+sigil_quote!(Kotlin {
+    val result = someFunction( $+
+        arg1, arg2);
+})
+// Output: val result = someFunction(arg1, arg2);
+```
+
+Without `$+`, each source line becomes its own statement. For semicolon-based
+languages, `;` still takes priority as the statement terminator regardless of
+line breaks.
 
 ## Multi-Language Support
 

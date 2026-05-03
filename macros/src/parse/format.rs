@@ -34,6 +34,7 @@ pub(super) enum ColonContext {
 pub(super) struct SpacingState {
     pub prev: PrevTokenKind,
     pub colon_ctx: ColonContext,
+    pub suppress_space: bool,
 }
 
 impl SpacingState {
@@ -41,6 +42,7 @@ impl SpacingState {
         Self {
             prev: PrevTokenKind::None,
             colon_ctx: ColonContext::TypeAnnotation,
+            suppress_space: false,
         }
     }
 }
@@ -122,6 +124,14 @@ fn tokens_to_format_inner(
             {
                 format.push_str("%<");
                 state.prev = PrevTokenKind::Specifier;
+                pos += 1;
+                continue;
+            }
+
+            // `$+` — line continuation marker (no-op, consumed by parser).
+            if let TokenTree::Punct(p2) = next
+                && p2.as_char() == '+'
+            {
                 pos += 1;
                 continue;
             }
@@ -301,7 +311,19 @@ fn tokens_to_format_inner(
                     }
                 }
 
+                // Suppress space before `?` when it forms `?.` (safe-call).
+                // `?:` (elvis) keeps its space.
+                if ch == '?'
+                    && p.spacing() == Spacing::Joint
+                    && pos + 1 < tokens.len()
+                    && let TokenTree::Punct(next_p) = &tokens[pos + 1]
+                    && next_p.as_char() == '.'
+                {
+                    state.suppress_space = true;
+                }
+
                 maybe_space(format, state, new_kind);
+                state.suppress_space = false;
                 if ch == '%' {
                     format.push_str("%%");
                 } else {
@@ -403,6 +425,13 @@ pub(super) fn maybe_space(format: &mut String, state: &SpacingState, current: Pr
     let prev = state.prev;
 
     if prev == PrevTokenKind::None || prev == PrevTokenKind::GroupOpen {
+        return;
+    }
+
+    // One-shot lookahead override set by the caller (e.g., `?.` safe-call).
+    // Checked early to unconditionally suppress the space before all other
+    // heuristics — the caller already decided this token needs no space.
+    if state.suppress_space {
         return;
     }
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- `$+` line continuation marker in `sigil_quote!` — suppresses automatic
+  line-break splitting for multi-line expressions (Haskell, OCaml, long calls).
+
+### Changed
+
+- **Breaking:** `sigil_quote!` now splits statements on source line breaks.
+  Each line in the macro body becomes a separate statement, matching
+  Kotlin/Python semantics. Previously, tokens without `;` or `{ }` were
+  collected into a single statement regardless of line breaks. Use `$+` at
+  end of line to continue an expression on the next line.
+
+### Fixed
+
+- Kotlin `?.` safe-call spacing — `response.body?.string()` no longer gets
+  an unwanted space before `?`. Uses lookahead to distinguish `?.` (Joint,
+  suppress space) from ternary `?` (Alone, allow space).
+
 ## 0.3.4
 
 ### Changed
