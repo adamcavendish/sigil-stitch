@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.3
+
+### Added
+
+- `$let(binding);` meta-statement in `sigil_quote!` — Rust-level `let` bindings
+  inside macro bodies. Supports all `let` forms (simple, typed, destructuring,
+  mutable) and fallible expressions with `?` that propagate to the enclosing
+  function. Primary use case: intermediate variable computation inside `$for`
+  and `$if` bodies.
+
 ## 0.4.2
 
 ### Added
