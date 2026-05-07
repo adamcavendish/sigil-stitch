@@ -691,3 +691,92 @@ fn test_python_star_unpack() {
     let output = render_py(&block);
     assert!(output.contains("*rest"), "star unpack tight, got: {output}");
 }
+
+// =============================================================================
+// C# — generics, null-conditional, shift operators
+// =============================================================================
+
+#[test]
+fn test_csharp_nested_generics() {
+    let block = sigil_quote!(CSharp {
+        Dictionary<string, List<HashSet<int>>> map = new Dictionary<string, List<HashSet<int>>>();
+    })
+    .unwrap();
+
+    let output = render_cs(&block);
+    assert!(
+        output.contains("Dictionary<string, List<HashSet<int>>>"),
+        "nested generics tight, got: {output}"
+    );
+}
+
+#[test]
+fn test_csharp_null_conditional() {
+    let block = sigil_quote!(CSharp {
+        var len = obj?.Name?.Length;
+    })
+    .unwrap();
+
+    let output = render_cs(&block);
+    assert!(
+        output.contains("obj?.Name?.Length"),
+        "null-conditional tight, got: {output}"
+    );
+}
+
+#[test]
+fn test_csharp_right_shift() {
+    let block = sigil_quote!(CSharp {
+        int x = value >> 3;
+    })
+    .unwrap();
+
+    let output = render_cs(&block);
+    assert!(
+        output.contains("value >> 3"),
+        "right shift keeps spaces, got: {output}"
+    );
+}
+
+#[test]
+fn test_csharp_left_shift() {
+    let block = sigil_quote!(CSharp {
+        int x = value << 2;
+    })
+    .unwrap();
+
+    let output = render_cs(&block);
+    assert!(
+        output.contains("value << 2"),
+        "left shift keeps spaces, got: {output}"
+    );
+}
+
+#[test]
+fn test_csharp_comparison_vs_generic() {
+    let block = sigil_quote!(CSharp {
+        List<int> items = new List<int>();
+        bool check = x < 5;
+    })
+    .unwrap();
+
+    let output = render_cs(&block);
+    assert!(output.contains("List<int>"), "generic tight, got: {output}");
+    assert!(output.contains("x < 5"), "comparison spaced, got: {output}");
+}
+
+#[test]
+fn test_csharp_bitwise_operators() {
+    let block = sigil_quote!(CSharp {
+        int mask = a & b | c ^ d;
+    })
+    .unwrap();
+
+    let output = render_cs(&block);
+    assert!(
+        output.contains("a & b"),
+        "bitwise AND spaced, got: {output}"
+    );
+    assert!(output.contains("| c"), "bitwise OR spaced, got: {output}");
+    assert!(output.contains("^ d"), "bitwise XOR spaced, got: {output}");
+}

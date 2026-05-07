@@ -6,6 +6,8 @@ pub mod c_lang;
 pub mod config;
 /// C++ language support.
 pub mod cpp_lang;
+/// C# language support.
+pub mod csharp;
 /// Dart language support.
 pub mod dart;
 /// Go language support.
@@ -400,6 +402,7 @@ pub fn lang_from_extension(ext: &str) -> Option<Box<dyn CodeLang>> {
         "ml" | "mli" => Some(Box::new(ocaml::OCaml::default())),
         "c" | "h" => Some(Box::new(c_lang::CLang::default())),
         "cpp" | "cxx" | "cc" | "hpp" | "hxx" => Some(Box::new(cpp_lang::CppLang::default())),
+        "cs" => Some(Box::new(csharp::CSharp::default())),
         "sh" | "bash" => Some(Box::new(bash::Bash::default())),
         "zsh" => Some(Box::new(zsh::Zsh::default())),
         _ => None,
