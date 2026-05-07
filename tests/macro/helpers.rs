@@ -1,6 +1,7 @@
 pub use sigil_stitch::code_block::{CodeBlock, NameArg, StringLitArg};
 pub use sigil_stitch::import_collector;
 pub use sigil_stitch::lang::cpp_lang::CppLang;
+pub use sigil_stitch::lang::csharp::CSharp;
 pub use sigil_stitch::lang::dart::DartLang;
 pub use sigil_stitch::lang::haskell::Haskell;
 pub use sigil_stitch::lang::java_lang::JavaLang;
@@ -78,6 +79,14 @@ pub fn render_kt(block: &CodeBlock) -> String {
 
 pub fn render_cpp(block: &CodeBlock) -> String {
     let file = FileSpec::builder_with("test.cpp", CppLang::new())
+        .add_code(block.clone())
+        .build()
+        .unwrap();
+    file.render(80).unwrap()
+}
+
+pub fn render_cs(block: &CodeBlock) -> String {
+    let file = FileSpec::builder_with("Test.cs", CSharp::new())
         .add_code(block.clone())
         .build()
         .unwrap();
