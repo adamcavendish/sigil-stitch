@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.5.0
+
+### Added
+
+- **Lua language support** — full `CodeLang` implementation with `end`-delimited
+  blocks, 2-space indent, `---` doc comments, `require()` imports, and all 22
+  reserved words. Includes builder and `sigil_quote!` integration tests.
+- **C# language support** — full `CodeLang` implementation with `{}`-delimited
+  blocks, `using` imports, XML doc comments (`///`), nullable `T?` optionals,
+  and C#-style visibility modifiers.
+- `elseif` and `elif` recognition in `sigil_quote!` parser — enables Lua
+  `if/elseif/else` and Python `if/elif/else` control flow.
+- `looks_like_control_flow_header()` heuristic in `sigil_quote!` parser —
+  distinguishes control-flow `{` from literal `{` (table constructors, object
+  literals) for end-delimited languages.
+- `close_on_transition` field on `BlockSyntaxConfig` — controls whether
+  `BlockCloseTransition` emits the block-close keyword before `else`/`elseif`.
+  Enables correct rendering for languages that use `else` without a preceding
+  `end` (Lua, Ruby, Elixir).
+- `escape_field_name` method on `CodeLang` trait — allows languages to skip
+  reserved-word escaping for property/field names (TypeScript overrides to
+  return names unchanged since TS property names never conflict).
+
+### Fixed
+
+- `sigil_quote!` spacing for unary minus (`-1` no longer becomes `- 1`) and
+  `$T()` followed by generic angle brackets (`List<string>` no longer becomes
+  `List < string >`).
+- TypeScript interface fields using reserved words (`type`, `namespace`, etc.)
+  no longer get incorrectly escaped to `type_`.
+- Return type separator suppressed for untyped languages (Lua, Python) —
+  prevents stray `: ` or `-> ` after function signatures.
+
 ## 0.4.4
 
 ### Fixed
