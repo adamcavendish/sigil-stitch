@@ -4,9 +4,10 @@ Practical, copy-paste-ready recipes for C++ code generation. For the full API of
 
 ## Class with template
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let body = CodeBlock::of("data_.push_back(value)", ()).unwrap();
 
 let type_spec = TypeSpec::builder("Stack", TypeKind::Class)
@@ -30,6 +31,7 @@ let type_spec = TypeSpec::builder("Stack", TypeKind::Class)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```cpp
@@ -47,9 +49,10 @@ public:
 
 ## Using alias (C++ type alias)
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("StringVec", TypeKind::TypeAlias)
     .extends(TypeName::generic(
         TypeName::primitive("std::vector"),
@@ -57,6 +60,7 @@ let type_spec = TypeSpec::builder("StringVec", TypeKind::TypeAlias)
     ))
     .build()
     .unwrap();
+# }
 ```
 
 ```cpp
@@ -65,9 +69,10 @@ using StringVec = std::vector<std::string>;
 
 ## Enum class
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .doc("Available colors.")
     .add_variant(EnumVariantSpec::new("Red").unwrap())
@@ -75,6 +80,7 @@ let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .add_variant(EnumVariantSpec::new("Blue").unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```cpp
@@ -90,10 +96,11 @@ enum class Color {
 
 C++ abstract classes with pure virtual methods require the `extra_member` escape hatch. Use `FunSpec::emit()` to render each method signature as a `CodeBlock`, then attach it to the type via `extra_member`.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::cpp_lang::CppLang;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::cpp_lang::CppLang;
+# fn main() {
 fn emit_fun(fun: &FunSpec) -> CodeBlock {
     let lang = CppLang::new();
     fun.emit(&lang, DeclarationContext::Member).unwrap()
@@ -129,6 +136,7 @@ let type_spec = TypeSpec::builder("Shape", TypeKind::Class)
     .extra_member(pub_section.build().unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```cpp
@@ -145,9 +153,10 @@ public:
 
 Use `FileSpec::add_raw` to wrap generated code in a namespace block.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let mut b = CodeBlock::builder();
 b.add("int square(int x) {", ());
 b.add_line();
@@ -167,6 +176,7 @@ let file = FileSpec::builder("math.hpp")
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```cpp

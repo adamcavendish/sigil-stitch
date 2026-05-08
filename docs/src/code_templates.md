@@ -19,12 +19,14 @@ Bare positional specifiers (`%T`, `%N`, etc.) are rejected in templates. You mus
 
 ## Basic Usage
 
-```rust,ignore
-use sigil_stitch::code_template::CodeTemplate;
-use sigil_stitch::code_block::NameArg;
-use sigil_stitch::lang::typescript::TypeScript;
-use sigil_stitch::type_name::TypeName;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::code_template::CodeTemplate;
+# use sigil_stitch::code_block::NameArg;
+# use sigil_stitch::lang::typescript::TypeScript;
+# use sigil_stitch::type_name::TypeName;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let tmpl = CodeTemplate::new("const #{var:N}: #{type:T} = #{init:L}").unwrap();
 
 let block = tmpl.apply()
@@ -34,6 +36,7 @@ let block = tmpl.apply()
     .build()
     .unwrap();
 // Output: const user: string = null
+# }
 ```
 
 The template is parsed once by `CodeTemplate::new()`. Arguments are supplied via `.apply().set(...).build()`, producing a language-agnostic `CodeBlock`.
@@ -42,7 +45,10 @@ The template is parsed once by `CodeTemplate::new()`. Arguments are supplied via
 
 The same template works for different types and values:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let field_tmpl = CodeTemplate::new("#{name:N}: #{type:T}").unwrap();
 
 // Apply for a string field
@@ -58,15 +64,18 @@ let number_field = field_tmpl.apply()
     .set("type", TypeName::primitive("number"))
     .build()
     .unwrap();
+# }
 ```
 
 ## Reuse Across Languages
 
 Since templates are language-agnostic, the same template can target different languages:
 
-```rust,ignore
-use sigil_stitch::lang::rust_lang::RustLang;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::rust_lang::RustLang;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let decl = CodeTemplate::new("#{name:N}: #{type:T} = #{value:L}").unwrap();
 
 // TypeScript
@@ -84,13 +93,17 @@ let rs_block = decl.apply()
     .set("value", "0")
     .build()
     .unwrap();
+# }
 ```
 
 ## Duplicate Parameters
 
 The same parameter name can appear multiple times. The value you set is used at each occurrence:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let tmpl = CodeTemplate::new("#{type:T} -> #{type:T}").unwrap();
 
 let block = tmpl.apply()
@@ -98,13 +111,17 @@ let block = tmpl.apply()
     .build()
     .unwrap();
 // Output: string -> string
+# }
 ```
 
 ## Import Tracking
 
 Templates using `#{name:T}` track imports just like `%T` in CodeBlocks. When the resulting CodeBlock is rendered inside a FileSpec, all type references are collected for the import header:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let tmpl = CodeTemplate::new("const #{var:N}: #{type:T} = new #{type:T}()").unwrap();
 let user = TypeName::importable_type("./models", "User");
 
@@ -115,6 +132,7 @@ let block = tmpl.apply()
     .unwrap();
 // When rendered: import type { User } from './models'
 // Output:        const user: User = new User()
+# }
 ```
 
 ## Validation
@@ -123,7 +141,10 @@ let block = tmpl.apply()
 - All parameters have been set (missing parameters produce an error)
 - Argument kinds match the parameter kind (`#{name:T}` must receive a `TypeName`, not a string)
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let tmpl = CodeTemplate::new("#{name:N}: #{type:T}").unwrap();
 
 // Missing parameter
@@ -132,16 +153,21 @@ let result = tmpl.apply()
     // forgot to set "type"
     .build();
 assert!(result.is_err());
+# }
 ```
 
 ## Introspection
 
 Use `param_names()` to inspect a template's parameters:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let tmpl = CodeTemplate::new("#{name:N}: #{type:T} = #{init:L}").unwrap();
 let params = tmpl.param_names();
 // [("name", ParamKind::Name), ("type", ParamKind::Type), ("init", ParamKind::Literal)]
+# }
 ```
 
 ## When to Use Templates vs CodeBlock

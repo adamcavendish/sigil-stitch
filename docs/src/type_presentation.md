@@ -20,7 +20,7 @@ Each variant needs language-specific rendering, but the rendering follows a smal
 
 ## Architecture
 
-```
+```text
               ┌──────────────┐
               │   TypeName   │  Semantic type algebra
               │  (unchanged) │  Array, Optional, Map, ...
@@ -51,7 +51,10 @@ This separates three concerns that were previously tangled:
 
 `TypePresentation` is an enum of syntactic patterns. Each variant describes a structural template for assembling already-rendered inner type docs:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 pub enum TypePresentation<'a> {
     /// `name<P1, P2>` — delimiters from generic_syntax().open/.close.
     /// Vec<T>, Option<T>, HashMap<K,V>, List<T>.
@@ -76,6 +79,7 @@ pub enum TypePresentation<'a> {
     /// `P1 sep P2 sep ... Pn` — A | B, A & B, A + B.
     Infix { sep: &'a str },
 }
+# }
 ```
 
 Six patterns cover every type rendering need across all supported languages. A language implementation never builds `BoxDoc` — it returns one of these variants with the appropriate strings filled in.
@@ -84,7 +88,10 @@ Six patterns cover every type rendering need across all supported languages. A l
 
 Function types are too complex for a single `TypePresentation` variant — they have parameter lists, return types, arrows, optional keywords, and wrappers that combine in language-specific ways. They get their own struct:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 pub struct FunctionPresentation<'a> {
     pub keyword: &'a str,        // "fn", "func", ""
     pub params_open: &'a str,    // "(", "Callable[["
@@ -96,6 +103,7 @@ pub struct FunctionPresentation<'a> {
     pub wrapper_open: &'a str,   // C++: "std::function<"
     pub wrapper_close: &'a str,  // C++: ">"
 }
+# }
 ```
 
 This declaratively covers TypeScript `(A, B) => R`, Rust `fn(A, B) -> R`, Python `Callable[[A, B], R]`, C++ `std::function<R(A, B)>`, Dart `R Function(A, B)`, and Haskell `A -> B -> R` — all from a single rendering engine interpreting the data.

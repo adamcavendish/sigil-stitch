@@ -4,15 +4,17 @@ Practical, copy-paste-ready recipes for Swift code generation. For the full API 
 
 ## Struct with protocol conformance
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Point", TypeKind::Struct)
     .implements(TypeName::primitive("Codable"))
     .add_field(FieldSpec::builder("x", TypeName::primitive("Double")).build().unwrap())
     .add_field(FieldSpec::builder("y", TypeName::primitive("Double")).build().unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```swift
@@ -24,9 +26,10 @@ struct Point: Codable {
 
 ## Enum
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .visibility(Visibility::Public)
     .doc("Supported colors.")
@@ -35,6 +38,7 @@ let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .add_variant(EnumVariantSpec::new("blue").unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```swift
@@ -48,9 +52,10 @@ public enum Color {
 
 ## Enum with associated values
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("NetworkResult", TypeKind::Enum)
     .visibility(Visibility::Public)
     .doc("Result of a network request.")
@@ -70,6 +75,7 @@ let type_spec = TypeSpec::builder("NetworkResult", TypeKind::Enum)
     .add_variant(EnumVariantSpec::new("loading").unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```swift
@@ -83,9 +89,10 @@ public enum NetworkResult {
 
 ## Protocol
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     .add_type_param(TypeParamSpec::new("T"))
     .doc("Generic data repository.")
@@ -110,6 +117,7 @@ let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```swift

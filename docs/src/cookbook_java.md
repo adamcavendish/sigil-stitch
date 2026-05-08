@@ -4,10 +4,11 @@ Practical, copy-paste-ready recipes for Java code generation. For the full API o
 
 ## Class with annotations
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::spec::annotation_spec::AnnotationSpec;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::spec::annotation_spec::AnnotationSpec;
+# fn main() {
 let inject = AnnotationSpec::new("Inject");
 
 let body = CodeBlock::of("return repository.findById(id)", ()).unwrap();
@@ -32,6 +33,7 @@ let type_spec = TypeSpec::builder("UserService", TypeKind::Class)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```java
@@ -47,9 +49,10 @@ public class UserService {
 
 ## Interface
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     .visibility(Visibility::Public)
     .add_type_param(TypeParamSpec::new("T"))
@@ -77,6 +80,7 @@ let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```java
@@ -94,9 +98,10 @@ public interface Repository<T> {
 
 ## Enum
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .visibility(Visibility::Public)
     .doc("Supported colors.")
@@ -105,6 +110,7 @@ let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .add_variant(EnumVariantSpec::new("BLUE").unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```java
@@ -120,9 +126,10 @@ public enum Color {
 
 ## Abstract class
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let desc_body = CodeBlock::of("return this.getClass().getSimpleName();", ()).unwrap();
 
 let type_spec = TypeSpec::builder("Shape", TypeKind::Class)
@@ -147,6 +154,7 @@ let type_spec = TypeSpec::builder("Shape", TypeKind::Class)
     .is_abstract()
     .build()
     .unwrap();
+# }
 ```
 
 ```java

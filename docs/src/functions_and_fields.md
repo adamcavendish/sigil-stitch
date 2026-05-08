@@ -8,13 +8,18 @@ All spec types live in `src/spec/`. They follow a consistent builder pattern:
 - **`self` for `.build()`** -- consumes the builder and returns `Result<Spec, SigilStitchError>`
 - **Chain calls fluently** -- `Builder::new(...).method().method().build()`
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
+# let body = CodeBlock::of("todo!()", ()).unwrap();
 // Correct:
 let fun = FunSpec::builder("greet")
     .returns(TypeName::primitive("string"))
     .body(body)
     .build()
     .unwrap();
+# }
 ```
 
 (`CodeBlockBuilder` is different: it uses `&mut self`, so you keep it in a `let mut` binding and call methods on it.)
@@ -25,10 +30,11 @@ Every spec type (including `CodeBlock`, `TypeName`, `FileSpec`, and `ProjectSpec
 
 A single function parameter: name, type, optional default value, and variadic flag.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 // Simple parameter
 let p = ParameterSpec::new("name", TypeName::primitive("string")).unwrap();
 
@@ -45,6 +51,7 @@ let p = ParameterSpec::builder("args", TypeName::primitive("string"))
     .build()
     .unwrap();
 // Output: ...args: string
+# }
 ```
 
 `ParameterSpec` adapts to the target language. TypeScript emits `name: type`, C emits `type name`, and Python omits the type annotation when the type is empty.
@@ -53,11 +60,12 @@ let p = ParameterSpec::builder("args", TypeName::primitive("string"))
 
 A struct field or class property: name, type, visibility, static/readonly flags, initializer, annotations, and doc comments.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-use sigil_stitch::lang::rust_lang::RustLang;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# use sigil_stitch::lang::rust_lang::RustLang;
+# fn main() {
 let field = FieldSpec::builder("name", TypeName::primitive("string"))
     .visibility(Visibility::Private)
     .is_readonly()
@@ -70,26 +78,35 @@ let field = FieldSpec::builder("name", TypeName::primitive("String"))
     .build()
     .unwrap();
 // Rust: pub name: String,
+# }
 ```
 
 Fields support initializers for default values:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let field = FieldSpec::builder("count", TypeName::primitive("number"))
     .initializer(CodeBlock::of("0", ()).unwrap())
     .build()
     .unwrap();
 // TypeScript: count: number = 0;
+# }
 ```
 
 For Go, use `.tag()` to attach struct tags:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let field = FieldSpec::builder("Name", TypeName::primitive("string"))
     .tag("json:\"name\" db:\"name\"")
     .build()
     .unwrap();
 // Go: Name string `json:"name" db:"name"`
+# }
 ```
 
 ### Optional fields
@@ -98,7 +115,10 @@ let field = FieldSpec::builder("Name", TypeName::primitive("string"))
 can be `null`). Rendering is language-specific, delegated to
 `CodeLang::optional_field_style()`:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let field = FieldSpec::builder("email", TypeName::primitive("string"))
     .is_optional()
     .build()
@@ -114,6 +134,7 @@ let field = FieldSpec::builder("email", TypeName::primitive("string"))
 // Dart:        String? name;
 // C:           string *email;
 // C++:         std::optional<string> email;   (caller must #include <optional>)
+# }
 ```
 
 Use `is_optional()` for "the key might not be there" (e.g., an OpenAPI property
@@ -124,10 +145,11 @@ null" at the type level.
 
 A function or method: parameters, return type, body, modifiers (async, static, abstract, constructor, override), type parameters, annotations, and doc comments.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 let body = CodeBlock::of("return this.name", ()).unwrap();
 
 let fun = FunSpec::builder("getName")
@@ -138,11 +160,15 @@ let fun = FunSpec::builder("getName")
 // function getName(): string {
 //     return this.name
 // }
+# }
 ```
 
 ### Async methods
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let body = CodeBlock::of("return await db.find(id)", ()).unwrap();
 let fun = FunSpec::builder("fetchUser")
     .is_async()
@@ -158,11 +184,15 @@ let fun = FunSpec::builder("fetchUser")
 // public async fetchUser(id: string): Promise<User> {
 //     return await db.find(id)
 // }
+# }
 ```
 
 ### Type parameters
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let tp = TypeParamSpec::new("T")
     .with_bound(TypeName::primitive("Serializable"));
 
@@ -177,26 +207,34 @@ let fun = FunSpec::builder("serialize")
 // function serialize<T extends Serializable>(value: T): string {
 //     return JSON.stringify(value)
 // }
+# }
 ```
 
 ### Abstract methods
 
 When no body is provided, the function renders as a declaration. Combined with `is_abstract()`, this produces abstract method signatures:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let fun = FunSpec::builder("validate")
     .is_abstract()
     .returns(TypeName::primitive("boolean"))
     .build()
     .unwrap();
 // abstract validate(): boolean;
+# }
 ```
 
 ### Constructor delegation
 
 Use `.delegation()` to emit `super(...)` or `this(...)` calls. The placement is language-dependent: body-style (TS, Java, Dart, Swift) emits it as the first statement; signature-style (Kotlin) emits it after the parameter list.
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let body = CodeBlock::of("this.name = name", ()).unwrap();
 let fun = FunSpec::builder("constructor")
     .is_constructor()
@@ -209,4 +247,5 @@ let fun = FunSpec::builder("constructor")
 //     super(name);
 //     this.name = name
 // }
+# }
 ```

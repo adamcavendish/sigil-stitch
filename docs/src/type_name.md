@@ -8,43 +8,56 @@
 
 The two `Importable` constructors are the primary way to create types that generate import statements:
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 // Value import: import { User } from './models'
 let user = TypeName::importable("./models", "User");
 
 // Type-only import: import type { User } from './models'
 let user = TypeName::importable_type("./models", "User");
+# }
 ```
 
 When these types appear in a `CodeBlock` via `%T`, the import is tracked automatically. At file render time, all imports are collected, deduplicated, and emitted. If two modules export the same name, the first keeps the simple name and the second gets an auto-generated alias.
 
 You can also set an explicit alias:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let user = TypeName::importable("./other", "User")
     .with_alias("OtherUser");
 // import { User as OtherUser } from './other'
 // Rendered as: OtherUser
+# }
 ```
 
 ## Primitives
 
 Types that don't need imports -- built-in language types, type parameters, or any name that's already in scope:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let s = TypeName::primitive("string");
 let n = TypeName::primitive("number");
 let t = TypeName::primitive("T");  // type parameter
+# }
 ```
 
 ## Qualified types
 
 For types that should render with their full module path inline *without* generating an import statement:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Rust: serde_json::Value  (no `use serde_json::Value;`)
 let val = TypeName::qualified("serde_json", "Value");
 
@@ -53,13 +66,17 @@ let foo = TypeName::qualified("super", "Foo");
 
 // Java: java.util.HashMap
 let map = TypeName::qualified("java.util", "HashMap");
+# }
 ```
 
 The separator between module and name comes from `CodeLang::module_separator()` — `"::"` for Rust/C++, `"."` for Go/Python/Java/Kotlin/Scala/Swift/Dart/Haskell/OCaml. Languages without module-qualified paths (TypeScript, JavaScript, C, Bash, Zsh) silently fall back to rendering just the name.
 
 Qualified types work anywhere a `TypeName` is accepted, including inside generics:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Rust: std::collections::HashMap<String, serde_json::Value>
 let map = TypeName::generic(
     TypeName::qualified("std::collections", "HashMap"),
@@ -68,20 +85,28 @@ let map = TypeName::generic(
         TypeName::qualified("serde_json", "Value"),
     ],
 );
+# }
 ```
 
 You can also convert an existing importable type to qualified rendering with `.qualify()`:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Equivalent to TypeName::qualified("serde_json", "Value")
 let val = TypeName::importable("serde_json", "Value").qualify();
+# }
 ```
 
 ## Collections
 
 ### Arrays
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // TypeScript: string[]
 // Rust:       Vec<String>  (via type_presentation().array)
 // Go:         []string
@@ -89,22 +114,30 @@ let arr = TypeName::array(TypeName::primitive("string"));
 
 // TypeScript: readonly number[]
 let ro = TypeName::readonly_array(TypeName::primitive("number"));
+# }
 ```
 
 ### Maps
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Go:         map[string]User
 // TypeScript: Record<string, User>  (via type_presentation().map)
 let m = TypeName::map(
     TypeName::primitive("string"),
     TypeName::importable("./models", "User"),
 );
+# }
 ```
 
 ### Tuples
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Rust:   (String, i32)
 // TS:     [string, number]
 // Python: tuple[str, int]
@@ -116,20 +149,28 @@ let t = TypeName::tuple(vec![
 
 // Unit type (empty tuple): Rust ()
 let unit = TypeName::unit();
+# }
 ```
 
 ### Slices
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Go: []User
 let s = TypeName::slice(TypeName::primitive("User"));
+# }
 ```
 
 ## Generics
 
 Wrap a base type with type parameters:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // TypeScript: Promise<User>
 let promise = TypeName::generic(
     TypeName::primitive("Promise"),
@@ -147,13 +188,17 @@ let map = TypeName::generic(
         ),
     ],
 );
+# }
 ```
 
 Nesting works to any depth. Imports are collected recursively -- every `Importable` type anywhere in the tree gets tracked.
 
 ## Union and intersection types
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // TypeScript: string | number | boolean
 let u = TypeName::union(vec![
     TypeName::primitive("string"),
@@ -166,26 +211,34 @@ let i = TypeName::intersection(vec![
     TypeName::primitive("Serializable"),
     TypeName::primitive("Loggable"),
 ]);
+# }
 ```
 
 These are primarily useful for TypeScript. Other languages render them using their closest equivalent (e.g., Python uses `X | Y` for unions).
 
 ## Optional types
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // TypeScript: string | null
 // Rust:       Option<String>
 // Go:         *string
 // Kotlin:     String?
 // Swift:      String?
 let opt = TypeName::optional(TypeName::primitive("string"));
+# }
 ```
 
 The rendering adapts per language through the `optional` field in `lang.type_presentation()`.
 
 ## Pointer and reference types
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Go: *User
 let ptr = TypeName::pointer(TypeName::primitive("User"));
 
@@ -194,6 +247,7 @@ let r = TypeName::reference(TypeName::primitive("str"));
 
 // Rust: &mut Vec<i32>
 let rm = TypeName::reference_mut(TypeName::primitive("Vec<i32>"));
+# }
 ```
 
 Reference rendering is language-aware:
@@ -205,7 +259,10 @@ Reference rendering is language-aware:
 
 ## Function types
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // TypeScript: (string, number) => boolean
 // Rust:       fn(String, i32) -> bool
 // Python:     Callable[[str, int], bool]
@@ -215,6 +272,7 @@ let f = TypeName::function(
     vec![TypeName::primitive("string"), TypeName::primitive("number")],
     TypeName::primitive("boolean"),
 );
+# }
 ```
 
 Function type rendering varies significantly across languages. The `function` field in `lang.type_presentation()` returns a `FunctionPresentation` struct that controls keyword, delimiters, arrow syntax, parameter order, and optional outer wrappers.
@@ -223,8 +281,12 @@ Function type rendering varies significantly across languages. The `function` fi
 
 For type expressions not covered by the built-in variants:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let t = TypeName::raw("keyof User");
+# }
 ```
 
 `Raw` emits the string verbatim with no import tracking. Use it sparingly -- prefer the structured variants when possible.
@@ -247,7 +309,10 @@ See [Type Presentation](type_presentation.md) for the full technical details of 
 
 ## Inspection methods
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Check if a type renders to empty string (used internally by ParameterSpec)
 let empty = TypeName::primitive("");
 assert!(empty.is_empty());
@@ -255,4 +320,5 @@ assert!(empty.is_empty());
 // Get the simple name (for import resolution lookups)
 let t = TypeName::importable("./models", "User");
 assert_eq!(t.simple_name(), Some("User"));
+# }
 ```

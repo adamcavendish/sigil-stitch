@@ -4,9 +4,10 @@ Practical, copy-paste-ready recipes for Python code generation. For the full API
 
 ## Function with type hints
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let user_type = TypeName::importable("models", "User");
 
 let body = CodeBlock::of("return await db.query(User).filter(active=True)", ()).unwrap();
@@ -21,6 +22,7 @@ let fun = FunSpec::builder("get_active_users")
     .body(body)
     .build()
     .unwrap();
+# }
 ```
 
 ```python
@@ -30,13 +32,15 @@ async def get_active_users(db: Database) -> list[User]:
 
 ## Type alias
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("UserId", TypeKind::TypeAlias)
     .extends(TypeName::primitive("str"))
     .build()
     .unwrap();
+# }
 ```
 
 ```python
@@ -45,9 +49,10 @@ type UserId = str
 
 ## Class with bases
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("AdminService", TypeKind::Class)
     .extends(TypeName::primitive("BaseService"))
     .implements(TypeName::primitive("Authenticatable"))
@@ -61,6 +66,7 @@ let type_spec = TypeSpec::builder("AdminService", TypeKind::Class)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```python
@@ -71,9 +77,10 @@ class AdminService(BaseService, Authenticatable):
 
 ## Dataclass
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Config", TypeKind::Class)
     .doc("Application configuration.")
     .annotation(CodeBlock::of("@dataclass", ()).unwrap())
@@ -95,6 +102,7 @@ let type_spec = TypeSpec::builder("Config", TypeKind::Class)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```python
@@ -108,9 +116,10 @@ class Config:
 
 ## Enum
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let enum_base = TypeName::importable("enum", "Enum");
 
 let type_spec = TypeSpec::builder("Direction", TypeKind::Enum)
@@ -147,6 +156,7 @@ let file = FileSpec::builder("direction.py")
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```python

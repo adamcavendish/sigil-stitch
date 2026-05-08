@@ -6,7 +6,7 @@ This chapter describes how sigil-stitch works internally. It covers the four-lay
 
 The library is organized in four layers, each building on the one below:
 
-```
+```text
 ┌─────────────────────────────────────┐
 │  Spec Layer (TypeSpec, FunSpec, ...) │  Structural builders
 ├─────────────────────────────────────┤
@@ -131,9 +131,10 @@ Go's `qualify_import_name()` adds another layer: instead of importing `Server` d
 
 A concrete example of the conflict resolution:
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let user_a = TypeName::importable_type("./models", "User");
 let user_b = TypeName::importable_type("./legacy", "User");
 
@@ -148,6 +149,7 @@ let output = FileSpec::builder("test.ts")
     .unwrap()
     .render(80)
     .unwrap();
+# }
 ```
 
 The output would contain:
@@ -165,7 +167,10 @@ The first `User` (from `./models`) wins the simple name. The second (from `./leg
 
 All public types (`CodeBlock`, `TypeName`, `TypeSpec`, `FunSpec`, etc.) are language-agnostic. The language is supplied at render time via `&dyn CodeLang`:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let user = TypeName::importable_type("./models", "User");
 let mut cb = CodeBlock::builder();
 cb.add("const u: %T = getUser()", (user,));
@@ -184,6 +189,7 @@ let output_rs = FileSpec::builder("user.rs")
     .unwrap()
     .render(80)
     .unwrap();
+# }
 ```
 
 `FileSpec::builder("user.ts")` auto-detects the language from the file extension. Use `FileSpec::builder_with("user.ts", TypeScript::new())` for explicit control.

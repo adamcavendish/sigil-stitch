@@ -4,9 +4,10 @@ Practical, copy-paste-ready recipes for Haskell code generation. For the full AP
 
 ## Data record with deriving
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Person", TypeKind::Struct)
     .add_field(
         FieldSpec::builder("personName", TypeName::primitive("String")).build().unwrap(),
@@ -18,6 +19,7 @@ let type_spec = TypeSpec::builder("Person", TypeKind::Struct)
     .implements(TypeName::primitive("Eq"))
     .build()
     .unwrap();
+# }
 ```
 
 ```haskell
@@ -31,9 +33,10 @@ data Person =
 
 ## Type class
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Printable", TypeKind::Trait)
     .doc("Things that can be printed.")
     .add_method(
@@ -45,6 +48,7 @@ let type_spec = TypeSpec::builder("Printable", TypeKind::Trait)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```haskell
@@ -55,9 +59,10 @@ class Printable where
 
 ## Function with split signature
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let body = CodeBlock::of("x + y", ()).unwrap();
 
 let fun = FunSpec::builder("add")
@@ -67,6 +72,7 @@ let fun = FunSpec::builder("add")
     .body(body)
     .build()
     .unwrap();
+# }
 ```
 
 ```haskell
@@ -77,13 +83,15 @@ add x y =
 
 ## Newtype
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Meters", TypeKind::Newtype)
     .extends(TypeName::primitive("Int"))
     .build()
     .unwrap();
+# }
 ```
 
 ```haskell
@@ -92,13 +100,15 @@ newtype Meters = Meters Int
 
 ## Type alias
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Name", TypeKind::TypeAlias)
     .extends(TypeName::primitive("String"))
     .build()
     .unwrap();
+# }
 ```
 
 ```haskell

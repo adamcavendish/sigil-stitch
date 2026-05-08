@@ -63,6 +63,11 @@ doc:
 book:
     mdbook build docs
 
+# Test mdbook code examples
+book-test:
+    cargo build
+    cd docs && mdbook test -L ../target/debug/deps
+
 # Serve the mdbook with live reload
 book-serve:
     mdbook serve docs --open

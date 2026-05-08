@@ -4,9 +4,10 @@ Practical, copy-paste-ready recipes for Go code generation. For the full API of 
 
 ## Struct with tags
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("User", TypeKind::Struct)
     .add_field(
         FieldSpec::builder("Name", TypeName::primitive("string"))
@@ -28,6 +29,7 @@ let type_spec = TypeSpec::builder("User", TypeKind::Struct)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```go
@@ -40,13 +42,15 @@ type User struct {
 
 ## Newtype (distinct type)
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Meters", TypeKind::Newtype)
     .extends(TypeName::primitive("float64"))
     .build()
     .unwrap();
+# }
 ```
 
 ```go
@@ -55,9 +59,10 @@ type Meters float64
 
 ## Interface
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     .doc("Repository defines data access methods.")
     .add_method(
@@ -83,6 +88,7 @@ let file = FileSpec::builder("repo.go")
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```go
@@ -98,9 +104,10 @@ type Repository interface {
 
 ## Generic function
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let tp = TypeParamSpec::new("T").with_bound(TypeName::primitive("comparable"));
 
 let mut body_b = CodeBlock::builder();
@@ -125,6 +132,7 @@ let file = FileSpec::builder("max.go")
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```go

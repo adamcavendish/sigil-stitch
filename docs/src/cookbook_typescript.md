@@ -4,9 +4,10 @@ Practical, copy-paste-ready recipes for TypeScript code generation. For the full
 
 ## Class with imports
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let user_type = TypeName::importable_type("./models", "User");
 let repo_type = TypeName::importable("./repository", "UserRepository");
 
@@ -39,6 +40,7 @@ let output = FileSpec::builder("user_service.ts")
     .unwrap()
     .render(80)
     .unwrap();
+# }
 ```
 
 ```typescript
@@ -56,9 +58,10 @@ export class UserService {
 
 ## Interface with generics
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     .visibility(Visibility::Public)
     .add_type_param(TypeParamSpec::new("T"))
@@ -78,6 +81,7 @@ let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```typescript
@@ -89,14 +93,16 @@ export interface Repository<T> {
 
 ## Type alias
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("UserId", TypeKind::TypeAlias)
     .visibility(Visibility::Public)
     .extends(TypeName::primitive("string"))
     .build()
     .unwrap();
+# }
 ```
 
 ```typescript
@@ -105,9 +111,10 @@ export type UserId = string;
 
 ## Enum
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Direction", TypeKind::Enum)
     .visibility(Visibility::Public)
     .add_variant(
@@ -136,6 +143,7 @@ let type_spec = TypeSpec::builder("Direction", TypeKind::Enum)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```typescript
@@ -149,9 +157,10 @@ export enum Direction {
 
 ## Abstract class
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let body = CodeBlock::of("console.log('handled')", ()).unwrap();
 
 let type_spec = TypeSpec::builder("BaseController", TypeKind::Class)
@@ -174,6 +183,7 @@ let type_spec = TypeSpec::builder("BaseController", TypeKind::Class)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```typescript

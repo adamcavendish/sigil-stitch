@@ -4,9 +4,10 @@ Practical, copy-paste-ready recipes for Rust code generation. For the full API o
 
 ## Struct with impl
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let body = CodeBlock::of("Self { name: name.into(), port }", ()).unwrap();
 
 let type_spec = TypeSpec::builder("Config", TypeKind::Struct)
@@ -35,9 +36,10 @@ let type_spec = TypeSpec::builder("Config", TypeKind::Struct)
     )
     .build()
     .unwrap();
+# }
 ```
 
-```rust
+```rust,ignore
 pub struct Config {
     pub name: String,
     pub port: u16,
@@ -52,10 +54,11 @@ impl Config {
 
 ## Enum with variants
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
+# fn main() {
 let type_spec = TypeSpec::builder("Expr", TypeKind::Enum)
     .visibility(Visibility::Public)
     .add_variant(EnumVariantSpec::new("Nil").unwrap())
@@ -75,9 +78,10 @@ let type_spec = TypeSpec::builder("Expr", TypeKind::Enum)
     )
     .build()
     .unwrap();
+# }
 ```
 
-```rust
+```rust,ignore
 pub enum Expr {
     Nil,
     Literal(i64),
@@ -91,25 +95,28 @@ pub enum Expr {
 
 ## Newtype
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Meters", TypeKind::Newtype)
     .visibility(Visibility::Public)
     .extends(TypeName::primitive("f64"))
     .build()
     .unwrap();
+# }
 ```
 
-```rust
+```rust,ignore
 pub struct Meters(f64);
 ```
 
 ## Trait
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Summary", TypeKind::Trait)
     .visibility(Visibility::Public)
     .add_method(
@@ -129,9 +136,10 @@ let type_spec = TypeSpec::builder("Summary", TypeKind::Trait)
     )
     .build()
     .unwrap();
+# }
 ```
 
-```rust
+```rust,ignore
 pub trait Summary {
     fn summarize(&self) -> String;
 
@@ -143,9 +151,10 @@ pub trait Summary {
 
 ## Type alias
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Result", TypeKind::TypeAlias)
     .visibility(Visibility::Public)
     .add_type_param(TypeParamSpec::new("T"))
@@ -155,9 +164,10 @@ let type_spec = TypeSpec::builder("Result", TypeKind::TypeAlias)
     ))
     .build()
     .unwrap();
+# }
 ```
 
-```rust
+```rust,ignore
 pub type Result<T> = std::result::Result<T, MyError>;
 ```
 
@@ -165,9 +175,10 @@ pub type Result<T> = std::result::Result<T, MyError>;
 
 Use `TypeName::qualified()` to render types with their full module path inline without generating a `use` statement:
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let field = FieldSpec::builder("data", TypeName::qualified("serde_json", "Value"))
     .visibility(Visibility::Public)
     .build()
@@ -181,9 +192,10 @@ let map_type = TypeName::generic(
         TypeName::qualified("serde_json", "Value"),
     ],
 );
+# }
 ```
 
-```rust
+```rust,ignore
 pub data: serde_json::Value
 
 std::collections::HashMap<String, serde_json::Value>

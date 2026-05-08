@@ -278,9 +278,6 @@ Create two test files following the existing pattern:
 ```rust,ignore
 mod golden;
 
-use sigil_stitch::code_block::CodeBlock;
-use sigil_stitch::lang::your_lang::YourLang;
-use sigil_stitch::type_name::TypeName;
 
 #[test]
 fn test_basic_statement() {

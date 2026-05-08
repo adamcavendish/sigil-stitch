@@ -4,10 +4,11 @@ Practical, copy-paste-ready recipes for C# code generation. For the full API of 
 
 ## Class with XML doc
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::csharp::CSharp;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::csharp::CSharp;
+# fn main() {
 let body = CodeBlock::of("return $\"Hello, {name}!\";", ()).unwrap();
 
 let ts = TypeSpec::builder("Greeter", TypeKind::Class)
@@ -30,6 +31,7 @@ let file = FileSpec::builder_with("Greeter.cs", CSharp::new())
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```csharp
@@ -47,10 +49,11 @@ public class Greeter {
 
 ## Interface
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::csharp::CSharp;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::csharp::CSharp;
+# fn main() {
 let ts = TypeSpec::builder("IRepository", TypeKind::Interface)
     .visibility(Visibility::Public)
     .add_type_param(TypeParamSpec::new("T"))
@@ -77,6 +80,7 @@ let file = FileSpec::builder_with("IRepository.cs", CSharp::new())
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```csharp
@@ -90,10 +94,11 @@ public interface IRepository<T> {
 
 ## Enum
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::csharp::CSharp;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::csharp::CSharp;
+# fn main() {
 let ts = TypeSpec::builder("Direction", TypeKind::Enum)
     .visibility(Visibility::Public)
     .add_variant(EnumVariantSpec::new("North").unwrap())
@@ -123,6 +128,7 @@ let file = FileSpec::builder_with("Direction.cs", CSharp::new())
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```csharp
@@ -136,10 +142,11 @@ public enum Direction {
 
 ## Async method with imports
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::csharp::CSharp;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::csharp::CSharp;
+# fn main() {
 let task_user = TypeName::importable("System.Threading.Tasks", "Task<User>");
 let user = TypeName::importable("MyApp.Models", "User");
 
@@ -165,6 +172,7 @@ let file = FileSpec::builder_with("UserService.cs", CSharp::new())
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```csharp

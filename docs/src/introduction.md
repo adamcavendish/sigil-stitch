@@ -67,22 +67,31 @@ implemented in sigil-stitch itself.
 owning chain pattern -- every setter takes `mut self` and returns `Self`, so you
 chain calls fluently:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
+# let body = CodeBlock::of("todo!()", ()).unwrap();
 let fun = FunSpec::builder("greet")
     .returns(TypeName::primitive("string"))
     .body(body)
     .build()
     .unwrap();
+# }
 ```
 
 `CodeBlockBuilder` is different: its methods take `&mut self` and return
 `&mut Self`, so you keep the builder in a `let mut` binding and call methods
 on it:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let mut cb = CodeBlock::builder();
 cb.add_statement("return user", ());
 let block = cb.build().unwrap();
+# }
 ```
 
 ## Quick orientation

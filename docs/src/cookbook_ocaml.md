@@ -4,9 +4,10 @@ Practical, copy-paste-ready recipes for OCaml code generation. For the full API 
 
 ## Record type
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("person", TypeKind::Struct)
     .doc("A person record.")
     .add_field(
@@ -20,6 +21,7 @@ let type_spec = TypeSpec::builder("person", TypeKind::Struct)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```ocaml
@@ -34,9 +36,10 @@ type person =
 
 ## Function with curried params
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let body = CodeBlock::of("List.map f xs", ()).unwrap();
 
 let fun = FunSpec::builder("transform")
@@ -46,6 +49,7 @@ let fun = FunSpec::builder("transform")
     .body(body)
     .build()
     .unwrap();
+# }
 ```
 
 ```ocaml
@@ -57,16 +61,19 @@ let transform (f : 'a -> 'b) (xs : 'a list) : 'b list =
 
 OCaml modules are structurally different from types -- they can contain multiple types and values. Use the `OCaml::module_block` helper to build a `module Name = struct ... end` block as a raw `CodeBlock`.
 
-```rust,ignore
-use sigil_stitch::code_block::CodeBlock;
-use sigil_stitch::lang::ocaml::OCaml;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::code_block::CodeBlock;
+# use sigil_stitch::lang::ocaml::OCaml;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let mut inner = CodeBlock::builder();
 inner.add_statement("let greeting = \"hello\"", ());
 inner.add_statement("let farewell = \"goodbye\"", ());
 let body = inner.build().unwrap();
 
 let module = OCaml::module_block("MyModule", body).unwrap();
+# }
 ```
 
 ```ocaml
@@ -78,13 +85,15 @@ end
 
 ## Type alias
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("string_list", TypeKind::TypeAlias)
     .extends(TypeName::primitive("string list"))
     .build()
     .unwrap();
+# }
 ```
 
 ```ocaml
@@ -95,9 +104,11 @@ type string_list = string list
 
 Pattern matching is built using `CodeBlock` control-flow methods. Use `begin_control_flow` for the outer binding, then `begin_control_flow_with_open` to open the `match` expression with no trailing brace.
 
-```rust,ignore
-use sigil_stitch::code_block::CodeBlock;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::code_block::CodeBlock;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let mut b = CodeBlock::builder();
 b.begin_control_flow("let describe color", ());
 b.begin_control_flow_with_open("match color with", (), "");
@@ -110,6 +121,7 @@ b.add_line();
 b.end_control_flow();
 b.end_control_flow();
 let block = b.build().unwrap();
+# }
 ```
 
 ```ocaml

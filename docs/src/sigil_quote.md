@@ -10,10 +10,11 @@ For background on the `%` format specifiers that `sigil_quote!` expands to, see
 
 ## Basic Usage
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 let user_type = TypeName::importable_type("./models", "User");
 
 let block = sigil_quote!(TypeScript {
@@ -23,6 +24,7 @@ let block = sigil_quote!(TypeScript {
     }
     return user;
 }).unwrap();
+# }
 ```
 
 The macro takes a language type followed by a braced body of target-language code.
@@ -51,62 +53,86 @@ It returns `Result<CodeBlock, SigilStitchError>`.
 
 ### Types (`$T`)
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let user_type = TypeName::importable_type("./models", "User");
 let block = sigil_quote!(TypeScript {
     const user: $T(user_type) = getUser();
 }).unwrap();
 // Expands to: __sigil_builder.add_statement("const user: %T = getUser()", (user_type,));
 // The import collector picks up User and generates: import type { User } from './models'
+# }
 ```
 
 ### Names (`$N`)
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let var_name = "myVariable";
 let block = sigil_quote!(TypeScript {
     const $N(var_name) = 42;
 }).unwrap();
 // Output: const myVariable = 42;
+# }
 ```
 
 ### String Literals (`$S`)
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let block = sigil_quote!(TypeScript {
     console.log($S("hello world"));
 }).unwrap();
 // Output: console.log('hello world');  (TypeScript uses single quotes)
+# }
 ```
 
 ### Literals (`$L`)
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let default_val = "0";
 let block = sigil_quote!(TypeScript {
     const count = $L(default_val);
 }).unwrap();
 // Output: const count = 0;
+# }
 ```
 
 ### Nested Code Blocks (`$C`)
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let inner = CodeBlock::of("doSomething()", ()).unwrap();
 let block = sigil_quote!(TypeScript {
     $C(inner);
 }).unwrap();
 // Output: doSomething();
+# }
 ```
 
 ### Dollar Escape (`$$`)
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let block = sigil_quote!(TypeScript {
     const price = $$100;
 }).unwrap();
 // Output contains: $ 100
 // Note: the tokenizer inserts a space between $ and 100
+# }
 ```
 
 ## Statement Rules
@@ -118,23 +144,33 @@ The macro classifies each line based on how it ends:
 Lines ending with `;` become statement calls (the renderer adds the language's
 statement terminator):
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     const x = 1;        // -> add_statement("const x = 1", ())
     const y = x + 1;    // -> add_statement("const y = x + 1", ())
-})
+})?;
+# Ok(())
+# }
 ```
 
 ### Brace Groups: Control Flow
 
 Lines ending with `{ ... }` (without a trailing `;`) become control flow:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     if (x > 0) {            // -> begin_control_flow("if(x > 0)", ())
         return true;         // -> add_statement("return true", ())
     }                        // -> end_control_flow()
-})
+})?;
+# Ok(())
+# }
 ```
 
 ### Object Literals vs Control Flow
@@ -142,25 +178,35 @@ sigil_quote!(TypeScript {
 A `{ ... }` followed by `;` is treated as part of a statement, not control flow.
 This is how the macro distinguishes object literals:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     const config = { timeout: 5000 };    // statement (has trailing ;)
     if (ready) {                          // control flow (no trailing ;)
         start();
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 ### Blank Lines: `add_line()`
 
 Blank lines in the macro body insert visual separators:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     const a = 1;
 
     const b = 2;    // blank line above becomes add_line()
-})
+})?;
+# Ok(())
+# }
 ```
 
 ### Comments: `$comment("text")`
@@ -168,14 +214,19 @@ sigil_quote!(TypeScript {
 Rust's proc macro tokenizer strips `//` comments, so they're invisible to the macro.
 Use `$comment()` instead:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     $comment("Initialize the connection pool");
     const pool = createPool();
-})
+})?;
 // Output:
 // // Initialize the connection pool
 // const pool = createPool();
+# Ok(())
+# }
 ```
 
 ## Control Flow
@@ -184,7 +235,10 @@ sigil_quote!(TypeScript {
 
 The macro detects `else` and `else if` chains after closing braces:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     if (x > 0) {
         return 1;
@@ -193,7 +247,9 @@ sigil_quote!(TypeScript {
     } else {
         return 0;
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 This expands to:
@@ -211,27 +267,40 @@ __sigil_builder.end_control_flow();
 
 Any tokens followed by `{ ... }` are treated as control flow:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     for (const item of items) {
         process(item);
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     try {
         riskyOperation();
     } catch (e) {
         handleError(e);
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 ### Nested Control Flow
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     if (users.length > 0) {
         for (const user of users) {
@@ -240,18 +309,25 @@ sigil_quote!(TypeScript {
             }
         }
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 ### Interpolation in Conditions
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let error_type = TypeName::importable_type("./errors", "NotFoundError");
 sigil_quote!(TypeScript {
     if (!user) {
         throw new $T(error_type)($S("not found"));
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 ## Custom Block Openers (`$open`)
@@ -263,30 +339,38 @@ By default, `{ ... }` in `sigil_quote!` uses the language's `block_syntax().bloc
 
 Use `$open("text")` immediately before `{` to override the opener for that block:
 
-```rust,ignore
-use sigil_stitch::lang::haskell::Haskell;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::haskell::Haskell;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 // Haskell type class needs " where" instead of the default " ="
 sigil_quote!(Haskell {
     class Functor f $open(" where") {
         fmap :: (a -> b) -> f a -> f b;
     }
-})
+})?;
 // Output: class Functor f where
 //             fmap :: (a -> b) -> f a -> f b
+# Ok(())
+# }
 ```
 
-```rust,ignore
-use sigil_stitch::lang::ocaml::OCaml;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::ocaml::OCaml;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 // OCaml module block needs " = struct" opener
 sigil_quote!(OCaml {
     module Foo $open(" = struct") {
         let x = 42;
     }
-})
+})?;
 // Output: module Foo = struct
 //             let x = 42
+# Ok(())
+# }
 ```
 
 Pass `$open("")` to suppress the block opener entirely.
@@ -296,9 +380,11 @@ Pass `$open("")` to suppress the block opener entirely.
 Use `$>` and `$<` as standalone directives to control indent level without
 control flow blocks:
 
-```rust,ignore
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::typescript::TypeScript;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     namespace Foo {
     $>
@@ -306,12 +392,14 @@ sigil_quote!(TypeScript {
     const y = 2;
     $<
     }
-})
+})?;
 // Output:
 // namespace Foo {
 //     const x = 1;
 //     const y = 2;
 // }
+# Ok(())
+# }
 ```
 
 These map to the `%>` and `%<` format specifiers in `CodeBlockBuilder`.
@@ -321,18 +409,24 @@ These map to the `%>` and `%<` format specifiers in `CodeBlockBuilder`.
 `$C_each(expr)` iterates over a collection of `CodeBlock` values and splices each
 one into the builder sequentially. It must appear at the start of a line.
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
+# let fields = vec!["name", "age"];
 let blocks: Vec<CodeBlock> = fields
     .iter()
     .map(|f| CodeBlock::of(&format!("this.{f} = null"), ()).unwrap())
     .collect();
 
-sigil_quote!(TypeScript {
+let _ = sigil_quote!(TypeScript {
     $C_each(blocks);
-})
+});
 // Output:
 // this.name = null;
 // this.age = null;
+# }
 ```
 
 Each item in the iterable is converted via `Into<CodeBlock>`, so you can pass any
@@ -350,7 +444,10 @@ Meta-conditionals control which builder calls are emitted **at Rust runtime**, a
 opposed to target-language `if`/`else` which emits control flow in the generated
 code. Use them when the structure of the output depends on a Rust-side condition.
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let include_debug = true;
 
 sigil_quote!(TypeScript {
@@ -358,14 +455,19 @@ sigil_quote!(TypeScript {
     $if(include_debug) {
         console.log($S("debug: x ="), x);
     }
-})
+})?;
 // When include_debug is true, output includes the console.log line.
 // When false, it's omitted entirely.
+# Ok(())
+# }
 ```
 
 ### `$else_if` and `$else`
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let mode = "production";
 
 sigil_quote!(TypeScript {
@@ -376,7 +478,9 @@ sigil_quote!(TypeScript {
     } $else {
         console.log($S("production mode"));
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 The conditions are arbitrary Rust expressions evaluated at runtime. The braces
@@ -387,7 +491,10 @@ produce target-language block syntax.
 
 Meta-conditionals can wrap target-language control flow and vice versa:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let use_guard = true;
 
 sigil_quote!(TypeScript {
@@ -396,7 +503,9 @@ sigil_quote!(TypeScript {
             throw new Error($S("unauthorized"));
         }
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 ## Meta-Loops (`$for`)
@@ -405,35 +514,45 @@ sigil_quote!(TypeScript {
 once per iteration. Like `$if`, it controls **which builder calls are made** — it
 does not produce target-language loop syntax.
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let fields = vec!["name", "age", "email"];
 
 sigil_quote!(TypeScript {
     $for(f in &fields) {
         this.$N(*f) = null;
     }
-})
+})?;
 // Output:
 // this.name = null;
 // this.age = null;
 // this.email = null;
+# Ok(())
+# }
 ```
 
 ### Destructuring Patterns
 
 Any Rust `for` pattern works:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let entries = vec![("x", "number"), ("y", "string")];
 
 sigil_quote!(TypeScript {
     $for((name, ty) in &entries) {
         let $N(*name): $L(*ty);
     }
-})
+})?;
 // Output:
 // let x: number;
 // let y: string;
+# Ok(())
+# }
 ```
 
 ### Nesting
@@ -441,7 +560,10 @@ sigil_quote!(TypeScript {
 `$for` can nest inside `$if` and vice versa, and can contain target-language
 control flow:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let variants = vec!["A", "B", "C"];
 
 sigil_quote!(TypeScript {
@@ -449,7 +571,9 @@ sigil_quote!(TypeScript {
         case $S(*v):
             return $S(*v);
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 ### Combining with Interpolation Markers
@@ -457,14 +581,21 @@ sigil_quote!(TypeScript {
 All interpolation markers (`$T`, `$N`, `$S`, `$L`, `$C`, `$W`, `$join`) work
 inside `$for` bodies, and the loop variable is in scope:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn get_types() -> Vec<TypeName> { vec![TypeName::primitive("User")] }
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let types: Vec<TypeName> = get_types();
 
 sigil_quote!(TypeScript {
     $for(t in &types) {
         import type { $T(t.clone()) };
     }
-})
+})?;
+# Ok(())
+# }
 ```
 
 ## Meta-Bindings (`$let`)
@@ -474,7 +605,10 @@ real `let` statement in the generated Rust code, making it possible to compute
 intermediate values — including fallible expressions with `?` — inside `$for` and
 `$if` bodies.
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let fields = vec![("name", "String"), ("age", "u32")];
 
 sigil_quote!(TypeScript {
@@ -482,10 +616,12 @@ sigil_quote!(TypeScript {
         $let(upper = name.to_uppercase());
         const $N(upper): $L(*ty);
     }
-})
+})?;
 // Output:
 // const NAME: String;
 // const AGE: u32;
+# Ok(())
+# }
 ```
 
 ### Syntax
@@ -537,29 +673,39 @@ $for(v in &values) {
 `$join(sep, iter)` joins the string representations of an iterable's items with
 a separator. It expands to a `%L` specifier internally.
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let items = vec!["a", "b", "c"];
 
 sigil_quote!(TypeScript {
     const values = [$join(", ", items)];
-})
+})?;
 // Output: const values = [a, b, c];
+# Ok(())
+# }
 ```
 
 The separator is any Rust expression that evaluates to something accepted by
 `Vec<String>::join()` (typically a `&str`). Each item is converted via `ToString`.
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 let fields = vec!["name", "age", "email"];
 let assignments: Vec<String> = fields.iter().map(|f| format!("this.{f} = {f}")).collect();
 
 sigil_quote!(TypeScript {
     $join(";\n", assignments)
-})
+})?;
 // Output:
 // this.name = name;
 // this.age = age;
 // this.email = email
+# Ok(())
+# }
 ```
 
 ## Line Continuation (`$+`)
@@ -572,25 +718,33 @@ For expressions that span multiple lines (common in Haskell, OCaml, or long
 function calls), place `$+` at the end of a line to suppress the split and
 continue the statement on the next line:
 
-```rust,ignore
-use sigil_stitch::lang::haskell::Haskell;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::haskell::Haskell;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(Haskell {
     mapM_ $+
         putStrLn $+
         items
-})
+})?;
 // Output: mapM_ putStrLn items
+# Ok(())
+# }
 ```
 
-```rust,ignore
-use sigil_stitch::lang::kotlin::Kotlin;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::kotlin::Kotlin;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(Kotlin {
     val result = someFunction( $+
         arg1, arg2);
-})
+})?;
 // Output: val result = someFunction(arg1, arg2);
+# Ok(())
+# }
 ```
 
 Without `$+`, each source line becomes its own statement. For semicolon-based
@@ -601,29 +755,41 @@ line breaks.
 
 The same syntax works with any language type:
 
-```rust,ignore
-use sigil_stitch::lang::python::Python;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::python::Python;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(Python {
     if x > 0:
         return True
-})
+})?;
+# Ok(())
+# }
 ```
 
-```rust,ignore
-use sigil_stitch::lang::go_lang::GoLang;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::go_lang::GoLang;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(GoLang {
     x := 42;
-})
+})?;
+# Ok(())
+# }
 ```
 
-```rust,ignore
-use sigil_stitch::lang::rust_lang::RustLang;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::rust_lang::RustLang;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(RustLang {
     let x: i32 = 42;
-})
+})?;
+# Ok(())
+# }
 ```
 
 ## Known Limitations and Quirks
@@ -687,10 +853,15 @@ Use `$comment("text")` for comments in generated code.
 The expression inside `$T(...)`, `$S(...)`, etc. is passed through as an opaque
 token stream. Any valid Rust expression works:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 sigil_quote!(TypeScript {
     const x: $T(TypeName::primitive("string")) = $S("hello".to_uppercase());
-})
+})?;
+# Ok(())
+# }
 ```
 
 ### Blank Line Detection

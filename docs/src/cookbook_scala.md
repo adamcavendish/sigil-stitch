@@ -4,9 +4,10 @@ Practical, copy-paste-ready recipes for Scala code generation. For the full API 
 
 ## Case class
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("User", TypeKind::Struct)
     .doc("A user case class.")
     .add_primary_constructor_param(
@@ -20,6 +21,7 @@ let type_spec = TypeSpec::builder("User", TypeKind::Struct)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```scala
@@ -32,9 +34,10 @@ case class User(name: String, age: Int, email: String) {
 
 ## Trait with type parameter
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Repository", TypeKind::Trait)
     .add_type_param(TypeParamSpec::new("T"))
     .doc("Generic data repository.")
@@ -53,6 +56,7 @@ let type_spec = TypeSpec::builder("Repository", TypeKind::Trait)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```scala
@@ -68,10 +72,11 @@ trait Repository[T] {
 
 ## Enum
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::spec::enum_variant_spec::EnumVariantSpec;
+# fn main() {
 let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .doc("Supported colors.")
     .add_variant(EnumVariantSpec::new("Red").unwrap())
@@ -79,6 +84,7 @@ let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .add_variant(EnumVariantSpec::new("Blue").unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```scala
@@ -94,9 +100,10 @@ enum Color {
 
 ## Bounded type parameter
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let body = CodeBlock::of("if (a.compareTo(b) >= 0) a else b", ()).unwrap();
 
 let fun = FunSpec::builder("max")
@@ -109,6 +116,7 @@ let fun = FunSpec::builder("max")
     .body(body)
     .build()
     .unwrap();
+# }
 ```
 
 ```scala
@@ -119,13 +127,15 @@ def max[T <: Comparable[T]](a: T, b: T): T = {
 
 ## Newtype
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Meters", TypeKind::Newtype)
     .extends(TypeName::primitive("Double"))
     .build()
     .unwrap();
+# }
 ```
 
 ```scala

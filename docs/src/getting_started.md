@@ -21,10 +21,11 @@ sigil-stitch requires Rust edition 2024 and MSRV 1.88.0. Runtime dependencies (`
 
 A `CodeBlock` is a composable code fragment built from format strings and typed arguments. Here's a complete example that generates a TypeScript file with an automatic import:
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::code_block::StringLitArg;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::code_block::StringLitArg;
+# fn main() {
 let user_type = TypeName::importable_type("./models", "User");
 
 let mut cb = CodeBlock::builder();
@@ -42,6 +43,7 @@ let file = FileSpec::builder("user.ts")
 
 let output = file.render(80).unwrap();
 println!("{output}");
+# }
 ```
 
 This produces:
@@ -64,16 +66,18 @@ The `()` in `cb.add_statement("return user", ())` means "no arguments" -- the fo
 
 The `sigil_quote!` macro lets you write target-language code inline, with less ceremony than the builder API. Here's the same example:
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 let user_type = TypeName::importable_type("./models", "User");
 
 let body = sigil_quote!(TypeScript {
     const user: $T(user_type) = await getUser($S("id"));
     return user;
 }).unwrap();
+# }
 ```
 
 This produces the same `CodeBlock` as the builder version above. The macro uses `$T` instead of `%T` and `$S` instead of `%S`, but the result is identical -- same import tracking, same rendering, same output when passed to `FileSpec`.
@@ -86,10 +90,11 @@ For functions, types, and other declarations, use the Spec layer. Specs carry st
 
 Here's a function declaration:
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 let user_type = TypeName::importable_type("./models", "User");
 
 let fun = FunSpec::builder("getActiveUsers")
@@ -109,6 +114,7 @@ let file = FileSpec::builder("users.ts")
 
 let output = file.render(80).unwrap();
 println!("{output}");
+# }
 ```
 
 This produces a complete TypeScript file with the function declaration, including the `async` keyword, the `User[]` return type annotation, and the import for `User`.
@@ -131,16 +137,19 @@ Each language type (`TypeScript`, `JavaScript`, `Python`, `JavaLang`, and so on)
 is a struct with public fields. The ones you usually want to tweak are exposed
 as fluent `with_*` builders:
 
-```rust,ignore
-use sigil_stitch::lang::typescript::TypeScript;
-use sigil_stitch::lang::config::QuoteStyle;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::typescript::TypeScript;
+# use sigil_stitch::lang::config::QuoteStyle;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Prettier-style: double quotes, no semicolons, .tsx extension.
 let ts = TypeScript::new()
     .with_quote_style(QuoteStyle::Double)
     .with_semicolons(false)
     .with_extension("tsx")
     .with_indent("    ");
+# }
 ```
 
 | Language     | `with_quote_style` | `with_indent` | `with_semicolons` | `with_extension` |

@@ -14,3 +14,6 @@ edit-url-template = "https://github.com/adamcavendish/sigil-stitch/edit/master/d
 
 [output.html.search]
 enable = true
+
+[rust]
+edition = "2024"

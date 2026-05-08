@@ -5,8 +5,6 @@ Practical, copy-paste-ready recipes for Kotlin code generation. For the full API
 ## Data class
 
 ```rust,ignore
-use sigil_stitch::prelude::*;
-
 let type_spec = TypeSpec::builder("User", TypeKind::Class)
     .visibility(Visibility::Public)
     .add_modifier("data")
@@ -25,9 +23,10 @@ data class User(
 
 ## Enum
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .doc("Supported colors.")
     .add_variant(EnumVariantSpec::new("RED").unwrap())
@@ -35,6 +34,7 @@ let type_spec = TypeSpec::builder("Color", TypeKind::Enum)
     .add_variant(EnumVariantSpec::new("BLUE").unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```kotlin
@@ -50,9 +50,10 @@ internal enum class Color {
 
 ## Interface
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     .add_type_param(TypeParamSpec::new("T"))
     .doc("Generic data repository.")
@@ -77,6 +78,7 @@ let type_spec = TypeSpec::builder("Repository", TypeKind::Interface)
     )
     .build()
     .unwrap();
+# }
 ```
 
 ```kotlin
@@ -94,9 +96,10 @@ internal interface Repository<T> {
 
 ## Suspend function
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let user = TypeName::importable("com.example.model", "User");
 
 let body = CodeBlock::of("return api.fetchUser(id)", ()).unwrap();
@@ -114,6 +117,7 @@ let file = FileSpec::builder("Api.kt")
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```kotlin

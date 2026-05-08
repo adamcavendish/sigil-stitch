@@ -4,13 +4,15 @@ Practical, copy-paste-ready recipes for C code generation. For the full API of e
 
 ## Typedef
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Meters", TypeKind::TypeAlias)
     .extends(TypeName::primitive("double"))
     .build()
     .unwrap();
+# }
 ```
 
 ```c
@@ -19,9 +21,10 @@ typedef double Meters;
 
 ## Struct with fields
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Config", TypeKind::Struct)
     .doc("Application configuration.")
     .add_field(
@@ -48,6 +51,7 @@ let file = FileSpec::builder("config.h")
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```c
@@ -63,9 +67,10 @@ struct Config {
 
 ## Function declaration
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let fun = FunSpec::builder("process")
     .add_param(ParameterSpec::new("data", TypeName::primitive("const char*")).unwrap())
     .add_param(ParameterSpec::new("len", TypeName::primitive("size_t")).unwrap())
@@ -78,6 +83,7 @@ let file = FileSpec::builder("api.h")
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```c
@@ -86,9 +92,10 @@ int process(const char* data, size_t len);
 
 ## Enum
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
 let type_spec = TypeSpec::builder("Direction", TypeKind::Enum)
     .doc("Cardinal directions.")
     .add_variant(EnumVariantSpec::new("UP").unwrap())
@@ -97,6 +104,7 @@ let type_spec = TypeSpec::builder("Direction", TypeKind::Enum)
     .add_variant(EnumVariantSpec::new("RIGHT").unwrap())
     .build()
     .unwrap();
+# }
 ```
 
 ```c

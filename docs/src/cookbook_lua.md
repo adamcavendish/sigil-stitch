@@ -6,10 +6,11 @@ Lua is an end-delimited language (`end` instead of `}`). sigil-stitch handles th
 
 ## Function
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::lua::Lua;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::lua::Lua;
+# fn main() {
 let body = sigil_quote!(Lua {
     function greet(name) {
         return "Hello, "..name
@@ -21,6 +22,7 @@ let file = FileSpec::builder_with("greeter.lua", Lua::new())
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```lua
@@ -33,10 +35,11 @@ end
 
 Use `TypeName::importable` to track Lua `require()` imports. The module path is converted to a slash-separated path in the `require()` call.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::lua::Lua;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::lua::Lua;
+# fn main() {
 let json = TypeName::importable("dkjson", "json");
 let inspect = TypeName::importable("inspect", "inspect");
 
@@ -49,6 +52,7 @@ let file = FileSpec::builder_with("app.lua", Lua::new())
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```lua
@@ -62,10 +66,11 @@ local inspect = require("inspect");
 
 `sigil_quote!` supports `if/elseif/else`, `for/do`, and `while/do` blocks. Use `{` and `}` in the macro to delimit bodies -- they render as indented blocks closed by `end`.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::lua::Lua;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::lua::Lua;
+# fn main() {
 let block = sigil_quote!(Lua {
     if x > 0 then {
         return $S("positive")
@@ -81,6 +86,7 @@ let file = FileSpec::builder_with("classify.lua", Lua::new())
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```lua
@@ -97,10 +103,11 @@ end
 
 Braces after `=` or in assignments are recognized as table constructors (not control flow). No `end` is emitted -- the braces render as literal `{...}`.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::lua::Lua;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::lua::Lua;
+# fn main() {
 let block = sigil_quote!(Lua {
     local user = {
         name = $S("Bob"),
@@ -114,6 +121,7 @@ let file = FileSpec::builder_with("user.lua", Lua::new())
     .build()
     .unwrap();
 let output = file.render(80).unwrap();
+# }
 ```
 
 ```lua

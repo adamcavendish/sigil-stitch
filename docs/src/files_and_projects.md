@@ -6,10 +6,12 @@ This chapter covers the import system, file rendering, and multi-file project ge
 
 Explicit import control for cases where `%T` / `TypeName::Importable` is not sufficient. Add to a FileSpec via `add_import()`.
 
-```rust,ignore
-use sigil_stitch::spec::import_spec::ImportSpec;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::spec::import_spec::ImportSpec;
+# use sigil_stitch::lang::typescript::TypeScript;
+# use sigil_stitch::prelude::*;
+# fn main() {
 // Forced named import (even without %T usage in code)
 let spec = ImportSpec::named("./models", "User");
 
@@ -24,6 +26,7 @@ let spec = ImportSpec::side_effect("./polyfill");
 
 // Wildcard import: import * from './utils'
 let spec = ImportSpec::wildcard("./utils");
+# }
 ```
 
 Most of the time you do not need `ImportSpec` -- imports driven by `%T` and `TypeName::importable()` handle the common case. Use `ImportSpec` for forced imports, side-effect imports, and wildcard imports.
@@ -36,10 +39,11 @@ The top-level file orchestrator. Combines code blocks, type declarations, and fu
 2. **Collect imports** -- Walk all blocks, extract import references from `%T` types
 3. **Render** -- Emit the import header, then the body with resolved names and pretty printing
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 let user = TypeName::importable_type("./models", "User");
 
 let mut cb = CodeBlock::builder();
@@ -55,13 +59,18 @@ let output = file.render(80).unwrap();
 // import type { User } from './models'
 //
 // const u: User = getUser();
+# }
 ```
 
 You can mix member types freely: `add_code()` for raw CodeBlocks, `add_type()` for TypeSpec, `add_function()` for FunSpec, `add_raw()` for escape-hatch strings with no import tracking.
 
 A file header (license comment, package declaration) can be set with `.header()`:
 
-```rust,ignore
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
+# let service_type = TypeSpec::builder("Service", TypeKind::Class).build().unwrap();
 let mut header_b = CodeBlock::builder();
 header_b.add("// License: MIT", ());
 let header = header_b.build().unwrap();
@@ -71,16 +80,18 @@ let file = FileSpec::builder("service.ts")
     .add_type(service_type)
     .build()
     .unwrap();
+# }
 ```
 
 ## ProjectSpec
 
 Multi-file generation. Wraps multiple FileSpecs, renders them all, and can optionally write to the filesystem.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 // Build individual files
 let models = FileSpec::builder("src/models.ts")
     .add_type(
@@ -98,7 +109,8 @@ let index = FileSpec::builder("src/index.ts")
 let project = ProjectSpec::builder()
     .add_file(models)
     .add_file(index)
-    .build();
+    .build()
+    .unwrap();
 
 // Render all files in memory
 let rendered = project.render(80).unwrap();
@@ -108,6 +120,7 @@ for file in &rendered {
 
 // Or write directly to disk
 // project.write_to(Path::new("./output"), 80).unwrap();
+# }
 ```
 
 Each file resolves imports independently. `render()` returns `Vec<RenderedFile>` with `path` and `content` fields. `write_to()` creates parent directories as needed.
@@ -116,10 +129,11 @@ Each file resolves imports independently. `render()` returns `Vec<RenderedFile>`
 
 A complete TypeScript class with imports, fields, a constructor, and a method -- from builder calls to rendered output.
 
-```rust,ignore
-use sigil_stitch::prelude::*;
-use sigil_stitch::lang::typescript::TypeScript;
-
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
 // Define an imported type
 let repo_type = TypeName::importable_type("./repository", "UserRepository");
 
@@ -170,6 +184,7 @@ let file = FileSpec::builder("user_service.ts")
     .unwrap();
 
 let output = file.render(80).unwrap();
+# }
 ```
 
 Rendered output:
