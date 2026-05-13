@@ -115,6 +115,55 @@ let type_spec = TypeSpec::builder("AdminService", TypeKind::Class)
 # }
 ```
 
+### Embedded types (Go struct composition)
+
+Use `add_embedded(TypeName)` for unnamed type references inside a struct body. This models Go's embedded field pattern where a type is included by name without a field identifier:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::go_lang::GoLang;
+# use sigil_stitch::prelude::*;
+# fn main() {
+let type_spec = TypeSpec::builder("UserAdmin", TypeKind::Struct)
+    .add_embedded(TypeName::primitive("User"))
+    .add_embedded(TypeName::primitive("Admin"))
+    .add_field(
+        FieldSpec::builder("Role", TypeName::primitive("string"))
+            .build()
+            .unwrap(),
+    )
+    .build()
+    .unwrap();
+// type UserAdmin struct {
+//     User
+//     Admin
+//     Role string
+// }
+# }
+```
+
+Embedded types render before regular fields. If the embedded type is `TypeName::importable(...)`, its import is tracked automatically via `%T`. This works across languages — for Go interfaces, embedded types produce interface composition:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::lang::go_lang::GoLang;
+# use sigil_stitch::prelude::*;
+# fn main() {
+let io_reader = TypeName::importable("io", "Reader");
+let io_writer = TypeName::importable("io", "Writer");
+
+let type_spec = TypeSpec::builder("ReadWriter", TypeKind::Interface)
+    .add_embedded(io_reader)
+    .add_embedded(io_writer)
+    .build()
+    .unwrap();
+// type ReadWriter interface {
+//     io.Reader
+//     io.Writer
+// }
+# }
+```
+
 ### Type aliases
 
 `TypeKind::TypeAlias` emits a single-line type alias declaration with no body. The aliased target is set via `.extends()` (exactly one required). No fields, methods, or variants are allowed.
@@ -289,6 +338,10 @@ let ann = AnnotationSpec::new("allow").arg("dead_code");
 let ann = AnnotationSpec::new("cfg")
     .arg("test")
     .arg("feature = \"nightly\"");
+
+// Bulk arguments from an iterator: #[derive(Debug, Clone, Serialize)]
+let ann = AnnotationSpec::new("derive")
+    .args(["Debug", "Clone", "Serialize"]);
 # }
 ```
 

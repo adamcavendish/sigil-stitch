@@ -461,3 +461,157 @@ fn test_emittable_returns_multiple_blocks_for_rust() {
         blocks.len()
     );
 }
+
+// ── Embedded types ──────────────────────────────────────
+
+fn render_blocks_go(blocks: &[CodeBlock]) -> String {
+    use sigil_stitch::lang::go_lang::GoLang;
+    let lang = GoLang::new();
+    let imports = ImportGroup::new();
+    let mut output = String::new();
+    for (i, block) in blocks.iter().enumerate() {
+        if i > 0 {
+            output.push('\n');
+        }
+        let mut renderer = CodeRenderer::new(&lang, &imports, 80);
+        output.push_str(&renderer.render(block).unwrap());
+    }
+    output
+}
+
+#[test]
+fn test_embedded_go_struct_emit() {
+    use sigil_stitch::lang::go_lang::GoLang;
+    let spec = TypeSpec::builder("UserAdmin", TypeKind::Struct)
+        .add_embedded(TypeName::primitive("User"))
+        .add_embedded(TypeName::primitive("Admin"))
+        .add_field(
+            FieldSpec::builder("Role", TypeName::primitive("string"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+    let blocks = spec.emit(&GoLang::new()).unwrap();
+    let output = render_blocks_go(&blocks);
+    assert!(output.contains("User\n"), "embedded User: {output}");
+    assert!(output.contains("Admin\n"), "embedded Admin: {output}");
+    assert!(output.contains("Role string"), "field Role: {output}");
+    let user_pos = output.find("User").unwrap();
+    let role_pos = output.find("Role").unwrap();
+    assert!(
+        user_pos < role_pos,
+        "embedded types should come before fields"
+    );
+}
+
+#[test]
+fn test_embedded_ts_interface_emit() {
+    let spec = TypeSpec::builder("AdminUser", TypeKind::Interface)
+        .add_embedded(TypeName::primitive("BaseUser"))
+        .add_embedded(TypeName::primitive("AdminRole"))
+        .add_field(
+            FieldSpec::builder("permissions", TypeName::primitive("string[]"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+    let blocks = spec.emit(&TypeScript::new()).unwrap();
+    let output = render_blocks_ts(&blocks);
+    assert!(output.contains("BaseUser;"), "embedded BaseUser: {output}");
+    assert!(
+        output.contains("AdminRole;"),
+        "embedded AdminRole: {output}"
+    );
+    assert!(
+        output.contains("permissions: string[];"),
+        "field permissions: {output}"
+    );
+}
+
+#[test]
+fn test_embedded_rust_struct_emit() {
+    let spec = TypeSpec::builder("Combined", TypeKind::Struct)
+        .add_embedded(TypeName::primitive("Base"))
+        .add_field(
+            FieldSpec::builder("extra", TypeName::primitive("String"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+    let blocks = spec.emit(&RustLang::new()).unwrap();
+    let output = render_blocks_rs(&blocks);
+    assert!(output.contains("Base,"), "embedded Base: {output}");
+    assert!(output.contains("extra: String,"), "field extra: {output}");
+}
+
+#[test]
+fn test_embedded_only_no_fields() {
+    use sigil_stitch::lang::go_lang::GoLang;
+    let spec = TypeSpec::builder("ReadCloser", TypeKind::Interface)
+        .add_embedded(TypeName::primitive("Reader"))
+        .add_embedded(TypeName::primitive("Closer"))
+        .build()
+        .unwrap();
+    let blocks = spec.emit(&GoLang::new()).unwrap();
+    let output = render_blocks_go(&blocks);
+    assert!(output.contains("Reader\n"), "Reader embedded: {output}");
+    assert!(output.contains("Closer\n"), "Closer embedded: {output}");
+}
+
+#[test]
+fn test_embedded_with_methods_after() {
+    let spec = TypeSpec::builder("Controller", TypeKind::Class)
+        .add_embedded(TypeName::primitive("BaseHandler"))
+        .add_field(
+            FieldSpec::builder("name", TypeName::primitive("string"))
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("handle")
+                .returns(TypeName::primitive("void"))
+                .body(CodeBlock::of("// handle", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+    let blocks = spec.emit(&TypeScript::new()).unwrap();
+    let output = render_blocks_ts(&blocks);
+    assert!(output.contains("BaseHandler;"), "embedded: {output}");
+    assert!(output.contains("name: string;"), "field: {output}");
+    assert!(output.contains("handle(): void {"), "method: {output}");
+    let embedded_pos = output.find("BaseHandler").unwrap();
+    let field_pos = output.find("name:").unwrap();
+    let method_pos = output.find("handle()").unwrap();
+    assert!(embedded_pos < field_pos, "embedded before field");
+    assert!(field_pos < method_pos, "field before method");
+}
+
+#[test]
+fn test_embedded_import_tracking() {
+    use sigil_stitch::lang::go_lang::GoLang;
+    let io_reader = TypeName::importable("io", "Reader");
+    let spec = TypeSpec::builder("MyReader", TypeKind::Struct)
+        .add_embedded(io_reader)
+        .build()
+        .unwrap();
+
+    let file = sigil_stitch::spec::file_spec::FileSpec::builder_with("reader.go", GoLang::new())
+        .header(CodeBlock::of("package main", ()).unwrap())
+        .add_type(spec)
+        .build()
+        .unwrap();
+    let output = file.render(80).unwrap();
+    assert!(
+        output.contains("import"),
+        "should have import statement: {output}"
+    );
+    assert!(
+        output.contains("\"io\""),
+        "should import io package: {output}"
+    );
+}

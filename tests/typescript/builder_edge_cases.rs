@@ -262,3 +262,85 @@ fn test_optional_field() {
 
     golden::assert_golden("typescript/optional_field.ts", &output);
 }
+
+// ── %N keyword escaping ─────────────────────────────────
+
+#[test]
+fn test_name_does_not_escape_ts_reserved_as_identifiers() {
+    // TypeScript reserves keywords but they're valid in many positions.
+    // escape_reserved uses the default (append _) for TS.
+    let keywords = ["class", "function", "import", "export", "return"];
+    for kw in keywords {
+        let block = CodeBlock::of("const %N = 1", NameArg(kw.into())).unwrap();
+        let file = FileSpec::builder("test.ts")
+            .add_code(block)
+            .build()
+            .unwrap();
+        let output = file.render(80).unwrap();
+        assert!(
+            output.contains(&format!("{kw}_")),
+            "Expected '{kw}_' for reserved word '{kw}', got: {output}"
+        );
+    }
+}
+
+#[test]
+fn test_name_no_escape_ts_non_keywords() {
+    let names = ["user", "className", "functionName", "exportData"];
+    for name in names {
+        let block = CodeBlock::of("const %N = 1", NameArg(name.into())).unwrap();
+        let file = FileSpec::builder("test.ts")
+            .add_code(block)
+            .build()
+            .unwrap();
+        let output = file.render(80).unwrap();
+        assert!(
+            output.contains(&format!("const {name} = 1")),
+            "Expected 'const {name} = 1', got: {output}"
+        );
+    }
+}
+
+#[test]
+fn test_name_escape_multiple_in_one_line() {
+    let block = CodeBlock::of(
+        "const %N: %N = new %N()",
+        (
+            NameArg("class".into()),
+            NameArg("MyType".into()),
+            NameArg("MyType".into()),
+        ),
+    )
+    .unwrap();
+    let file = FileSpec::builder("test.ts")
+        .add_code(block)
+        .build()
+        .unwrap();
+    let output = file.render(80).unwrap();
+    assert!(output.contains("const class_: MyType = new MyType()"));
+}
+
+// ── Embedded types in TypeScript interface ───────────────
+
+#[test]
+fn test_embedded_in_ts_interface() {
+    let file = FileSpec::builder("models.ts")
+        .add_type(
+            TypeSpec::builder("AdminUser", TypeKind::Interface)
+                .visibility(Visibility::Public)
+                .add_embedded(TypeName::importable_type("./base", "BaseUser"))
+                .add_embedded(TypeName::importable_type("./roles", "AdminRole"))
+                .add_field(
+                    FieldSpec::builder("permissions", TypeName::primitive("string[]"))
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+
+    let output = file.render(80).unwrap();
+    golden::assert_golden("typescript/embedded_interface.ts", &output);
+}

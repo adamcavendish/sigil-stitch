@@ -100,7 +100,8 @@ impl<'a> CodeRenderer<'a> {
                 }
                 CodeNode::NameRef(name) => {
                     self.ensure_indent();
-                    self.emit(name);
+                    let escaped = self.lang.escape_reserved(name);
+                    self.emit(&escaped);
                 }
                 CodeNode::StringLit(s) => {
                     self.ensure_indent();
@@ -202,7 +203,7 @@ impl<'a> CodeRenderer<'a> {
             let node_doc = match node {
                 CodeNode::Literal(text) => BoxDoc::text(text.clone()),
                 CodeNode::TypeRef(tn) => self.resolve_type_doc(tn),
-                CodeNode::NameRef(name) => BoxDoc::text(name.clone()),
+                CodeNode::NameRef(name) => BoxDoc::text(self.lang.escape_reserved(name)),
                 CodeNode::StringLit(s) => BoxDoc::text(self.lang.render_string_literal(s)),
                 CodeNode::InlineLiteral(s) => BoxDoc::text(s.clone()),
                 CodeNode::Nested(block) => self.nodes_to_doc(&block.nodes),

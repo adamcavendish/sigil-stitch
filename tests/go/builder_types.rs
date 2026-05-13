@@ -154,3 +154,28 @@ fn test_generic_function() {
     let output = file.render(80).unwrap();
     golden::assert_golden("go/generic_function.go", &output);
 }
+
+#[test]
+fn test_embedded_struct() {
+    let file = FileSpec::builder_with("admin.go", GoLang::new())
+        .header(CodeBlock::of("package models", ()).unwrap())
+        .add_type(
+            TypeSpec::builder("UserAdmin", TypeKind::Struct)
+                .doc("UserAdmin composes User and Admin.")
+                .add_embedded(TypeName::primitive("User"))
+                .add_embedded(TypeName::primitive("Admin"))
+                .add_field(
+                    FieldSpec::builder("Role", TypeName::primitive("string"))
+                        .tag("json:\"role\"")
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+
+    let output = file.render(80).unwrap();
+    golden::assert_golden("go/embedded_struct.go", &output);
+}
