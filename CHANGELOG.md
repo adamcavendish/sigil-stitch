@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.1
+
+### Added
+
+- **Embedded types** — `TypeSpec::add_embedded(TypeName)` for Go struct
+  composition and interface embedding. Renders unnamed type references before
+  regular fields with automatic import tracking via `%T`.
+- **`AnnotationSpec::args(iter)`** — bulk argument addition for annotations.
+  Enables `AnnotationSpec::new("derive").args(["Debug", "Clone", "Serialize"])`.
+- **mdbook doc-test CI** — all Rust code examples in the mdbook are now compiled
+  and tested via `mdbook test -L target/debug/deps`. Added `just book-test`
+  recipe and CI workflow step.
+- **C# and Lua cookbook pages** — mdbook and README updated with language recipes
+  and cross-language comparison entries.
+
+### Changed
+
+- **`%N` keyword escaping** — `%N` / `$N` now calls `lang.escape_reserved()`
+  at render time. Reserved words are automatically escaped (Rust: `r#type`,
+  Go/Python: `type_`). Previously emitted the name verbatim.
+
 ## 0.5.0
 
 ### Added
