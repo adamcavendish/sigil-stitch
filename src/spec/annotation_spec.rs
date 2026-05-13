@@ -104,6 +104,21 @@ impl AnnotationSpec {
         self
     }
 
+    /// Add multiple arguments at once.
+    ///
+    /// Arguments are joined with `", "` inside parentheses.
+    ///
+    /// ```text
+    /// AnnotationSpec::new("derive")
+    ///     .args(["Debug", "Clone", "Serialize"])
+    /// // Rust: #[derive(Debug, Clone, Serialize)]
+    /// ```
+    pub fn args(mut self, arguments: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.arguments
+            .extend(arguments.into_iter().map(|a| a.into()));
+        self
+    }
+
     /// Emit this annotation as a `CodeBlock` using the language's annotation syntax.
     ///
     /// Called during spec `emit()` methods which have access to `&L`.

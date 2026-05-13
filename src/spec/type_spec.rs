@@ -51,6 +51,8 @@ pub struct TypeSpec {
     pub(crate) kind: TypeKind,
     pub(crate) modifiers: Modifiers,
     pub(crate) doc: Vec<String>,
+    #[serde(default)]
+    pub(crate) embedded_types: Vec<TypeName>,
     pub(crate) fields: Vec<FieldSpec>,
     pub(crate) properties: Vec<PropertySpec>,
     pub(crate) methods: Vec<FunSpec>,
@@ -76,6 +78,7 @@ impl TypeSpec {
             kind,
             modifiers: Modifiers::default(),
             doc: Vec::new(),
+            embedded_types: Vec::new(),
             fields: Vec::new(),
             properties: Vec::new(),
             methods: Vec::new(),
@@ -152,6 +155,13 @@ impl TypeSpec {
         let has_trailing_members =
             !self.fields.is_empty() || !self.properties.is_empty() || !self.methods.is_empty();
 
+        // Embedded types (Go struct composition: unnamed type references).
+        for embedded in &self.embedded_types {
+            let term = lang.block_syntax().field_terminator;
+            cb.add(&format!("%T{term}"), embedded.clone());
+            cb.add_line();
+        }
+
         if ea.variants_before_fields {
             // Variants first (Java/Kotlin pattern).
             if !self.variants.is_empty() {
@@ -178,7 +188,8 @@ impl TypeSpec {
                 self.emit_variants(&mut cb, lang, has_trailing_members)?;
             }
         }
-        let has_body_above = !self.fields.is_empty() || !self.variants.is_empty();
+        let has_body_above =
+            !self.embedded_types.is_empty() || !self.fields.is_empty() || !self.variants.is_empty();
         // Properties (after fields, before methods).
         if !self.properties.is_empty() {
             if has_body_above {
@@ -254,6 +265,12 @@ impl TypeSpec {
             cb.add("%L", body_prefix);
             cb.add_line();
             cb.add("%>", ());
+        }
+        // Embedded types (Go struct composition).
+        for embedded in &self.embedded_types {
+            let term = lang.block_syntax().field_terminator;
+            cb.add(&format!("%T{term}"), embedded.clone());
+            cb.add_line();
         }
         for field in &self.fields {
             cb.add_code(field.emit(lang, DeclarationContext::Member)?);
@@ -629,6 +646,7 @@ pub struct TypeSpecBuilder {
     kind: TypeKind,
     modifiers: Modifiers,
     doc: Vec<String>,
+    embedded_types: Vec<TypeName>,
     fields: Vec<FieldSpec>,
     properties: Vec<PropertySpec>,
     methods: Vec<FunSpec>,
@@ -659,6 +677,20 @@ impl TypeSpecBuilder {
     /// Add a documentation comment line.
     pub fn doc(mut self, line: &str) -> Self {
         self.doc.push(line.to_string());
+        self
+    }
+
+    /// Add an embedded type (Go struct composition).
+    ///
+    /// Embedded types render as unnamed type references inside the struct body:
+    /// ```go
+    /// type UserAdmin struct {
+    ///     User
+    ///     Admin
+    /// }
+    /// ```
+    pub fn add_embedded(mut self, type_name: TypeName) -> Self {
+        self.embedded_types.push(type_name);
         self
     }
 
@@ -801,6 +833,7 @@ impl TypeSpecBuilder {
             kind: self.kind,
             modifiers: self.modifiers,
             doc: self.doc,
+            embedded_types: self.embedded_types,
             fields: self.fields,
             properties: self.properties,
             methods: self.methods,

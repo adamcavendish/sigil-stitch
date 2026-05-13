@@ -79,7 +79,7 @@ continuation in multi-line expressions.
 | Specifier | Name | Argument Type | Purpose |
 |-----------|------|---------------|---------|
 | `%T` | Type | `TypeName` | Emit type reference, track import |
-| `%N` | Name | `NameArg` | Emit identifier name |
+| `%N` | Name | `NameArg` | Emit identifier name, escape reserved words |
 | `%S` | String | `StringLitArg` | Emit escaped string literal |
 | `%L` | Literal | `&str`, number, `CodeBlock` | Emit raw value or nested block |
 | `%W` | Wrap | (none) | Soft line break point |
@@ -100,7 +100,7 @@ Build structured declarations with the spec builders:
 | **ParameterSpec** | Function parameter (name + type + default + variadic) |
 | **FieldSpec** | Struct field / class property (visibility, static, readonly) |
 | **FunSpec** | Function or method (params, return type, body, async, abstract) |
-| **TypeSpec** | Class, struct, interface, trait, enum, type alias, or newtype |
+| **TypeSpec** | Class, struct, interface, trait, enum, type alias, newtype, embedded types |
 | **PropertySpec** | Computed property with getter/setter |
 | **AnnotationSpec** | `@Override`, `#[derive(...)]`, `[[nodiscard]]` |
 | **EnumVariantSpec** | Enum variant with optional value, tuple, or struct fields |

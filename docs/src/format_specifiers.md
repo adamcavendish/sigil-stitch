@@ -62,7 +62,7 @@ let block = CodeBlock::of("function load(): %T", (promise,)).unwrap();
 
 ## `%N` -- Name
 
-Emits an identifier. Bare `&str` and `String` values map to `Arg::Literal` (for `%L`) by default, so you must use the `NameArg` wrapper when your format string contains `%N`.
+Emits an identifier with automatic keyword escaping. If the name collides with a reserved word in the target language, it is escaped using the language's convention (Rust: `r#type`, Go/Python: `type_`). Bare `&str` and `String` values map to `Arg::Literal` (for `%L`) by default, so you must use the `NameArg` wrapper when your format string contains `%N`.
 
 ```rust
 # extern crate sigil_stitch;
@@ -74,6 +74,26 @@ let mut cb = CodeBlock::builder();
 cb.add_statement("this.%N()", (NameArg(method_name.to_string()),));
 let block = cb.build().unwrap();
 // Output: this.getData();
+# }
+```
+
+Reserved-word escaping happens at render time based on the target language:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::code_block::{CodeBlock, NameArg};
+# use sigil_stitch::lang::rust_lang::RustLang;
+# use sigil_stitch::spec::file_spec::FileSpec;
+# use sigil_stitch::prelude::*;
+# fn main() {
+let field_name = "type"; // reserved in Rust
+let block = CodeBlock::of("let %N = value", NameArg(field_name.into())).unwrap();
+let file = FileSpec::builder_with("test.rs", RustLang::new())
+    .add_code(block)
+    .build()
+    .unwrap();
+let output = file.render(80).unwrap();
+// Output: let r#type = value
 # }
 ```
 

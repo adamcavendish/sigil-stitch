@@ -163,3 +163,68 @@ fn test_equiv_wrap_point() {
     assert!(output.contains("a,"), "got: {output}");
     assert!(output.contains("b,"), "got: {output}");
 }
+
+#[test]
+fn test_name_escaping_via_macro_rust() {
+    let field_name = "type";
+    let macro_block = sigil_quote!(RustLang {
+        let $N(field_name) = value;
+    })
+    .unwrap();
+
+    let output = render_rs(&macro_block);
+    assert!(
+        output.contains("r#type"),
+        "Expected r#type in output: {output}"
+    );
+}
+
+#[test]
+fn test_name_escaping_via_macro_go() {
+    let var_name = "func";
+    let macro_block = sigil_quote!(GoLang {
+        var $N(var_name) int
+    })
+    .unwrap();
+
+    let output = render_go(&macro_block);
+    assert!(
+        output.contains("func_"),
+        "Expected func_ in output: {output}"
+    );
+}
+
+#[test]
+fn test_name_no_escape_via_macro() {
+    let name = "myVariable";
+    let macro_block = sigil_quote!(TypeScript {
+        const $N(name) = 42;
+    })
+    .unwrap();
+
+    let output = render_ts(&macro_block);
+    assert!(
+        output.contains("myVariable"),
+        "Expected myVariable in output: {output}"
+    );
+    assert!(
+        !output.contains("myVariable_"),
+        "Should not escape non-keyword: {output}"
+    );
+}
+
+#[test]
+fn test_name_and_type_combined() {
+    let field_name = "type";
+    let field_type = TypeName::primitive("String");
+    let macro_block = sigil_quote!(RustLang {
+        pub $N(field_name): $T(field_type)
+    })
+    .unwrap();
+
+    let output = render_rs(&macro_block);
+    assert!(
+        output.contains("pub r#type: String"),
+        "Expected 'pub r#type: String', got: {output}"
+    );
+}

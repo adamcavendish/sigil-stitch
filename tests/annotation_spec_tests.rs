@@ -455,3 +455,88 @@ fn test_multiple_args() {
     );
     assert!(output.contains("#[cfg(feature = \"web\", not(test))]"));
 }
+
+// ── .args() bulk method ─────────────────────────────────
+
+#[test]
+fn test_rust_args_bulk_derive() {
+    let rs = RustLang::new();
+    let ann = AnnotationSpec::new("derive").args(["Debug", "Clone", "Serialize"]);
+    let block = ann.emit(&rs).unwrap();
+    let imports = sigil_stitch::import::ImportGroup::new();
+    let mut renderer = sigil_stitch::code_renderer::CodeRenderer::new(&rs, &imports, 80);
+    let output = renderer.render(&block).unwrap();
+    assert_eq!(output, "#[derive(Debug, Clone, Serialize)]");
+}
+
+#[test]
+fn test_args_combined_with_arg() {
+    let rs = RustLang::new();
+    let ann = AnnotationSpec::new("serde")
+        .arg("rename_all = \"camelCase\"")
+        .args(["deny_unknown_fields"]);
+    let block = ann.emit(&rs).unwrap();
+    let imports = sigil_stitch::import::ImportGroup::new();
+    let mut renderer = sigil_stitch::code_renderer::CodeRenderer::new(&rs, &imports, 80);
+    let output = renderer.render(&block).unwrap();
+    assert_eq!(
+        output,
+        "#[serde(rename_all = \"camelCase\", deny_unknown_fields)]"
+    );
+}
+
+#[test]
+fn test_args_empty_iter_no_parens() {
+    let rs = RustLang::new();
+    let ann = AnnotationSpec::new("test").args(Vec::<&str>::new());
+    let block = ann.emit(&rs).unwrap();
+    let imports = sigil_stitch::import::ImportGroup::new();
+    let mut renderer = sigil_stitch::code_renderer::CodeRenderer::new(&rs, &imports, 80);
+    let output = renderer.render(&block).unwrap();
+    assert_eq!(output, "#[test]");
+}
+
+// ── %N keyword escaping ─────────────────────────────────
+
+#[test]
+fn test_name_ref_escapes_rust_keyword() {
+    let rs = RustLang::new();
+    let block = CodeBlock::of(
+        "let %N = 1",
+        sigil_stitch::code_block::NameArg("type".into()),
+    )
+    .unwrap();
+    let imports = sigil_stitch::import::ImportGroup::new();
+    let mut renderer = sigil_stitch::code_renderer::CodeRenderer::new(&rs, &imports, 80);
+    let output = renderer.render(&block).unwrap();
+    assert_eq!(output, "let r#type = 1");
+}
+
+#[test]
+fn test_name_ref_escapes_go_keyword() {
+    use sigil_stitch::lang::go_lang::GoLang;
+    let go = GoLang::new();
+    let block = CodeBlock::of(
+        "var %N int",
+        sigil_stitch::code_block::NameArg("func".into()),
+    )
+    .unwrap();
+    let imports = sigil_stitch::import::ImportGroup::new();
+    let mut renderer = sigil_stitch::code_renderer::CodeRenderer::new(&go, &imports, 80);
+    let output = renderer.render(&block).unwrap();
+    assert_eq!(output, "var func_ int");
+}
+
+#[test]
+fn test_name_ref_no_escape_non_keyword() {
+    let rs = RustLang::new();
+    let block = CodeBlock::of(
+        "let %N = 1",
+        sigil_stitch::code_block::NameArg("myVar".into()),
+    )
+    .unwrap();
+    let imports = sigil_stitch::import::ImportGroup::new();
+    let mut renderer = sigil_stitch::code_renderer::CodeRenderer::new(&rs, &imports, 80);
+    let output = renderer.render(&block).unwrap();
+    assert_eq!(output, "let myVar = 1");
+}
