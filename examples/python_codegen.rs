@@ -1,26 +1,103 @@
-//! Generate a Python file using structural specs.
+//! Generate a Python file — builder API vs `sigil_quote!` comparison.
 //!
-//! Run with: `cargo run --example python_codegen`
+//! Demonstrates: dataclass with decorator, enum, optional types (`T | None`),
+//! default parameter values, static methods, and standalone functions.
+//!
+//! Run: `cargo run --example python_codegen`
 
-use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::python::Python;
-use sigil_stitch::spec::field_spec::FieldSpec;
-use sigil_stitch::spec::file_spec::FileSpec;
-use sigil_stitch::spec::fun_spec::FunSpec;
-use sigil_stitch::spec::modifiers::TypeKind;
-use sigil_stitch::spec::parameter_spec::ParameterSpec;
-use sigil_stitch::spec::type_spec::TypeSpec;
-use sigil_stitch::type_name::TypeName;
+use sigil_stitch::prelude::*;
 
 fn main() {
-    // Importable types.
-    let json_dumps = TypeName::importable("json", "dumps");
-    let dataclass_import = TypeName::importable("dataclasses", "dataclass");
+    println!("=== Builder API ===\n");
+    let builder_output = builder_approach();
+    println!("{builder_output}");
 
-    // Build a dataclass.
-    let tb = TypeSpec::builder("Config", TypeKind::Class)
+    println!("=== sigil_quote! Macro ===\n");
+    let macro_output = macro_approach();
+    println!("{macro_output}");
+}
+
+fn build_shared_types() -> (TypeSpec,) {
+    let enum_import = TypeName::importable("enum", "Enum");
+
+    // --- Enum ---
+    let level_enum = TypeSpec::builder("LogLevel", TypeKind::Enum)
+        .extends(TypeName::primitive("str"))
+        .extends(TypeName::raw("Enum"))
+        .annotation(CodeBlock::of("# %T", (enum_import,)).unwrap())
+        .add_variant(
+            EnumVariantSpec::builder("DEBUG")
+                .value(CodeBlock::of("%S", (StringLitArg("debug".into()),)).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("INFO")
+                .value(CodeBlock::of("%S", (StringLitArg("info".into()),)).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("ERROR")
+                .value(CodeBlock::of("%S", (StringLitArg("error".into()),)).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+
+    (level_enum,)
+}
+
+fn builder_approach() -> String {
+    let json_dumps = TypeName::importable("json", "dumps");
+    let (level_enum,) = build_shared_types();
+
+    let mut to_json_body = CodeBlock::builder();
+    to_json_body.add_statement(
+        "return %T({'host': self.host, 'port': self.port})",
+        (json_dumps.clone(),),
+    );
+
+    let to_json = FunSpec::builder("to_json")
+        .doc("Serialize to JSON string.")
+        .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+        .returns(TypeName::primitive("str"))
+        .body(to_json_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    let mut from_env_body = CodeBlock::builder();
+    from_env_body.add_statement("return cls(host=host, port=port)", ());
+
+    let from_env = FunSpec::builder("from_defaults")
+        .is_static()
+        .annotate(AnnotationSpec::new("classmethod"))
+        .add_param(ParameterSpec::new("cls", TypeName::primitive("")).unwrap())
+        .add_param(
+            ParameterSpec::builder("host", TypeName::primitive("str"))
+                .default_value(CodeBlock::of("%S", (StringLitArg("localhost".into()),)).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_param(
+            ParameterSpec::builder("port", TypeName::primitive("int"))
+                .default_value(CodeBlock::of("8080", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .returns(TypeName::primitive("Config"))
+        .body(from_env_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    // Reconstruct Config with methods
+    let config_with_methods = TypeSpec::builder("Config", TypeKind::Class)
         .doc("Application configuration.")
-        .annotation(CodeBlock::of("@%T", (dataclass_import,)).unwrap())
+        .annotation(
+            CodeBlock::of("@%T", (TypeName::importable("dataclasses", "dataclass"),)).unwrap(),
+        )
         .add_field(
             FieldSpec::builder("host", TypeName::primitive("str"))
                 .build()
@@ -28,6 +105,7 @@ fn main() {
         )
         .add_field(
             FieldSpec::builder("port", TypeName::primitive("int"))
+                .initializer(CodeBlock::of("8080", ()).unwrap())
                 .build()
                 .unwrap(),
         )
@@ -37,35 +115,173 @@ fn main() {
                 .build()
                 .unwrap(),
         )
-        .add_method(
-            FunSpec::builder("to_json")
-                .doc("Serialize to JSON string.")
-                .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
-                .returns(TypeName::primitive("str"))
-                .body(
-                    CodeBlock::of(
-                        "return %T({'host': self.host, 'port': self.port})",
-                        (json_dumps,),
-                    )
-                    .unwrap(),
+        .add_field(
+            FieldSpec::builder(
+                "log_level",
+                TypeName::optional(TypeName::primitive("LogLevel")),
+            )
+            .initializer(CodeBlock::of("None", ()).unwrap())
+            .build()
+            .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder(
+                "tags",
+                TypeName::generic(
+                    TypeName::primitive("list"),
+                    vec![TypeName::primitive("str")],
+                ),
+            )
+            .initializer(
+                CodeBlock::of(
+                    "%T(default_factory=list)",
+                    (TypeName::importable("dataclasses", "field"),),
                 )
-                .build()
                 .unwrap(),
-        );
-
-    // Build a standalone function.
-    let greet = FunSpec::builder("greet")
-        .add_param(ParameterSpec::new("name", TypeName::primitive("str")).unwrap())
-        .returns(TypeName::primitive("str"))
-        .body(CodeBlock::of("return f'Hello, {name}!'", ()).unwrap());
-
-    // Assemble the file.
-    let spec = FileSpec::builder_with("config.py", Python::new())
-        .add_type(tb.build().unwrap())
-        .add_function(greet.build().unwrap())
+            )
+            .build()
+            .unwrap(),
+        )
+        .add_method(to_json)
+        .add_method(from_env)
         .build()
         .unwrap();
 
-    let output = spec.render(80).unwrap();
-    println!("{output}");
+    let mut greet_body = CodeBlock::builder();
+    greet_body.add_statement("return f'Hello, {name}!'", ());
+
+    let greet = FunSpec::builder("greet")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("str")).unwrap())
+        .returns(TypeName::primitive("str"))
+        .body(greet_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    FileSpec::builder_with("config.py", Python::new())
+        .add_type(level_enum)
+        .add_type(config_with_methods)
+        .add_function(greet)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
+}
+
+fn macro_approach() -> String {
+    let json_dumps = TypeName::importable("json", "dumps");
+    let (level_enum,) = build_shared_types();
+
+    let to_json_body = sigil_quote!(Python {
+        return $T(json_dumps)({$S("host"): self.host, $S("port"): self.port})
+    })
+    .unwrap();
+
+    let to_json = FunSpec::builder("to_json")
+        .doc("Serialize to JSON string.")
+        .add_param(ParameterSpec::new("self", TypeName::primitive("")).unwrap())
+        .returns(TypeName::primitive("str"))
+        .body(to_json_body)
+        .build()
+        .unwrap();
+
+    let from_env_body = sigil_quote!(Python {
+        return cls(host = host, port = port)
+    })
+    .unwrap();
+
+    let from_env = FunSpec::builder("from_defaults")
+        .is_static()
+        .annotate(AnnotationSpec::new("classmethod"))
+        .add_param(ParameterSpec::new("cls", TypeName::primitive("")).unwrap())
+        .add_param(
+            ParameterSpec::builder("host", TypeName::primitive("str"))
+                .default_value(CodeBlock::of("%S", (StringLitArg("localhost".into()),)).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_param(
+            ParameterSpec::builder("port", TypeName::primitive("int"))
+                .default_value(CodeBlock::of("8080", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .returns(TypeName::primitive("Config"))
+        .body(from_env_body)
+        .build()
+        .unwrap();
+
+    let config_with_methods = TypeSpec::builder("Config", TypeKind::Class)
+        .doc("Application configuration.")
+        .annotation(
+            CodeBlock::of("@%T", (TypeName::importable("dataclasses", "dataclass"),)).unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("host", TypeName::primitive("str"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("port", TypeName::primitive("int"))
+                .initializer(CodeBlock::of("8080", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("debug", TypeName::primitive("bool"))
+                .initializer(CodeBlock::of("False", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder(
+                "log_level",
+                TypeName::optional(TypeName::primitive("LogLevel")),
+            )
+            .initializer(CodeBlock::of("None", ()).unwrap())
+            .build()
+            .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder(
+                "tags",
+                TypeName::generic(
+                    TypeName::primitive("list"),
+                    vec![TypeName::primitive("str")],
+                ),
+            )
+            .initializer(
+                CodeBlock::of(
+                    "%T(default_factory=list)",
+                    (TypeName::importable("dataclasses", "field"),),
+                )
+                .unwrap(),
+            )
+            .build()
+            .unwrap(),
+        )
+        .add_method(to_json)
+        .add_method(from_env)
+        .build()
+        .unwrap();
+
+    let greet_body = sigil_quote!(Python {
+        return $L("f'Hello, {name}!'")
+    })
+    .unwrap();
+
+    let greet = FunSpec::builder("greet")
+        .add_param(ParameterSpec::new("name", TypeName::primitive("str")).unwrap())
+        .returns(TypeName::primitive("str"))
+        .body(greet_body)
+        .build()
+        .unwrap();
+
+    FileSpec::builder_with("config.py", Python::new())
+        .add_type(level_enum)
+        .add_type(config_with_methods)
+        .add_function(greet)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }

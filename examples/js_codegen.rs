@@ -1,163 +1,215 @@
-//! Example: Generate a JavaScript module with sigil-stitch.
+//! Generate a JavaScript module — builder API vs `sigil_quote!` comparison.
 //!
-//! Demonstrates:
-//! - `import { X } from 'module'` (ESM imports, no `import type`)
-//! - Class with `#private` fields and constructor
-//! - Methods without type annotations
-//! - `export class` and `export function`
-//! - Class inheritance with `extends`
-//! - JSDoc comments
+//! Demonstrates: class with static factory method, async functions, control flow
+//! (if/else, try/catch via `next_control_flow`), default parameter values, and
+//! generator functions (`function*`).
 //!
 //! Run: `cargo run --example js_codegen`
 
-use sigil_stitch::code_block::{CodeBlock, StringLitArg};
 use sigil_stitch::lang::javascript::JavaScript;
-use sigil_stitch::spec::field_spec::FieldSpec;
-use sigil_stitch::spec::file_spec::FileSpec;
-use sigil_stitch::spec::fun_spec::FunSpec;
-use sigil_stitch::spec::modifiers::{TypeKind, Visibility};
-use sigil_stitch::spec::parameter_spec::ParameterSpec;
-use sigil_stitch::spec::type_spec::TypeSpec;
-use sigil_stitch::type_name::TypeName;
+use sigil_stitch::prelude::*;
 
-/// Shorthand for a JS parameter (no type annotation).
 fn param(name: &str) -> ParameterSpec {
     ParameterSpec::new(name, TypeName::primitive("")).unwrap()
 }
 
-/// Shorthand for a JS field (no type annotation).
-fn field(name: &str) -> FieldSpec {
-    FieldSpec::builder(name, TypeName::primitive(""))
+fn main() {
+    println!("=== Builder API ===\n");
+    let builder_output = builder_approach();
+    println!("{builder_output}");
+
+    println!("=== sigil_quote! Macro ===\n");
+    let macro_output = macro_approach();
+    println!("{macro_output}");
+}
+
+fn builder_approach() -> String {
+    let format_msg = TypeName::importable("./utils", "formatMessage");
+    let event_emitter = TypeName::importable("events", "EventEmitter");
+
+    let mut ctor_body = CodeBlock::builder();
+    ctor_body.add_statement("super()", ());
+    ctor_body.add_statement("this.name = name", ());
+
+    let mut log_body = CodeBlock::builder();
+    log_body.add_statement("const msg = %T(this.name, message)", (format_msg,));
+    log_body.add_statement("console.log(msg)", ());
+
+    // Static factory method: Logger.create(name)
+    let mut create_body = CodeBlock::builder();
+    create_body.add_statement("return new Logger(name)", ());
+
+    let logger = TypeSpec::builder("Logger", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .extends(TypeName::primitive("EventEmitter"))
+        .doc("Logger with event emission.")
+        .add_method(
+            FunSpec::builder("constructor")
+                .add_param(param("name"))
+                .body(ctor_body.build().unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("log")
+                .add_param(param("message"))
+                .body(log_body.build().unwrap())
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("create")
+                .is_static()
+                .add_param(param("name"))
+                .body(create_body.build().unwrap())
+                .build()
+                .unwrap(),
+        )
         .build()
+        .unwrap();
+
+    // Async fetchJSON with if-check
+    let mut fetch_body = CodeBlock::builder();
+    fetch_body.add_statement("const response = await fetch(url)", ());
+    fetch_body.begin_control_flow("if (!response.ok)", ());
+    fetch_body.add_statement(
+        "throw new Error(%S + response.status)",
+        (StringLitArg("HTTP error: ".into()),),
+    );
+    fetch_body.end_control_flow();
+    fetch_body.add_statement("return response.json()", ());
+
+    let fetch_fn = FunSpec::builder("fetchJSON")
+        .visibility(Visibility::Public)
+        .is_async()
+        .add_param(param("url"))
+        .body(fetch_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    // Default parameter value: configure(host, port = 8080)
+    let mut configure_body = CodeBlock::builder();
+    configure_body.add_statement("console.log(host, port)", ());
+
+    let configure_fn = FunSpec::builder("configure")
+        .visibility(Visibility::Public)
+        .add_param(param("host"))
+        .add_param(
+            ParameterSpec::builder("port", TypeName::primitive(""))
+                .default_value(CodeBlock::of("8080", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .body(configure_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    // try/catch with next_control_flow: safeParse(input)
+    let mut parse_body = CodeBlock::builder();
+    parse_body.begin_control_flow("try", ());
+    parse_body.add_statement("return JSON.parse(input)", ());
+    parse_body.next_control_flow("catch (e)", ());
+    parse_body.add_statement("return null", ());
+    parse_body.end_control_flow();
+
+    let safe_parse_fn = FunSpec::builder("safeParse")
+        .visibility(Visibility::Public)
+        .add_param(param("input"))
+        .body(parse_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    // Generator function: function* range(start, end)
+    let mut range_body = CodeBlock::builder();
+    range_body.begin_control_flow("for (let i = start; i < end; i++)", ());
+    range_body.add_statement("yield i", ());
+    range_body.end_control_flow();
+
+    let range_fn = FunSpec::builder("*range")
+        .visibility(Visibility::Public)
+        .add_param(param("start"))
+        .add_param(param("end"))
+        .body(range_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    let trigger = CodeBlock::of("// %T", (event_emitter,)).unwrap();
+
+    FileSpec::builder_with("app.js", JavaScript::new())
+        .add_code(trigger)
+        .add_type(logger)
+        .add_function(fetch_fn)
+        .add_function(configure_fn)
+        .add_function(safe_parse_fn)
+        .add_function(range_fn)
+        .build()
+        .unwrap()
+        .render(80)
         .unwrap()
 }
 
-fn main() {
-    // --- Imports (triggered by usage in code) ---
+fn macro_approach() -> String {
+    let format_msg = TypeName::importable("./utils", "formatMessage");
     let event_emitter = TypeName::importable("events", "EventEmitter");
-    let uuid = TypeName::importable("uuid", "v4");
-    let format = TypeName::importable("./utils", "formatMessage");
 
-    // --- Base class: Logger ---
-    let logger_tb = TypeSpec::builder("Logger", TypeKind::Class);
-    let logger_tb = logger_tb.visibility(Visibility::Public);
-    let logger_tb = logger_tb.doc("Base logger class.");
-    let logger_tb = logger_tb.doc("");
-    let logger_tb = logger_tb.doc("@abstract");
-
-    let logger_tb = logger_tb.add_field(field("#name"));
-    let logger_tb = logger_tb.add_field(field("#level"));
-
-    // Constructor
-    let ctor_body =
-        CodeBlock::of("this.#name = name;\nthis.#level = level || 'info';", ()).unwrap();
-    let logger_tb = logger_tb.add_method(
-        FunSpec::builder("constructor")
-            .add_param(param("name"))
-            .add_param(param("level"))
-            .body(ctor_body)
-            .build()
-            .unwrap(),
-    );
-
-    // getName method
-    let get_name_body = CodeBlock::of("return this.#name;", ()).unwrap();
-    let logger_tb = logger_tb.add_method(
-        FunSpec::builder("getName")
-            .body(get_name_body)
-            .build()
-            .unwrap(),
-    );
-
-    let logger = logger_tb.build().unwrap();
-
-    // --- Derived class: ConsoleLogger ---
-    let console_tb = TypeSpec::builder("ConsoleLogger", TypeKind::Class);
-    let console_tb = console_tb.visibility(Visibility::Public);
-    let console_tb = console_tb.extends(TypeName::primitive("Logger"));
-    let console_tb = console_tb.doc("Logger that writes formatted messages to the console.");
-
-    // Constructor
-    let ctor_body2 = CodeBlock::of("super(name, 'info');", ()).unwrap();
-    let console_tb = console_tb.add_method(
-        FunSpec::builder("constructor")
-            .add_param(param("name"))
-            .body(ctor_body2)
-            .build()
-            .unwrap(),
-    );
-
-    // log method — uses imports
-    let log_body = CodeBlock::of(
-        "const msg = %T(this.getName(), message);\nconsole.log(msg);",
-        (format,),
-    )
+    let ctor_body = sigil_quote!(JavaScript {
+        super();
+        this.name = name;
+    })
     .unwrap();
-    let console_tb = console_tb.add_method(
-        FunSpec::builder("log")
-            .add_param(param("message"))
-            .body(log_body)
-            .build()
-            .unwrap(),
-    );
 
-    let console_logger = console_tb.build().unwrap();
-
-    // --- EventBus class ---
-    let bus_tb = TypeSpec::builder("EventBus", TypeKind::Class);
-    let bus_tb = bus_tb.visibility(Visibility::Public);
-    let bus_tb = bus_tb.extends(TypeName::primitive("EventEmitter"));
-    let bus_tb = bus_tb.doc("Publish-subscribe event bus.");
-
-    let bus_tb = bus_tb.add_field(field("#subscribers"));
-
-    let bus_ctor_body = CodeBlock::of("super();\nthis.#subscribers = new Map();", ()).unwrap();
-    let bus_tb = bus_tb.add_method(
-        FunSpec::builder("constructor")
-            .body(bus_ctor_body)
-            .build()
-            .unwrap(),
-    );
-
-    let emit_body = CodeBlock::of(
-        "const id = %T();\nthis.emit(event, { id, ...data });\nreturn id;",
-        (uuid,),
-    )
+    let log_body = sigil_quote!(JavaScript {
+        const msg = $T(format_msg)(this.name, message);
+        console.log(msg);
+    })
     .unwrap();
-    let bus_tb = bus_tb.add_method(
-        FunSpec::builder("publish")
-            .add_param(param("event"))
-            .add_param(param("data"))
-            .body(emit_body)
-            .build()
-            .unwrap(),
-    );
 
-    let event_bus = bus_tb.build().unwrap();
+    // Static factory method body
+    let create_body = sigil_quote!(JavaScript {
+        return new Logger(name);
+    })
+    .unwrap();
 
-    // --- Standalone exported functions ---
-    let create_logger_body = CodeBlock::of("return new ConsoleLogger(name);", ()).unwrap();
-    let create_logger_fn = FunSpec::builder("createLogger")
+    let logger = TypeSpec::builder("Logger", TypeKind::Class)
         .visibility(Visibility::Public)
-        .add_param(param("name"))
-        .body(create_logger_body)
+        .extends(TypeName::primitive("EventEmitter"))
+        .doc("Logger with event emission.")
+        .add_method(
+            FunSpec::builder("constructor")
+                .add_param(param("name"))
+                .body(ctor_body)
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("log")
+                .add_param(param("message"))
+                .body(log_body)
+                .build()
+                .unwrap(),
+        )
+        .add_method(
+            FunSpec::builder("create")
+                .is_static()
+                .add_param(param("name"))
+                .body(create_body)
+                .build()
+                .unwrap(),
+        )
         .build()
         .unwrap();
 
-    let create_bus_body = CodeBlock::of("return new EventBus();", ()).unwrap();
-    let create_bus_fn = FunSpec::builder("createEventBus")
-        .visibility(Visibility::Public)
-        .body(create_bus_body)
-        .build()
-        .unwrap();
-
-    // Async function
-    let fetch_body = CodeBlock::of(
-        "const response = await fetch(url);\nif (!response.ok) {\n  throw new Error(%S + response.status);\n}\nreturn response.json();",
-        (StringLitArg("HTTP error: ".to_string()),),
-    )
+    // Async fetchJSON
+    let fetch_body = sigil_quote!(JavaScript {
+        const response = await fetch(url);
+        if(!response.ok) {
+            throw new Error($S("HTTP error: ") + response.status);
+        }
+        return response.json();
+    })
     .unwrap();
-    let fetch_json = FunSpec::builder("fetchJSON")
+
+    let fetch_fn = FunSpec::builder("fetchJSON")
         .visibility(Visibility::Public)
         .is_async()
         .add_param(param("url"))
@@ -165,20 +217,69 @@ fn main() {
         .build()
         .unwrap();
 
-    // --- Trigger imports for extends base types ---
-    let import_trigger = CodeBlock::of("// Base classes: %T", (event_emitter,)).unwrap();
+    // Default parameter value: configure(host, port = 8080)
+    let configure_body = sigil_quote!(JavaScript {
+        console.log(host, port);
+    })
+    .unwrap();
 
-    // --- Assemble file ---
-    let file = FileSpec::builder_with("app.js", JavaScript::new())
-        .add_code(import_trigger)
-        .add_type(logger)
-        .add_type(console_logger)
-        .add_type(event_bus)
-        .add_function(create_logger_fn)
-        .add_function(create_bus_fn)
-        .add_function(fetch_json)
+    let configure_fn = FunSpec::builder("configure")
+        .visibility(Visibility::Public)
+        .add_param(param("host"))
+        .add_param(
+            ParameterSpec::builder("port", TypeName::primitive(""))
+                .default_value(CodeBlock::of("8080", ()).unwrap())
+                .build()
+                .unwrap(),
+        )
+        .body(configure_body)
         .build()
         .unwrap();
-    let output = file.render(80).unwrap();
-    print!("{output}");
+
+    // try/catch with sigil_quote!
+    let parse_body = sigil_quote!(JavaScript {
+        try {
+            return JSON.parse(input);
+        } catch(e) {
+            return null;
+        }
+    })
+    .unwrap();
+
+    let safe_parse_fn = FunSpec::builder("safeParse")
+        .visibility(Visibility::Public)
+        .add_param(param("input"))
+        .body(parse_body)
+        .build()
+        .unwrap();
+
+    // Generator function: function* range(start, end)
+    let range_body = sigil_quote!(JavaScript {
+        for(let i = start; i < end; i++) {
+            yield i;
+        }
+    })
+    .unwrap();
+
+    let range_fn = FunSpec::builder("*range")
+        .visibility(Visibility::Public)
+        .add_param(param("start"))
+        .add_param(param("end"))
+        .body(range_body)
+        .build()
+        .unwrap();
+
+    let trigger = CodeBlock::of("// %T", (event_emitter,)).unwrap();
+
+    FileSpec::builder_with("app.js", JavaScript::new())
+        .add_code(trigger)
+        .add_type(logger)
+        .add_function(fetch_fn)
+        .add_function(configure_fn)
+        .add_function(safe_parse_fn)
+        .add_function(range_fn)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }

@@ -1,37 +1,85 @@
-//! Generate a Rust file using structural specs.
+//! Generate a Rust file — builder API vs `sigil_quote!` comparison.
 //!
-//! Run with: `cargo run --example rust_codegen`
+//! Demonstrates: enum with tuple/struct variants, newtype, references with lifetimes,
+//! `impl Trait` / `dyn Trait`, where constraints, generic functions, `pub(crate)`,
+//! `Option<T>`, tuples, and derive annotations.
+//!
+//! Run: `cargo run --example rust_codegen`
 
-use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::rust_lang::RustLang;
-use sigil_stitch::spec::field_spec::FieldSpec;
-use sigil_stitch::spec::file_spec::FileSpec;
-use sigil_stitch::spec::fun_spec::FunSpec;
-use sigil_stitch::spec::modifiers::{TypeKind, Visibility};
-use sigil_stitch::spec::parameter_spec::ParameterSpec;
-use sigil_stitch::spec::type_spec::TypeSpec;
-use sigil_stitch::type_name::TypeName;
+use sigil_stitch::prelude::*;
 
 fn main() {
-    // Define types from different crate groups.
+    println!("=== Builder API ===\n");
+    let builder_output = builder_approach();
+    println!("{builder_output}");
+
+    println!("=== sigil_quote! Macro ===\n");
+    let macro_output = macro_approach();
+    println!("{macro_output}");
+}
+
+fn build_shared_types() -> (TypeSpec, TypeSpec, TypeSpec) {
     let hashmap = TypeName::importable("std::collections", "HashMap");
-    let serialize = TypeName::importable("serde", "Serialize");
-    let deserialize = TypeName::importable("serde", "Deserialize");
 
-    // Build a struct using TypeSpec.
-    let tb = TypeSpec::builder("Config", TypeKind::Struct).visibility(Visibility::Public);
-
-    // Derive annotation.
-    let derive = CodeBlock::of("#[derive(%T, %T)]", (serialize, deserialize)).unwrap();
-    let tb = tb.annotation(derive);
-
-    // Fields.
-    let tb = tb
-        .add_field(
-            FieldSpec::builder("name", TypeName::primitive("String"))
-                .visibility(Visibility::Public)
+    // --- Enum with tuple and struct variants ---
+    let event_enum = TypeSpec::builder("Event", TypeKind::Enum)
+        .visibility(Visibility::Public)
+        .annotate(AnnotationSpec::new("derive").args(["Debug", "Clone"]))
+        .add_variant(
+            EnumVariantSpec::builder("Click")
+                .doc("A mouse click at (x, y).")
+                .associated_type(TypeName::primitive("i32"))
+                .associated_type(TypeName::primitive("i32"))
                 .build()
                 .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("KeyPress")
+                .associated_type(TypeName::primitive("char"))
+                .build()
+                .unwrap(),
+        )
+        .add_variant(
+            EnumVariantSpec::builder("Resize")
+                .add_field(
+                    FieldSpec::builder("width", TypeName::primitive("u32"))
+                        .build()
+                        .unwrap(),
+                )
+                .add_field(
+                    FieldSpec::builder("height", TypeName::primitive("u32"))
+                        .build()
+                        .unwrap(),
+                )
+                .build()
+                .unwrap(),
+        )
+        .add_variant(EnumVariantSpec::new("Quit").unwrap())
+        .build()
+        .unwrap();
+
+    // --- Newtype ---
+    let user_id = TypeSpec::builder("UserId", TypeKind::Newtype)
+        .visibility(Visibility::Public)
+        .annotate(AnnotationSpec::new("derive").args(["Debug", "Clone", "PartialEq", "Eq", "Hash"]))
+        .extends(TypeName::primitive("u64"))
+        .build()
+        .unwrap();
+
+    // --- Struct with rich types ---
+    let config = TypeSpec::builder("Config", TypeKind::Struct)
+        .visibility(Visibility::Public)
+        .annotate(AnnotationSpec::new("derive").args(["Debug", "Clone"]))
+        .add_type_param(TypeParamSpec::lifetime("'a"))
+        .add_field(
+            FieldSpec::builder(
+                "name",
+                TypeName::reference_with_lifetime(TypeName::primitive("str"), "'a"),
+            )
+            .visibility(Visibility::Public)
+            .build()
+            .unwrap(),
         )
         .add_field(
             FieldSpec::builder(
@@ -44,30 +92,180 @@ fn main() {
             .visibility(Visibility::Public)
             .build()
             .unwrap(),
-        );
-
-    // Constructor method.
-    let body = CodeBlock::of(
-        "Self { name: name.to_string(), values: HashMap::new() }",
-        (),
-    )
-    .unwrap();
-    let tb = tb.add_method(
-        FunSpec::builder("new")
-            .visibility(Visibility::Public)
-            .add_param(ParameterSpec::new("name", TypeName::primitive("&str")).unwrap())
-            .returns(TypeName::primitive("Self"))
-            .body(body)
+        )
+        .add_field(
+            FieldSpec::builder("owner", TypeName::optional(TypeName::primitive("UserId")))
+                .visibility(Visibility::Public)
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder(
+                "metadata",
+                TypeName::tuple(vec![
+                    TypeName::primitive("String"),
+                    TypeName::primitive("u64"),
+                ]),
+            )
+            .visibility(Visibility::PublicCrate)
             .build()
             .unwrap(),
-    );
-
-    // Build and render.
-    let spec = FileSpec::builder_with("config.rs", RustLang::new())
-        .add_type(tb.build().unwrap())
+        )
         .build()
         .unwrap();
 
-    let output = spec.render(100).unwrap();
-    println!("{output}");
+    (event_enum, user_id, config)
+}
+
+fn builder_approach() -> String {
+    let display = TypeName::importable("std::fmt", "Display");
+    let (event_enum, user_id, config) = build_shared_types();
+
+    // --- Generic function with where constraint ---
+    let mut body = CodeBlock::builder();
+    body.add_statement("println!(\"{}\", item)", ());
+
+    let print_fn = FunSpec::builder("print_item")
+        .visibility(Visibility::Public)
+        .add_type_param(TypeParamSpec::new("T"))
+        .add_where_constraint(
+            TypeName::primitive("T"),
+            vec![display, TypeName::primitive("Clone")],
+        )
+        .add_param(
+            ParameterSpec::new("item", TypeName::reference(TypeName::primitive("T"))).unwrap(),
+        )
+        .body(body.build().unwrap())
+        .build()
+        .unwrap();
+
+    // --- Function returning impl Trait ---
+    let mut handler_body = CodeBlock::builder();
+    handler_body.add("move |event: &Event| {", ());
+    handler_body.add_line();
+    handler_body.add("    println!(\"handling {:?}\", event);", ());
+    handler_body.add_line();
+    handler_body.add("}", ());
+
+    let handler_fn = FunSpec::builder("make_handler")
+        .visibility(Visibility::PublicCrate)
+        .returns(TypeName::impl_trait(vec![
+            TypeName::primitive("Fn(&Event)"),
+            TypeName::primitive("Send"),
+        ]))
+        .body(handler_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    // --- Function with dyn Trait param ---
+    let mut dispatch_body = CodeBlock::builder();
+    dispatch_body.add_statement("handler.handle(event)", ());
+
+    let dispatch_fn = FunSpec::builder("dispatch")
+        .visibility(Visibility::Public)
+        .add_param(
+            ParameterSpec::new(
+                "handler",
+                TypeName::reference_mut(TypeName::dyn_trait(vec![
+                    TypeName::primitive("EventHandler"),
+                    TypeName::primitive("Send"),
+                ])),
+            )
+            .unwrap(),
+        )
+        .add_param(
+            ParameterSpec::new("event", TypeName::reference(TypeName::primitive("Event"))).unwrap(),
+        )
+        .body(dispatch_body.build().unwrap())
+        .build()
+        .unwrap();
+
+    FileSpec::builder_with("events.rs", RustLang::new())
+        .add_type(event_enum)
+        .add_type(user_id)
+        .add_type(config)
+        .add_function(print_fn)
+        .add_function(handler_fn)
+        .add_function(dispatch_fn)
+        .build()
+        .unwrap()
+        .render(100)
+        .unwrap()
+}
+
+fn macro_approach() -> String {
+    let display = TypeName::importable("std::fmt", "Display");
+    let (event_enum, user_id, config) = build_shared_types();
+
+    let print_body = sigil_quote!(RustLang {
+        println!("{}", item)
+    })
+    .unwrap();
+
+    let print_fn = FunSpec::builder("print_item")
+        .visibility(Visibility::Public)
+        .add_type_param(TypeParamSpec::new("T"))
+        .add_where_constraint(
+            TypeName::primitive("T"),
+            vec![display, TypeName::primitive("Clone")],
+        )
+        .add_param(
+            ParameterSpec::new("item", TypeName::reference(TypeName::primitive("T"))).unwrap(),
+        )
+        .body(print_body)
+        .build()
+        .unwrap();
+
+    let handler_body = sigil_quote!(RustLang {
+        move |event: &Event| {
+            println!("handling {:?}", event);
+        }
+    })
+    .unwrap();
+
+    let handler_fn = FunSpec::builder("make_handler")
+        .visibility(Visibility::PublicCrate)
+        .returns(TypeName::impl_trait(vec![
+            TypeName::primitive("Fn(&Event)"),
+            TypeName::primitive("Send"),
+        ]))
+        .body(handler_body)
+        .build()
+        .unwrap();
+
+    let dispatch_body = sigil_quote!(RustLang {
+        handler.handle(event)
+    })
+    .unwrap();
+
+    let dispatch_fn = FunSpec::builder("dispatch")
+        .visibility(Visibility::Public)
+        .add_param(
+            ParameterSpec::new(
+                "handler",
+                TypeName::reference_mut(TypeName::dyn_trait(vec![
+                    TypeName::primitive("EventHandler"),
+                    TypeName::primitive("Send"),
+                ])),
+            )
+            .unwrap(),
+        )
+        .add_param(
+            ParameterSpec::new("event", TypeName::reference(TypeName::primitive("Event"))).unwrap(),
+        )
+        .body(dispatch_body)
+        .build()
+        .unwrap();
+
+    FileSpec::builder_with("events.rs", RustLang::new())
+        .add_type(event_enum)
+        .add_type(user_id)
+        .add_type(config)
+        .add_function(print_fn)
+        .add_function(handler_fn)
+        .add_function(dispatch_fn)
+        .build()
+        .unwrap()
+        .render(100)
+        .unwrap()
 }
