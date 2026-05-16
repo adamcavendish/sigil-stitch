@@ -44,15 +44,24 @@ pub enum CodeNode {
     StatementEnd,
     /// Hard newline.
     Newline,
-    /// Block open delimiter, resolved at render time via `lang.block_syntax().block_open`.
-    BlockOpen,
-    /// Block open with an overridden delimiter string.
-    BlockOpenOverride(String),
-    /// Terminal block close delimiter, resolved via `lang.block_syntax().block_close`.
-    BlockClose,
-    /// Transitional block close delimiter (e.g. `} else`), resolved via
-    /// `lang.block_syntax().block_close` + `" "`.
-    BlockCloseTransition,
+    /// Block open delimiter. Carries the control-flow condition text (e.g.,
+    /// `"if x > 0"`, `"for i in range(10)"`). At render time the renderer calls
+    /// `lang.block_open_for(condition)` — if it returns `Some(s)`, emit `s`;
+    /// otherwise fall back to `lang.block_syntax().block_open`.
+    /// Empty string means no condition (e.g., a bare `{ }` block).
+    BlockOpen(String),
+    /// Terminal block close delimiter. Carries the condition from the matching
+    /// `begin_control_flow` call. At render time the renderer calls
+    /// `lang.block_close_for(condition)` — if it returns `Some(s)`, emit `s`;
+    /// otherwise fall back to `lang.block_syntax().block_close`.
+    /// Emits: closer + newline.
+    BlockClose(String),
+    /// Non-terminal block close before a branch keyword (`else`, `elif`, `catch`).
+    /// Like `BlockClose` but emits closer + space (not newline) so the branch
+    /// keyword continues on the same line (e.g., `} else {`).
+    /// Suppressed when `block_syntax().close_on_transition` is `false`
+    /// (Lua, Bash — where `else`/`elif` sit between opener and closer).
+    BranchClose(String),
     /// A sequence of nodes (for grouping, e.g. a statement or control flow block).
     Sequence(Vec<CodeNode>),
 }
@@ -86,10 +95,9 @@ pub(crate) fn parts_args_to_nodes(parts: &[FormatPart], args: &[Arg]) -> Vec<Cod
             FormatPart::StatementBegin => CodeNode::StatementBegin,
             FormatPart::StatementEnd => CodeNode::StatementEnd,
             FormatPart::Newline => CodeNode::Newline,
-            FormatPart::BlockOpen => CodeNode::BlockOpen,
-            FormatPart::BlockOpenOverride(s) => CodeNode::BlockOpenOverride(s.clone()),
-            FormatPart::BlockClose => CodeNode::BlockClose,
-            FormatPart::BlockCloseTransition => CodeNode::BlockCloseTransition,
+            FormatPart::BlockOpen(s) => CodeNode::BlockOpen(s.clone()),
+            FormatPart::BlockClose(s) => CodeNode::BlockClose(s.clone()),
+            FormatPart::BranchClose(s) => CodeNode::BranchClose(s.clone()),
         };
         nodes.push(node);
     }
@@ -170,17 +178,15 @@ mod tests {
     #[test]
     fn test_block_open_close_conversion() {
         let parts = vec![
-            FormatPart::BlockOpen,
-            FormatPart::BlockClose,
-            FormatPart::BlockOpenOverride("where".to_string()),
-            FormatPart::BlockCloseTransition,
+            FormatPart::BlockOpen("if x".to_string()),
+            FormatPart::BlockClose("if x".to_string()),
+            FormatPart::BranchClose("if x".to_string()),
         ];
         let nodes = parts_args_to_nodes(&parts, &[]);
-        assert_eq!(nodes.len(), 4);
-        assert!(matches!(nodes[0], CodeNode::BlockOpen));
-        assert!(matches!(nodes[1], CodeNode::BlockClose));
-        assert!(matches!(&nodes[2], CodeNode::BlockOpenOverride(s) if s == "where"));
-        assert!(matches!(nodes[3], CodeNode::BlockCloseTransition));
+        assert_eq!(nodes.len(), 3);
+        assert!(matches!(&nodes[0], CodeNode::BlockOpen(s) if s == "if x"));
+        assert!(matches!(&nodes[1], CodeNode::BlockClose(s) if s == "if x"));
+        assert!(matches!(&nodes[2], CodeNode::BranchClose(s) if s == "if x"));
     }
 
     #[test]

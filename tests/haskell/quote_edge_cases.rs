@@ -17,7 +17,7 @@ fn render(block: &CodeBlock) -> String {
 #[test]
 fn test_open_where() {
     let block = sigil_quote!(Haskell {
-        class Functor f $open(" where") {
+        class Functor f {
             fmap :: (a -> b) -> f a -> f b;
         }
     })

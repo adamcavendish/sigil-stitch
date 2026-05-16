@@ -25,7 +25,7 @@ fn test_let_binding() {
 fn test_pattern_match() {
     let mut b = CodeBlock::builder();
     b.begin_control_flow("let describe color", ());
-    b.begin_control_flow_with_open("match color with", (), "");
+    b.begin_control_flow("match color with", ());
     b.add("| Red -> \"red\"", ());
     b.add_line();
     b.add("| Green -> \"green\"", ());

@@ -102,7 +102,7 @@ type string_list = string list
 
 ## Pattern match
 
-Pattern matching is built using `CodeBlock` control-flow methods. Use `begin_control_flow` for the outer binding, then `begin_control_flow_with_open` to open the `match` expression with no trailing brace.
+Pattern matching is built using `CodeBlock` control-flow methods. Use `begin_control_flow` for the outer binding and for the `match` expression — the OCaml backend's `block_open_for` automatically suppresses the block opener for `match ... with`.
 
 ```rust
 # extern crate sigil_stitch;
@@ -111,7 +111,7 @@ Pattern matching is built using `CodeBlock` control-flow methods. Use `begin_con
 # fn main() {
 let mut b = CodeBlock::builder();
 b.begin_control_flow("let describe color", ());
-b.begin_control_flow_with_open("match color with", (), "");
+b.begin_control_flow("match color with", ());
 b.add("| Red -> \"red\"", ());
 b.add_line();
 b.add("| Green -> \"green\"", ());

@@ -133,13 +133,26 @@ impl CodeLang for Lua {
 
     fn block_syntax(&self) -> BlockSyntaxConfig<'_> {
         BlockSyntaxConfig {
-            block_open: "",             // Lua opens bodies on next line
-            block_close: "end",         // ... and closes with `end`
-            close_on_transition: false, // `else`/`elseif` don't need `end` before them
+            block_open: "",
+            block_close: "end",
+            close_on_transition: false,
             indent_unit: &self.indent,
             uses_semicolons: false,
             field_terminator: ",",
             ..Default::default()
+        }
+    }
+
+    fn block_open_for(&self, condition: &str) -> Option<&str> {
+        let t = condition.trim();
+        if t.ends_with(" then") || t.ends_with(" do") || t == "else" {
+            Some("")
+        } else if t.starts_with("if ") || t.starts_with("elseif ") {
+            Some(" then")
+        } else if t.starts_with("for ") || t.starts_with("while ") {
+            Some(" do")
+        } else {
+            None
         }
     }
 

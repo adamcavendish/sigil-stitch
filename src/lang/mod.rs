@@ -355,6 +355,33 @@ pub trait CodeLang: std::fmt::Debug + 'static {
         config::BlockSyntaxConfig::default()
     }
 
+    /// Map a control-flow condition to its block-opening delimiter.
+    ///
+    /// Called at render time with the condition text from `begin_control_flow`.
+    /// Return `Some("...")` to override the default `block_syntax().block_open`.
+    ///
+    /// # Examples
+    ///
+    /// Bash maps `"if [ -f ... ];"` → `Some("; then")` and
+    /// `"for f in *.txt;"` → `Some("; do")`.
+    /// Haskell maps `"class Functor f"` → `Some(" where")`.
+    fn block_open_for(&self, _condition: &str) -> Option<&str> {
+        None
+    }
+
+    /// Map a control-flow condition to its block-closing delimiter.
+    ///
+    /// Called at render time with the condition text from `begin_control_flow`.
+    /// Return `Some("...")` to override the default `block_syntax().block_close`.
+    ///
+    /// # Examples
+    ///
+    /// Bash maps `"if ..."` → `Some("fi")`, `"for ..."` → `Some("done")`,
+    /// `"case ..."` → `Some("esac")`.
+    fn block_close_for(&self, _condition: &str) -> Option<&str> {
+        None
+    }
+
     /// Function signature syntax.
     fn function_syntax(&self) -> config::FunctionSyntaxConfig<'_> {
         config::FunctionSyntaxConfig::default()

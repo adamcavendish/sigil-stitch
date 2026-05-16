@@ -76,21 +76,21 @@ pub(crate) enum FormatPart {
     StatementEnd,
     /// Newline.
     Newline,
-    /// Block open delimiter — resolved at render time via `lang.block_syntax().block_open`.
-    /// Emitted by control-flow builders; braces for TS/Rust/Go, colon for Python.
-    BlockOpen,
-    /// Block open with an overridden delimiter (not resolved via `lang.block_syntax().block_open`).
-    /// Emitted by `begin_control_flow_with_open` for constructs that need a
-    /// different opener than the language default (e.g., Haskell `where` vs `=`).
-    BlockOpenOverride(String),
-    /// Block close delimiter (terminal) — resolved at render time via `lang.block_syntax().block_close`.
-    /// Emitted by `end_control_flow`. When non-empty, also emits a trailing newline.
-    /// When empty (indent-only languages like OCaml/Haskell/Python), emits nothing.
-    BlockClose,
-    /// Block close delimiter (transitional) — resolved at render time via
-    /// `lang.block_syntax().block_close` + `" "`. Used by `next_control_flow` to emit `} else`.
-    /// When `block_close()` is empty, emits nothing (Python: dedent-only transition).
-    BlockCloseTransition,
+    /// Block open delimiter — resolved at render time via `lang.block_open_for(condition)`
+    /// falling back to `lang.block_syntax().block_open`. Carries the condition text
+    /// from `begin_control_flow` (e.g., `"if x > 0"`, `"for i in range(10)"`).
+    /// Empty string means no condition (e.g., a bare `{ }` block).
+    BlockOpen(String),
+    /// Terminal block close delimiter — resolved at render time via
+    /// `lang.block_close_for(condition)` falling back to `lang.block_syntax().block_close`.
+    /// Carries the condition from the matching `begin_control_flow`.
+    /// Emits: closer + newline.
+    BlockClose(String),
+    /// Non-terminal block close before a branch keyword (`else`, `elif`, `catch`).
+    /// Like `BlockClose` but emits closer + space (not newline) so the branch
+    /// keyword continues on the same line (e.g., `} else {`).
+    /// Suppressed when `block_syntax().close_on_transition` is `false`.
+    BranchClose(String),
 }
 
 /// An argument to a CodeBlock format string.
@@ -163,7 +163,7 @@ impl CodeBlock {
     pub fn ends_with_newline_or_block_close(&self) -> bool {
         fn check_last(nodes: &[CodeNode]) -> bool {
             match nodes.last() {
-                Some(CodeNode::Newline | CodeNode::BlockClose) => true,
+                Some(CodeNode::Newline | CodeNode::BlockClose(_)) => true,
                 Some(CodeNode::Sequence(children)) => check_last(children),
                 Some(CodeNode::Nested(inner)) => check_last(&inner.nodes),
                 _ => false,
@@ -218,6 +218,7 @@ impl CodeBlock {
 pub struct CodeBlockBuilder {
     nodes: Vec<CodeNode>,
     indent_depth: i32,
+    block_stack: Vec<String>,
     errors: Vec<crate::error::SigilStitchError>,
 }
 
@@ -227,6 +228,7 @@ impl CodeBlockBuilder {
         Self {
             nodes: Vec::new(),
             indent_depth: 0,
+            block_stack: Vec::new(),
             errors: Vec::new(),
         }
     }
@@ -289,31 +291,21 @@ impl CodeBlockBuilder {
     }
 
     /// Begin a control flow block (e.g., "if foo" -> "if foo {\n" + indent).
-    pub fn begin_control_flow(&mut self, format: &str, args: impl IntoArgs) -> &mut Self {
-        self.add(format, args);
-        self.nodes.push(CodeNode::BlockOpen);
-        self.nodes.push(CodeNode::Newline);
-        self.nodes.push(CodeNode::Indent);
-        self.indent_depth += 1;
-        self
-    }
-
-    /// Begin a control flow block with a custom block-open string.
     ///
-    /// Like [`begin_control_flow`](Self::begin_control_flow), but uses
-    /// `custom_open` instead of the language's `block_open()`. Pass `""`
-    /// to suppress the block opener entirely (e.g., OCaml `match x with`).
-    pub fn begin_control_flow_with_open(
-        &mut self,
-        format: &str,
-        args: impl IntoArgs,
-        custom_open: &str,
-    ) -> &mut Self {
+    /// The **raw format string** (not the interpolated result) is stored as
+    /// the condition text and passed to `block_open_for` / `block_close_for`
+    /// at render time, enabling language backends to emit context-aware
+    /// delimiters (e.g., Bash `then`/`fi` for `if`, `do`/`done` for `for`).
+    ///
+    /// Because backends pattern-match on the stored condition (e.g.,
+    /// `condition.starts_with("if ")`), avoid interpolating into the keyword
+    /// prefix — `begin_control_flow("if %L", expr)` works, but
+    /// `begin_control_flow("%L x", some_keyword)` would not be recognized.
+    pub fn begin_control_flow(&mut self, format: &str, args: impl IntoArgs) -> &mut Self {
+        let condition = format.to_string();
+        self.block_stack.push(condition.clone());
         self.add(format, args);
-        if !custom_open.is_empty() {
-            self.nodes
-                .push(CodeNode::BlockOpenOverride(custom_open.to_string()));
-        }
+        self.nodes.push(CodeNode::BlockOpen(condition));
         self.nodes.push(CodeNode::Newline);
         self.nodes.push(CodeNode::Indent);
         self.indent_depth += 1;
@@ -322,22 +314,25 @@ impl CodeBlockBuilder {
 
     /// Add an else/else-if clause (e.g., "} else {" or "elif ...:" for Python).
     pub fn next_control_flow(&mut self, format: &str, args: impl IntoArgs) -> &mut Self {
+        let condition = self.block_stack.last().cloned().unwrap_or_default();
         self.nodes.push(CodeNode::Dedent);
         self.indent_depth -= 1;
-        self.nodes.push(CodeNode::BlockCloseTransition);
+        self.nodes.push(CodeNode::BranchClose(condition));
         self.add(format, args);
-        self.nodes.push(CodeNode::BlockOpen);
+        let new_condition = format.to_string();
+        self.nodes.push(CodeNode::BlockOpen(new_condition));
         self.nodes.push(CodeNode::Newline);
         self.nodes.push(CodeNode::Indent);
         self.indent_depth += 1;
         self
     }
 
-    /// End a control flow block (emits "}" or nothing for Python, and decreases indent).
+    /// End a control flow block (emits "}" or language-specific closer, and decreases indent).
     pub fn end_control_flow(&mut self) -> &mut Self {
+        let condition = self.block_stack.pop().unwrap_or_default();
         self.nodes.push(CodeNode::Dedent);
         self.indent_depth -= 1;
-        self.nodes.push(CodeNode::BlockClose);
+        self.nodes.push(CodeNode::BlockClose(condition));
         self
     }
 
@@ -820,41 +815,36 @@ mod tests {
     }
 
     #[test]
-    fn test_begin_control_flow_with_open_non_empty() {
+    fn test_begin_control_flow_stores_condition() {
         let mut b = CodeBlock::builder();
-        b.begin_control_flow_with_open("class Functor f", (), " where");
+        b.begin_control_flow("class Functor f", ());
         b.add_statement("fmap :: (a -> b) -> f a -> f b", ());
         b.end_control_flow();
         let block = b.build().unwrap();
-        let has_override = block
+        let has_open = block
             .nodes
             .iter()
-            .any(|n| matches!(n, CodeNode::BlockOpenOverride(s) if s == " where"));
-        assert!(has_override, "should contain BlockOpenOverride(\" where\")");
-        let has_block_open = block.nodes.iter().any(|n| matches!(n, CodeNode::BlockOpen));
-        assert!(
-            !has_block_open,
-            "should NOT contain BlockOpen when override is used"
-        );
+            .any(|n| matches!(n, CodeNode::BlockOpen(s) if s == "class Functor f"));
+        assert!(has_open, "should contain BlockOpen with condition text");
+        let has_close = block
+            .nodes
+            .iter()
+            .any(|n| matches!(n, CodeNode::BlockClose(s) if s == "class Functor f"));
+        assert!(has_close, "should contain BlockClose with condition text");
     }
 
     #[test]
-    fn test_begin_control_flow_with_open_empty() {
+    fn test_begin_control_flow_match_empty_open() {
         let mut b = CodeBlock::builder();
-        b.begin_control_flow_with_open("match x with", (), "");
+        b.begin_control_flow("match x with", ());
         b.add("| Red -> red", ());
         b.add_line();
         b.end_control_flow();
         let block = b.build().unwrap();
-        let has_override = block
+        let has_open = block
             .nodes
             .iter()
-            .any(|n| matches!(n, CodeNode::BlockOpenOverride(_)));
-        assert!(
-            !has_override,
-            "empty custom_open should skip BlockOpenOverride"
-        );
-        let has_block_open = block.nodes.iter().any(|n| matches!(n, CodeNode::BlockOpen));
-        assert!(!has_block_open, "should NOT contain BlockOpen either");
+            .any(|n| matches!(n, CodeNode::BlockOpen(s) if s == "match x with"));
+        assert!(has_open, "should contain BlockOpen(\"match x with\")");
     }
 }
