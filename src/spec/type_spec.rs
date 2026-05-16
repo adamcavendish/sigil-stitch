@@ -340,8 +340,10 @@ impl TypeSpec {
                 && lang.function_syntax().where_clause_style == WhereClauseStyle::WhereBlock
             {
                 emit_where_block(&mut impl_fmt, &mut impl_args, &self.where_constraints, lang);
+                impl_fmt.push_str("\n{");
+            } else {
+                impl_fmt.push_str(lang.block_syntax().block_open);
             }
-            impl_fmt.push_str(lang.block_syntax().block_open);
             impl_cb.add(&impl_fmt, impl_args);
             impl_cb.add_line();
 
@@ -615,9 +617,10 @@ impl TypeSpec {
             && lang.function_syntax().where_clause_style == WhereClauseStyle::WhereBlock
         {
             emit_where_block(&mut fmt, &mut args, &self.where_constraints, lang);
+            fmt.push_str("\n{");
+        } else {
+            fmt.push_str(lang.type_header_block_open(self.kind));
         }
-
-        fmt.push_str(lang.type_header_block_open(self.kind));
         cb.add(&fmt, args);
         cb.add_line();
         Ok(())
