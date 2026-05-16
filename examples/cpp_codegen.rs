@@ -1,208 +1,394 @@
-//! Example: Generate a C++ header file with sigil-stitch.
+//! Generate a C++ header file — builder API vs `sigil_quote!` comparison.
 //!
-//! Demonstrates:
-//! - `#pragma once` file header
-//! - `#include` directives (system and local)
-//! - Namespace wrapping via raw content
-//! - Abstract base class with pure virtual methods
-//! - Derived class with `override` suffix
-//! - Template function via annotation
-//! - `enum class` (scoped enum)
-//! - Method suffixes (`const`, `override`, `= 0`)
-//! - Access specifiers (`public:`, `private:`) via extra_member
+//! Demonstrates: abstract class, inheritance, templates, scoped enum,
+//! reference and pointer types, struct with fields, and static methods.
 //!
 //! Run: `cargo run --example cpp_codegen`
 
-use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::lang::cpp_lang::CppLang;
-use sigil_stitch::spec::field_spec::FieldSpec;
-use sigil_stitch::spec::file_spec::FileSpec;
-use sigil_stitch::spec::fun_spec::FunSpec;
-use sigil_stitch::spec::modifiers::{DeclarationContext, TypeKind};
-use sigil_stitch::spec::parameter_spec::ParameterSpec;
-use sigil_stitch::spec::type_spec::TypeSpec;
-use sigil_stitch::type_name::TypeName;
-
-/// Helper: emit a FunSpec as a CodeBlock for embedding in extra_member.
-fn emit_fun(fun: &FunSpec) -> CodeBlock {
-    let lang = CppLang::new();
-    fun.emit(&lang, DeclarationContext::Member).unwrap()
-}
-
-/// Helper: emit a FieldSpec as a CodeBlock for embedding in extra_member.
-fn emit_field(field: &FieldSpec) -> CodeBlock {
-    let lang = CppLang::new();
-    field.emit(&lang, DeclarationContext::Member).unwrap()
-}
+use sigil_stitch::prelude::*;
 
 fn main() {
-    // --- Imports ---
+    println!("=== Builder API ===\n");
+    let builder_output = builder_approach();
+    println!("{builder_output}");
+
+    println!("=== sigil_quote! Macro ===\n");
+    let macro_output = macro_approach();
+    println!("{macro_output}");
+}
+
+fn emit_fun(fun: &FunSpec) -> CodeBlock {
+    fun.emit(&CppLang::new(), DeclarationContext::Member)
+        .unwrap()
+}
+
+fn builder_approach() -> String {
     let iostream = TypeName::importable("iostream", "std::cout");
-    let string_h = TypeName::importable("string", "std::string");
     let vector_h = TypeName::importable("vector", "std::vector");
 
-    // --- Enum class: LogLevel ---
-    let enum_b = TypeSpec::builder("LogLevel", TypeKind::Enum);
-    let enum_b = enum_b.doc("Severity levels for the logging system.");
-    let mut members = CodeBlock::builder();
-    members.add("Debug,", ());
-    members.add_line();
-    members.add("Info,", ());
-    members.add_line();
-    members.add("Warning,", ());
-    members.add_line();
-    members.add("Error", ());
-    members.add_line();
-    let enum_b = enum_b.extra_member(members.build().unwrap());
-    let log_level = enum_b.build().unwrap();
+    let logger = {
+        let mut pub_section = CodeBlock::builder();
+        pub_section.add("%<", ());
+        pub_section.add("public:", ());
+        pub_section.add_line();
+        pub_section.add("%>", ());
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("log")
+                .is_abstract()
+                .add_param(ParameterSpec::new("msg", TypeName::primitive("const char*")).unwrap())
+                .returns(TypeName::primitive("void"))
+                .suffix("= 0")
+                .build()
+                .unwrap(),
+        ));
+        pub_section.add_line();
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("~Logger")
+                .is_abstract()
+                .suffix("= default")
+                .build()
+                .unwrap(),
+        ));
 
-    // --- Abstract base class: Logger ---
-    let logger_b = TypeSpec::builder("Logger", TypeKind::Class);
-    let logger_b = logger_b.doc("Abstract base class for loggers.");
-
-    let mut pub_section = CodeBlock::builder();
-    pub_section.add("%<", ());
-    pub_section.add("public:", ());
-    pub_section.add_line();
-    pub_section.add("%>", ());
-
-    // Pure virtual: virtual void log(const char* msg) = 0;
-    pub_section.add_code(emit_fun(
-        &FunSpec::builder("log")
-            .is_abstract()
-            .add_param(ParameterSpec::new("msg", TypeName::primitive("const char*")).unwrap())
-            .returns(TypeName::primitive("void"))
-            .suffix("= 0")
+        TypeSpec::builder("Logger", TypeKind::Class)
+            .doc("Abstract base class for loggers.")
+            .extra_member(pub_section.build().unwrap())
             .build()
-            .unwrap(),
-    ));
+            .unwrap()
+    };
 
-    // Pure virtual: virtual LogLevel level() const = 0;
-    pub_section.add_line();
-    pub_section.add_code(emit_fun(
-        &FunSpec::builder("level")
-            .is_abstract()
-            .returns(TypeName::primitive("LogLevel"))
-            .suffix("const")
-            .suffix("= 0")
+    let console = {
+        let mut priv_section = CodeBlock::builder();
+        priv_section.add("%<", ());
+        priv_section.add("private:", ());
+        priv_section.add_line();
+        priv_section.add("%>", ());
+        priv_section.add("std::string name_;", ());
+        priv_section.add_line();
+
+        let mut pub_section = CodeBlock::builder();
+        pub_section.add_line();
+        pub_section.add("%<", ());
+        pub_section.add("public:", ());
+        pub_section.add_line();
+        pub_section.add("%>", ());
+
+        let ctor_body = CodeBlock::of("name_ = name;", ()).unwrap();
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("ConsoleLogger")
+                .add_param(
+                    ParameterSpec::new("name", TypeName::primitive("const std::string&")).unwrap(),
+                )
+                .body(ctor_body)
+                .build()
+                .unwrap(),
+        ));
+        pub_section.add_line();
+
+        let log_body = CodeBlock::of(
+            "%T << \"[\" << name_ << \"] \" << msg << std::endl;",
+            (iostream.clone(),),
+        )
+        .unwrap();
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("log")
+                .add_param(ParameterSpec::new("msg", TypeName::primitive("const char*")).unwrap())
+                .returns(TypeName::primitive("void"))
+                .suffix("override")
+                .body(log_body)
+                .build()
+                .unwrap(),
+        ));
+        pub_section.add_line();
+
+        // Static method: defaultLevel
+        let default_level_body = CodeBlock::of("return LogLevel::Info;", ()).unwrap();
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("defaultLevel")
+                .is_static()
+                .returns(TypeName::primitive("LogLevel"))
+                .body(default_level_body)
+                .build()
+                .unwrap(),
+        ));
+
+        TypeSpec::builder("ConsoleLogger", TypeKind::Class)
+            .extends(TypeName::primitive("Logger"))
+            .doc("Logger that writes to stdout.")
+            .extra_member(priv_section.build().unwrap())
+            .extra_member(pub_section.build().unwrap())
             .build()
-            .unwrap(),
-    ));
+            .unwrap()
+    };
 
-    // Virtual destructor
-    pub_section.add_line();
-    pub_section.add_code(emit_fun(
-        &FunSpec::builder("~Logger")
-            .is_abstract()
-            .suffix("= default")
-            .build()
-            .unwrap(),
-    ));
-
-    let logger_b = logger_b.extra_member(pub_section.build().unwrap());
-    let logger = logger_b.build().unwrap();
-
-    // --- Derived class: ConsoleLogger ---
-    let console_b = TypeSpec::builder("ConsoleLogger", TypeKind::Class);
-    let console_b = console_b.extends(TypeName::primitive("Logger"));
-    let console_b = console_b.doc("Logger that writes to stdout.");
-
-    // private: section
-    let mut priv_section = CodeBlock::builder();
-    priv_section.add("%<", ());
-    priv_section.add("private:", ());
-    priv_section.add_line();
-    priv_section.add("%>", ());
-    let name_field = FieldSpec::builder("name_", TypeName::primitive("std::string"))
+    // --- Scoped enum: LogLevel ---
+    let log_level = TypeSpec::builder("LogLevel", TypeKind::Enum)
+        .doc("Severity levels for log messages.")
+        .add_variant(EnumVariantSpec::new("Debug").unwrap())
+        .add_variant(EnumVariantSpec::new("Info").unwrap())
+        .add_variant(EnumVariantSpec::new("Warning").unwrap())
+        .add_variant(EnumVariantSpec::new("Error").unwrap())
         .build()
         .unwrap();
-    priv_section.add_code(emit_field(&name_field));
-    let level_field = FieldSpec::builder("level_", TypeName::primitive("LogLevel"))
+
+    // --- Struct: Config ---
+    let config = TypeSpec::builder("Config", TypeKind::Struct)
+        .doc("Runtime configuration for the logging system.")
+        .add_field(
+            FieldSpec::builder("host", TypeName::primitive("std::string"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("port", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("level", TypeName::primitive("LogLevel"))
+                .build()
+                .unwrap(),
+        )
         .build()
         .unwrap();
-    priv_section.add_code(emit_field(&level_field));
-    let console_b = console_b.extra_member(priv_section.build().unwrap());
 
-    // public: section
-    let mut pub_section2 = CodeBlock::builder();
-    pub_section2.add_line();
-    pub_section2.add("%<", ());
-    pub_section2.add("public:", ());
-    pub_section2.add_line();
-    pub_section2.add("%>", ());
-
-    // Constructor
-    let ctor_body = CodeBlock::of("name_ = name;\nlevel_ = LogLevel::Info;", ()).unwrap();
-    pub_section2.add_code(emit_fun(
-        &FunSpec::builder("ConsoleLogger")
-            .add_param(
-                ParameterSpec::new("name", TypeName::primitive("const std::string&")).unwrap(),
-            )
-            .body(ctor_body)
-            .build()
-            .unwrap(),
-    ));
-
-    // log override
-    pub_section2.add_line();
-    let log_body = CodeBlock::of(
-        "%T << \"[\" << name_ << \"] \" << %T(msg) << std::endl;",
-        (iostream, string_h),
+    // --- Free function with reference and pointer params: logAll ---
+    let log_all_body = CodeBlock::of(
+        "for (const auto& msg : messages) {\n    logger->log(msg.c_str());\n}",
+        (),
     )
     .unwrap();
-    pub_section2.add_code(emit_fun(
-        &FunSpec::builder("log")
-            .add_param(ParameterSpec::new("msg", TypeName::primitive("const char*")).unwrap())
-            .returns(TypeName::primitive("void"))
-            .suffix("override")
-            .body(log_body)
-            .build()
+    let log_all = FunSpec::builder("logAll")
+        .add_param(
+            ParameterSpec::new(
+                "messages",
+                TypeName::reference(TypeName::primitive("std::vector<std::string>")),
+            )
             .unwrap(),
-    ));
-
-    // level override
-    pub_section2.add_line();
-    let level_body = CodeBlock::of("return level_;", ()).unwrap();
-    pub_section2.add_code(emit_fun(
-        &FunSpec::builder("level")
-            .returns(TypeName::primitive("LogLevel"))
-            .suffix("const")
-            .suffix("override")
-            .body(level_body)
-            .build()
-            .unwrap(),
-    ));
-
-    let console_b = console_b.extra_member(pub_section2.build().unwrap());
-    let console_logger = console_b.build().unwrap();
+        )
+        .add_param(
+            ParameterSpec::new("logger", TypeName::pointer(TypeName::primitive("Logger"))).unwrap(),
+        )
+        .returns(TypeName::primitive("void"))
+        .body(log_all_body)
+        .build()
+        .unwrap();
 
     // --- Template function: make_vector ---
-    let make_vec_fn = FunSpec::builder("make_vector");
-    let make_vec_fn = make_vec_fn.annotation(CodeBlock::of("template<typename T>", ()).unwrap());
-    let make_vec_fn =
-        make_vec_fn.add_param(ParameterSpec::new("first", TypeName::primitive("T")).unwrap());
-    let make_vec_fn =
-        make_vec_fn.add_param(ParameterSpec::new("second", TypeName::primitive("T")).unwrap());
-    let make_vec_fn = make_vec_fn.returns(TypeName::primitive("std::vector<T>"));
     let vec_body = CodeBlock::of(
         "%T<T> result;\nresult.push_back(first);\nresult.push_back(second);\nreturn result;",
         (vector_h,),
     )
     .unwrap();
-    let make_vec_fn = make_vec_fn.body(vec_body);
-    let make_vector = make_vec_fn.build().unwrap();
-
-    // --- Assemble file ---
-    let file = FileSpec::builder_with("logging.hpp", CppLang::header())
-        .header(CodeBlock::of("#pragma once", ()).unwrap())
-        .add_raw("\nnamespace app {\n\n")
-        .add_type(log_level)
-        .add_type(logger)
-        .add_type(console_logger)
-        .add_function(make_vector)
-        .add_raw("\n} // namespace app\n")
+    let make_vector = FunSpec::builder("make_vector")
+        .annotation(CodeBlock::of("template<typename T>", ()).unwrap())
+        .add_param(ParameterSpec::new("first", TypeName::primitive("T")).unwrap())
+        .add_param(ParameterSpec::new("second", TypeName::primitive("T")).unwrap())
+        .returns(TypeName::primitive("std::vector<T>"))
+        .body(vec_body)
         .build()
         .unwrap();
-    let output = file.render(80).unwrap();
-    print!("{output}");
+
+    FileSpec::builder_with("logging.hpp", CppLang::header())
+        .header(CodeBlock::of("#pragma once", ()).unwrap())
+        .add_type(log_level)
+        .add_type(config)
+        .add_type(logger)
+        .add_type(console)
+        .add_function(log_all)
+        .add_function(make_vector)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
+}
+
+fn macro_approach() -> String {
+    let iostream = TypeName::importable("iostream", "std::cout");
+    let vector_h = TypeName::importable("vector", "std::vector");
+
+    let logger = {
+        let mut pub_section = CodeBlock::builder();
+        pub_section.add("%<", ());
+        pub_section.add("public:", ());
+        pub_section.add_line();
+        pub_section.add("%>", ());
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("log")
+                .is_abstract()
+                .add_param(ParameterSpec::new("msg", TypeName::primitive("const char*")).unwrap())
+                .returns(TypeName::primitive("void"))
+                .suffix("= 0")
+                .build()
+                .unwrap(),
+        ));
+        pub_section.add_line();
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("~Logger")
+                .is_abstract()
+                .suffix("= default")
+                .build()
+                .unwrap(),
+        ));
+
+        TypeSpec::builder("Logger", TypeKind::Class)
+            .doc("Abstract base class for loggers.")
+            .extra_member(pub_section.build().unwrap())
+            .build()
+            .unwrap()
+    };
+
+    let console = {
+        let mut priv_section = CodeBlock::builder();
+        priv_section.add("%<", ());
+        priv_section.add("private:", ());
+        priv_section.add_line();
+        priv_section.add("%>", ());
+        priv_section.add("std::string name_;", ());
+        priv_section.add_line();
+
+        let mut pub_section = CodeBlock::builder();
+        pub_section.add_line();
+        pub_section.add("%<", ());
+        pub_section.add("public:", ());
+        pub_section.add_line();
+        pub_section.add("%>", ());
+
+        let ctor_body = sigil_quote!(CppLang {
+            name_ = name;
+        })
+        .unwrap();
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("ConsoleLogger")
+                .add_param(
+                    ParameterSpec::new("name", TypeName::primitive("const std::string&")).unwrap(),
+                )
+                .body(ctor_body)
+                .build()
+                .unwrap(),
+        ));
+        pub_section.add_line();
+
+        let log_body = sigil_quote!(CppLang {
+            $T(iostream) << "[" << name_ << "] " << msg << std::endl;
+        })
+        .unwrap();
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("log")
+                .add_param(ParameterSpec::new("msg", TypeName::primitive("const char*")).unwrap())
+                .returns(TypeName::primitive("void"))
+                .suffix("override")
+                .body(log_body)
+                .build()
+                .unwrap(),
+        ));
+        pub_section.add_line();
+
+        // Static method: defaultLevel
+        let default_level_body = sigil_quote!(CppLang {
+            return LogLevel::Info;
+        })
+        .unwrap();
+        pub_section.add_code(emit_fun(
+            &FunSpec::builder("defaultLevel")
+                .is_static()
+                .returns(TypeName::primitive("LogLevel"))
+                .body(default_level_body)
+                .build()
+                .unwrap(),
+        ));
+
+        TypeSpec::builder("ConsoleLogger", TypeKind::Class)
+            .extends(TypeName::primitive("Logger"))
+            .doc("Logger that writes to stdout.")
+            .extra_member(priv_section.build().unwrap())
+            .extra_member(pub_section.build().unwrap())
+            .build()
+            .unwrap()
+    };
+
+    // --- Scoped enum: LogLevel ---
+    let log_level = TypeSpec::builder("LogLevel", TypeKind::Enum)
+        .doc("Severity levels for log messages.")
+        .add_variant(EnumVariantSpec::new("Debug").unwrap())
+        .add_variant(EnumVariantSpec::new("Info").unwrap())
+        .add_variant(EnumVariantSpec::new("Warning").unwrap())
+        .add_variant(EnumVariantSpec::new("Error").unwrap())
+        .build()
+        .unwrap();
+
+    // --- Struct: Config ---
+    let config = TypeSpec::builder("Config", TypeKind::Struct)
+        .doc("Runtime configuration for the logging system.")
+        .add_field(
+            FieldSpec::builder("host", TypeName::primitive("std::string"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("port", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("level", TypeName::primitive("LogLevel"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+
+    // --- Free function with reference and pointer params: logAll ---
+    let log_all_body = sigil_quote!(CppLang {
+        for (const auto& msg : messages) {
+            logger->log(msg.c_str());
+        }
+    })
+    .unwrap();
+    let log_all = FunSpec::builder("logAll")
+        .add_param(
+            ParameterSpec::new(
+                "messages",
+                TypeName::reference(TypeName::primitive("std::vector<std::string>")),
+            )
+            .unwrap(),
+        )
+        .add_param(
+            ParameterSpec::new("logger", TypeName::pointer(TypeName::primitive("Logger"))).unwrap(),
+        )
+        .returns(TypeName::primitive("void"))
+        .body(log_all_body)
+        .build()
+        .unwrap();
+
+    // --- Template function: make_vector ---
+    let vec_body = sigil_quote!(CppLang {
+        $T(vector_h)<T> result;
+        result.push_back(first);
+        result.push_back(second);
+        return result;
+    })
+    .unwrap();
+    let make_vector = FunSpec::builder("make_vector")
+        .annotation(CodeBlock::of("template<typename T>", ()).unwrap())
+        .add_param(ParameterSpec::new("first", TypeName::primitive("T")).unwrap())
+        .add_param(ParameterSpec::new("second", TypeName::primitive("T")).unwrap())
+        .returns(TypeName::primitive("std::vector<T>"))
+        .body(vec_body)
+        .build()
+        .unwrap();
+
+    FileSpec::builder_with("logging.hpp", CppLang::header())
+        .header(CodeBlock::of("#pragma once", ()).unwrap())
+        .add_type(log_level)
+        .add_type(config)
+        .add_type(logger)
+        .add_type(console)
+        .add_function(log_all)
+        .add_function(make_vector)
+        .build()
+        .unwrap()
+        .render(80)
+        .unwrap()
 }
