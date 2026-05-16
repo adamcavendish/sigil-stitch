@@ -174,11 +174,11 @@ fn line_continuation() {
     println!("{output}");
 }
 
-/// `$open("text")` — custom block opener override.
+/// Context-aware block delimiters — Haskell `class` uses `where` via `block_open_for`.
 fn open_override() {
-    println!("--- $open: Custom Block Opener ---\n");
+    println!("--- Context-Aware Block Opener ---\n");
     let block = sigil_quote!(Haskell {
-        class Functor f $open(" where") {
+        class Functor f {
             fmap :: (a -> b) -> f a -> f b;
         }
     })

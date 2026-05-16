@@ -33,7 +33,6 @@ use proc_macro::TokenStream;
 /// | `$L(expr)` | `%L` | Literal or nested code |
 /// | `$C(expr)` | `%L` | Nested `CodeBlock` |
 /// | `$W` | `%W` | Soft line-break point |
-/// | `$open("text")` | — | Custom block opener (see below) |
 /// | `$>` | `%>` | Increase indent |
 /// | `$<` | `%<` | Decrease indent |
 /// | `$$` | `$` | Literal dollar sign |
@@ -80,19 +79,20 @@ use proc_macro::TokenStream;
 /// })
 /// ```
 ///
-/// ## Custom Block Openers (`$open`)
+/// ## Context-Aware Block Delimiters
 ///
-/// By default, `{ ... }` uses the language's `block_syntax().block_open` (e.g., `" {"` for
-/// brace languages, `":"` for Python, `" ="` for Haskell). Use `$open("text")`
-/// before `{` to override the opener for that block:
+/// By default, `{ ... }` uses the language's `block_syntax().block_open`. Language
+/// backends can override the opener and closer per condition via `block_open_for`
+/// and `block_close_for`. For example, Bash maps `if` → `then`/`fi` and
+/// `for` → `do`/`done`, while Haskell maps `class` → `where`:
 ///
 /// ```ignore
-/// // Haskell type class: "class Functor f where" instead of "class Functor f ="
-/// sigil_quote!(Haskell {
-///     class Functor f $open(" where") {
-///         fmap :: (a -> b) -> f a -> f b;
+/// sigil_quote!(Bash {
+///     if [ -f "$$file" ]; {
+///         echo "found"
 ///     }
 /// })
+/// // renders: if [ -f "$file" ]; then\n    echo "found"\nfi
 /// ```
 ///
 /// ## Limitations

@@ -21,60 +21,22 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 ///
 /// # Control Flow
 ///
-/// Bash uses keyword-based block closers that vary per construct (`fi`, `done`,
-/// `esac`). The `begin_control_flow`/`end_control_flow` helpers auto-append
-/// `block_open()`/`block_close()` (i.e., `{`/`}`), which is wrong for shell
-/// control flow. Instead, use manual `add()` with explicit indent/dedent:
+/// Bash uses keyword-based block delimiters that vary per construct (`then`/`fi`,
+/// `do`/`done`, `in`/`esac`). The `block_open_for`/`block_close_for` methods
+/// automatically map conditions to the correct delimiters:
 ///
 /// ```text
-/// // if/then/fi
-/// b.add("if [ -f \"$file\" ]; then\n", ());
-/// b.add("%>", ());
+/// // Builder API — begin_control_flow/end_control_flow work directly:
+/// b.begin_control_flow("if [ -f \"$file\" ];", ());   // emits "; then"
 /// b.add_statement("echo \"found\"", ());
-/// b.add("%<", ());
-/// b.add("fi\n", ());
+/// b.end_control_flow();                                // emits "fi"
 ///
-/// // for/do/done
-/// b.add("for f in *.txt; do\n", ());
-/// b.add("%>", ());
-/// b.add_statement("process \"$f\"", ());
-/// b.add("%<", ());
-/// b.add("done\n", ());
-///
-/// // while/do/done
-/// b.add("while read -r line; do\n", ());
-/// b.add("%>", ());
-/// b.add_statement("echo \"$line\"", ());
-/// b.add("%<", ());
-/// b.add("done\n", ());
-///
-/// // case/esac
-/// b.add("case \"$1\" in\n", ());
-/// b.add("%>", ());
-/// b.add("start)\n", ());
-/// b.add("%>", ());
-/// b.add_statement("start_service", ());
-/// b.add("%<", ());
-/// b.add(";;\n", ());
-/// b.add("*)\n", ());
-/// b.add("%>", ());
-/// b.add_statement("echo \"unknown\"", ());
-/// b.add("%<", ());
-/// b.add(";;\n", ());
-/// b.add("%<", ());
-/// b.add("esac\n", ());
-/// ```
-///
-/// The `begin_control_flow`/`end_control_flow` helpers **do** work for function
-/// bodies since functions use `{ }` braces:
-///
-/// ```text
-/// let mut fb = FunSpec::builder("greet");
-/// fb.body(body);
-/// let fun = fb.build().unwrap();
-/// // function greet {
-/// //     echo "hello"
-/// // }
+/// // sigil_quote! — use { } and the backend handles the rest:
+/// sigil_quote!(Bash {
+///     if [ -f "$$file" ]; {
+///         echo "found"
+///     }
+/// })
 /// ```
 ///
 /// # Shebang
@@ -230,7 +192,50 @@ impl CodeLang for Bash {
             indent_unit: &self.indent,
             uses_semicolons: false,
             field_terminator: "",
+            close_on_transition: false,
             ..Default::default()
+        }
+    }
+
+    fn block_open_for(&self, condition: &str) -> Option<&str> {
+        let raw = condition.trim();
+        let t = raw.trim_end_matches(';').trim();
+        if t.ends_with("; then")
+            || t.ends_with("; do")
+            || t.ends_with(" in")
+            || t == "else"
+            || t == "elif"
+        {
+            Some("")
+        } else if t.starts_with("if ") || t.starts_with("elif ") {
+            if raw.ends_with(';') {
+                Some(" then")
+            } else {
+                Some("; then")
+            }
+        } else if t.starts_with("for ") || t.starts_with("while ") || t.starts_with("until ") {
+            if raw.ends_with(';') {
+                Some(" do")
+            } else {
+                Some("; do")
+            }
+        } else if t.starts_with("case ") {
+            Some(" in")
+        } else {
+            None
+        }
+    }
+
+    fn block_close_for(&self, condition: &str) -> Option<&str> {
+        let t = condition.trim().trim_end_matches(';').trim();
+        if t.starts_with("if ") || t.starts_with("elif ") || t == "else" {
+            Some("fi")
+        } else if t.starts_with("for ") || t.starts_with("while ") || t.starts_with("until ") {
+            Some("done")
+        } else if t.starts_with("case ") {
+            Some("esac")
+        } else {
+            None
         }
     }
 

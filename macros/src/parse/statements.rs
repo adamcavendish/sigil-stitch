@@ -73,14 +73,11 @@ pub(super) fn parse_one_statement(
 
             // (Any trailing `$+` in collected is handled by tokens_to_format_inner.)
 
-            // Check for $open("...") at end of collected tokens.
-            let (condition_tokens, block_open_override) = try_extract_open_override(&collected)?;
-
             // Distinguish control-flow `{` from literal `{` (e.g., Lua tables).
             // Brace languages always use `{` for blocks, but end-delimited
             // languages (Lua, Ruby, Elixir) use `{` for table/hash literals
             // and can only detect control flow from surrounding keywords.
-            if !looks_like_control_flow_header(&condition_tokens) {
+            if !looks_like_control_flow_header(&collected) {
                 // Treat as a literal brace group — not control flow.
                 collected.push(tt.clone());
                 prev_end_line = Some(tt.span().end().line);
@@ -89,7 +86,7 @@ pub(super) fn parse_one_statement(
             }
 
             // Control flow detected.
-            return parse_control_flow(tokens, &condition_tokens, g, pos, block_open_override);
+            return parse_control_flow(tokens, &collected, g, pos);
         }
 
         // Line-break detection: split statement when tokens span multiple lines.
@@ -125,72 +122,6 @@ pub(super) fn parse_one_statement(
         let (format, args) = tokens_to_format(&collected)?;
         Ok((Statement::Line { format, args }, pos))
     }
-}
-
-/// Check if the last tokens in `collected` form `$open("text")`.
-/// Returns the remaining condition tokens and the optional override string.
-fn try_extract_open_override(
-    collected: &[TokenTree],
-) -> Result<(Vec<TokenTree>, Option<String>), CompileError> {
-    let n = collected.len();
-    if n < 3 {
-        return Ok((collected.to_vec(), None));
-    }
-
-    // Check for pattern: Punct($) Ident(open) Group(Paren containing string literal)
-    let dollar = &collected[n - 3];
-    let ident = &collected[n - 2];
-    let group = &collected[n - 1];
-
-    let is_dollar = matches!(dollar, TokenTree::Punct(p) if p.as_char() == '$');
-    let is_open = is_ident(ident, "open");
-    let paren_group = if let TokenTree::Group(g) = group
-        && g.delimiter() == Delimiter::Parenthesis
-    {
-        Some(g)
-    } else {
-        None
-    };
-
-    if !is_dollar || !is_open || paren_group.is_none() {
-        return Ok((collected.to_vec(), None));
-    }
-
-    let g = paren_group.unwrap();
-    let inner: Vec<TokenTree> = g.stream().into_iter().collect();
-    if inner.len() != 1 {
-        return Err(CompileError::new(
-            g.span(),
-            "$open requires a single string literal: $open(\"text\")",
-        ));
-    }
-
-    let text = match &inner[0] {
-        TokenTree::Literal(lit) => {
-            let s = lit.to_string();
-            if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
-                let raw = &s[1..s.len() - 1];
-                match unescape_string(raw) {
-                    Ok(text) => text,
-                    Err(msg) => return Err(CompileError::new(lit.span(), &msg)),
-                }
-            } else {
-                return Err(CompileError::new(
-                    lit.span(),
-                    "$open requires a string literal",
-                ));
-            }
-        }
-        _ => {
-            return Err(CompileError::new(
-                inner[0].span(),
-                "$open requires a string literal",
-            ));
-        }
-    };
-
-    let condition_tokens = collected[..n - 3].to_vec();
-    Ok((condition_tokens, Some(text)))
 }
 
 /// Check whether the tokens before a `{` brace group look like a control-flow
@@ -277,7 +208,6 @@ fn parse_control_flow(
     condition_tokens: &[TokenTree],
     first_brace: &proc_macro2::Group,
     brace_pos: usize,
-    block_open_override: Option<String>,
 ) -> Result<(Statement, usize), CompileError> {
     let (cond_format, cond_args) = tokens_to_format(condition_tokens)?;
     let body_tokens: Vec<TokenTree> = first_brace.stream().into_iter().collect();
@@ -287,7 +217,6 @@ fn parse_control_flow(
         condition_format: cond_format,
         condition_args: cond_args,
         body,
-        block_open_override,
     }];
 
     let mut pos = brace_pos + 1;
@@ -335,7 +264,6 @@ fn parse_control_flow(
                         condition_format: cond_format,
                         condition_args: cond_args,
                         body,
-                        block_open_override: None,
                     });
                     pos += 1;
                     found_brace = true;

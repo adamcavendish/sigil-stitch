@@ -2,6 +2,8 @@
 //!
 //! Demonstrates: functions with `end` block close, table constructors via
 //! raw CodeBlock, `require` imports, and control flow (`if/then/end`).
+//! The macro approach uses `{ }` blocks that the Lua backend automatically
+//! converts to the correct delimiters (`then`/`end`, `do`/`end`).
 //!
 //! Run: `cargo run --example lua_codegen`
 
@@ -96,33 +98,25 @@ fn macro_approach() -> String {
         .build()
         .unwrap();
 
-    // Lua control flow (if/then/end, for/do/end) doesn't use { } blocks,
-    // so we use CodeBlock::builder with manual indent markers.
-    let mut create_body = CodeBlock::builder();
-    create_body.add("local config = {}", ());
-    create_body.add_line();
-    create_body.add("config.host = host or \"localhost\"", ());
-    create_body.add_line();
-    create_body.add("config.port = port or 8080", ());
-    create_body.add_line();
-    create_body.add_line();
-    create_body.add("%<", ());
-    create_body.add("if config.port < 1024 then", ());
-    create_body.add_line();
-    create_body.add("%>", ());
-    create_body.add("print(\"Warning: privileged port\")", ());
-    create_body.add_line();
-    create_body.add("%<", ());
-    create_body.add("end", ());
-    create_body.add_line();
-    create_body.add("%>", ());
-    create_body.add_line();
-    create_body.add("return config", ());
+    // With context-aware block delimiters, Lua control flow now uses { }
+    // in sigil_quote! — the backend emits then/end, do/end automatically.
+    let create_body = sigil_quote!(Lua {
+        local config = {}
+        config.host = host or "localhost"
+        config.port = port or 8080
+
+        if config.port < 1024 {
+            print("Warning: privileged port")
+        }
+
+        return config
+    })
+    .unwrap();
 
     let create_fn = FunSpec::builder("create_config")
         .add_param(ParameterSpec::new("host", TypeName::primitive("")).unwrap())
         .add_param(ParameterSpec::new("port", TypeName::primitive("")).unwrap())
-        .body(create_body.build().unwrap())
+        .body(create_body)
         .build()
         .unwrap();
 

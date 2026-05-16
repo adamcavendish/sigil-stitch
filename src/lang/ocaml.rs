@@ -93,7 +93,7 @@ impl OCaml {
         body: crate::code_block::CodeBlock,
     ) -> Result<crate::code_block::CodeBlock, crate::error::SigilStitchError> {
         let mut cb = crate::code_block::CodeBlock::builder();
-        cb.begin_control_flow_with_open(&format!("module {name}"), (), " = struct");
+        cb.begin_control_flow(&format!("module {name}"), ());
         cb.add_code(body);
         cb.end_control_flow();
         cb.add("end", ());
@@ -106,7 +106,7 @@ impl OCaml {
         body: crate::code_block::CodeBlock,
     ) -> Result<crate::code_block::CodeBlock, crate::error::SigilStitchError> {
         let mut cb = crate::code_block::CodeBlock::builder();
-        cb.begin_control_flow_with_open(&format!("module type {name}"), (), " = sig");
+        cb.begin_control_flow(&format!("module type {name}"), ());
         cb.add_code(body);
         cb.end_control_flow();
         cb.add("end", ());
@@ -296,6 +296,19 @@ impl CodeLang for OCaml {
             uses_semicolons: false,
             field_terminator: ";",
             ..Default::default()
+        }
+    }
+
+    fn block_open_for(&self, condition: &str) -> Option<&str> {
+        let t = condition.trim();
+        if t.starts_with("module type ") {
+            Some(" = sig")
+        } else if t.starts_with("module ") {
+            Some(" = struct")
+        } else if t.starts_with("match ") {
+            Some("")
+        } else {
+            None
         }
     }
 

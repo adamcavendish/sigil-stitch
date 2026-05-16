@@ -1,7 +1,9 @@
 //! Generate a Bash script — builder API vs `sigil_quote!` comparison.
 //!
-//! Demonstrates: functions with manual control flow (`if/then/fi`, `for/do/done`),
+//! Demonstrates: functions with control flow (`if/then/fi`, `for/do/done`),
 //! shebang header, `set -euo pipefail`, `source` imports, and string escaping.
+//! The macro approach uses `{ }` blocks that the Bash backend automatically
+//! converts to the correct delimiters (`then`/`fi`, `do`/`done`).
 //!
 //! Run: `cargo run --example bash_codegen`
 
@@ -100,38 +102,27 @@ fn macro_approach() -> String {
         .build()
         .unwrap();
 
-    // Bash control flow (if/then/fi, for/do/done) doesn't map to { } blocks,
-    // so we use CodeBlock::builder with manual indent markers.
+    // With context-aware block delimiters, Bash control flow works with
+    // begin_control_flow/end_control_flow — the backend emits then/fi,
+    // do/done automatically based on the condition text.
     let mut deploy_body = CodeBlock::builder();
-    deploy_body.add("local env=$$1", ());
+    deploy_body.add("local env=$1", ());
     deploy_body.add_line();
     deploy_body.add_line();
-    deploy_body.add("%<", ());
-    deploy_body.add("if [ -z \"$$env\" ]; then", ());
-    deploy_body.add_line();
-    deploy_body.add("%>", ());
+    deploy_body.begin_control_flow("if [ -z \"$env\" ];", ());
     deploy_body.add("log_message \"ERROR\" \"No environment specified\"", ());
     deploy_body.add_line();
     deploy_body.add("return 1", ());
     deploy_body.add_line();
-    deploy_body.add("%<", ());
-    deploy_body.add("fi", ());
+    deploy_body.end_control_flow();
     deploy_body.add_line();
-    deploy_body.add("%>", ());
-    deploy_body.add_line();
-    deploy_body.add("log_message \"INFO\" \"Deploying to $$env\"", ());
+    deploy_body.add("log_message \"INFO\" \"Deploying to $env\"", ());
     deploy_body.add_line();
     deploy_body.add_line();
-    deploy_body.add("%<", ());
-    deploy_body.add("for service in api worker scheduler; do", ());
+    deploy_body.begin_control_flow("for service in api worker scheduler;", ());
+    deploy_body.add("log_message \"INFO\" \"Starting $service\"", ());
     deploy_body.add_line();
-    deploy_body.add("%>", ());
-    deploy_body.add("log_message \"INFO\" \"Starting $$service\"", ());
-    deploy_body.add_line();
-    deploy_body.add("%<", ());
-    deploy_body.add("done", ());
-    deploy_body.add_line();
-    deploy_body.add("%>", ());
+    deploy_body.end_control_flow();
 
     let deploy_fn = FunSpec::builder("deploy")
         .doc("Deploy services to the given environment.")

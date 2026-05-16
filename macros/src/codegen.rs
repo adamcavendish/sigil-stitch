@@ -65,15 +65,9 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
                     let body_calls = generate_statements(&branch.body);
 
                     if i == 0 {
-                        if let Some(ref custom_open) = branch.block_open_override {
-                            calls.push(quote! {
-                                __sigil_builder.begin_control_flow_with_open(#fmt, #args_tuple, #custom_open);
-                            });
-                        } else {
-                            calls.push(quote! {
-                                __sigil_builder.begin_control_flow(#fmt, #args_tuple);
-                            });
-                        }
+                        calls.push(quote! {
+                            __sigil_builder.begin_control_flow(#fmt, #args_tuple);
+                        });
                     } else {
                         calls.push(quote! {
                             __sigil_builder.next_control_flow(#fmt, #args_tuple);

@@ -50,8 +50,6 @@ pub(crate) struct Branch {
     pub condition_args: Vec<TypedArg>,
     /// Body statements inside the braces.
     pub body: Vec<Statement>,
-    /// Custom block opener override from `$open("...")`, only on the first branch.
-    pub block_open_override: Option<String>,
 }
 
 /// A branch in a `$if` / `$else_if` / `$else` meta-conditional.

@@ -40,7 +40,6 @@ It returns `Result<CodeBlock, SigilStitchError>`.
 | `$L(expr)` | `%L` | `impl Into<Arg>` | Literal value or nested code |
 | `$C(expr)` | `%L` | `CodeBlock` | Nested code block |
 | `$W` | `%W` | (none) | Soft line-break point |
-| `$open("text")` | — | (none) | Custom block opener override |
 | `$>` | `%>` | (none) | Increase indent level |
 | `$<` | `%<` | (none) | Decrease indent level |
 | `$$` | `$` | (none) | Literal dollar sign |
@@ -330,23 +329,21 @@ sigil_quote!(TypeScript {
 # }
 ```
 
-## Custom Block Openers (`$open`)
+## Context-Aware Block Delimiters
 
-By default, `{ ... }` in `sigil_quote!` uses the language's `block_syntax().block_open`:
-- Brace languages (TypeScript, Go, etc.): `" {"`
-- Python: `":"`
-- Haskell: `" ="`
-
-Use `$open("text")` immediately before `{` to override the opener for that block:
+By default, `{ ... }` in `sigil_quote!` uses the language's `block_syntax().block_open`.
+Language backends can override the opener and closer per condition via `block_open_for`
+and `block_close_for`. For example, Bash maps `if` → `then`/`fi` and `for` → `do`/`done`,
+while Haskell maps `class` → `where`:
 
 ```rust
 # extern crate sigil_stitch;
 # use sigil_stitch::lang::haskell::Haskell;
 # use sigil_stitch::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-// Haskell type class needs " where" instead of the default " ="
+// Haskell type class — block_open_for returns " where" for "class ..."
 sigil_quote!(Haskell {
-    class Functor f $open(" where") {
+    class Functor f {
         fmap :: (a -> b) -> f a -> f b;
     }
 })?;
@@ -361,9 +358,9 @@ sigil_quote!(Haskell {
 # use sigil_stitch::lang::ocaml::OCaml;
 # use sigil_stitch::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-// OCaml module block needs " = struct" opener
+// OCaml module — block_open_for returns " = struct" for "module ..."
 sigil_quote!(OCaml {
-    module Foo $open(" = struct") {
+    module Foo {
         let x = 42;
     }
 })?;
@@ -372,8 +369,6 @@ sigil_quote!(OCaml {
 # Ok(())
 # }
 ```
-
-Pass `$open("")` to suppress the block opener entirely.
 
 ## Manual Indent / Dedent (`$>` / `$<`)
 

@@ -140,26 +140,35 @@ impl<'a> CodeRenderer<'a> {
                 CodeNode::Newline => {
                     self.emit_newline();
                 }
-                CodeNode::BlockOpen => {
-                    self.emit(self.lang.block_syntax().block_open);
+                CodeNode::BlockOpen(cond) => {
+                    let open = self
+                        .lang
+                        .block_open_for(cond)
+                        .unwrap_or(self.lang.block_syntax().block_open);
+                    if !open.is_empty() {
+                        self.emit(open);
+                    }
                 }
-                CodeNode::BlockOpenOverride(s) => {
-                    self.emit(s);
-                }
-                CodeNode::BlockClose => {
-                    let close = self.lang.block_syntax().block_close;
+                CodeNode::BlockClose(cond) => {
+                    let close = self
+                        .lang
+                        .block_close_for(cond)
+                        .unwrap_or(self.lang.block_syntax().block_close);
                     if !close.is_empty() {
                         self.ensure_indent();
                         self.emit(close);
                         self.emit_newline();
                     }
                 }
-                CodeNode::BlockCloseTransition => {
+                CodeNode::BranchClose(cond) => {
                     let cfg = self.lang.block_syntax();
-                    if !cfg.block_close.is_empty() && cfg.close_on_transition {
-                        self.ensure_indent();
-                        self.emit(cfg.block_close);
-                        self.emit(" ");
+                    if cfg.close_on_transition {
+                        let close = self.lang.block_close_for(cond).unwrap_or(cfg.block_close);
+                        if !close.is_empty() {
+                            self.ensure_indent();
+                            self.emit(close);
+                            self.emit(" ");
+                        }
                     }
                 }
                 CodeNode::Sequence(children) => {
@@ -223,24 +232,39 @@ impl<'a> CodeRenderer<'a> {
                     }
                 }
                 CodeNode::Newline => BoxDoc::hardline(),
-                CodeNode::BlockOpen => {
-                    BoxDoc::text(self.lang.block_syntax().block_open.to_string())
+                CodeNode::BlockOpen(cond) => {
+                    let open = self
+                        .lang
+                        .block_open_for(cond)
+                        .unwrap_or(self.lang.block_syntax().block_open);
+                    if open.is_empty() {
+                        BoxDoc::nil()
+                    } else {
+                        BoxDoc::text(open.to_string())
+                    }
                 }
-                CodeNode::BlockOpenOverride(s) => BoxDoc::text(s.clone()),
-                CodeNode::BlockClose => {
-                    let close = self.lang.block_syntax().block_close;
+                CodeNode::BlockClose(cond) => {
+                    let close = self
+                        .lang
+                        .block_close_for(cond)
+                        .unwrap_or(self.lang.block_syntax().block_close);
                     if close.is_empty() {
                         BoxDoc::nil()
                     } else {
                         BoxDoc::text(close.to_string()).append(BoxDoc::hardline())
                     }
                 }
-                CodeNode::BlockCloseTransition => {
+                CodeNode::BranchClose(cond) => {
                     let cfg = self.lang.block_syntax();
-                    if cfg.block_close.is_empty() || !cfg.close_on_transition {
+                    if !cfg.close_on_transition {
                         BoxDoc::nil()
                     } else {
-                        BoxDoc::text(format!("{} ", cfg.block_close))
+                        let close = self.lang.block_close_for(cond).unwrap_or(cfg.block_close);
+                        if close.is_empty() {
+                            BoxDoc::nil()
+                        } else {
+                            BoxDoc::text(format!("{close} "))
+                        }
                     }
                 }
                 CodeNode::Sequence(children) => self.nodes_to_doc(children),
@@ -478,20 +502,20 @@ mod tests {
     }
 
     #[test]
-    fn test_block_open_override() {
+    fn test_block_open_for_override() {
+        use crate::lang::haskell::Haskell;
+        let hs = Haskell::new();
+        let imports = ImportGroup::new();
         let mut b = CodeBlock::builder();
-        b.begin_control_flow_with_open("class Functor f", (), " where");
+        b.begin_control_flow("class Functor f", ());
         b.add_statement("fmap :: a -> b", ());
         b.end_control_flow();
         let block = b.build().unwrap();
-        let output = render_block(&block, 80);
+        let mut renderer = CodeRenderer::new(&hs, &imports, 80);
+        let output = renderer.render(&block).unwrap();
         assert!(
             output.contains("class Functor f where"),
-            "should use custom opener, got:\n{output}"
-        );
-        assert!(
-            !output.contains(" {"),
-            "should NOT contain default block_open, got:\n{output}"
+            "Haskell backend should emit 'where' via block_open_for, got:\n{output}"
         );
     }
 }

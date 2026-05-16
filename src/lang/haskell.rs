@@ -40,8 +40,8 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Known limitations
 ///
 /// - `block_open` returns `" ="` which works for function definitions and type
-///   aliases, but type class declarations need `" where"`. Use
-///   `begin_control_flow_with_open("class Functor f", (), " where")` for type classes.
+///   aliases. Type class declarations automatically get `" where"` via
+///   `block_open_for("class ...")` / `block_open_for("instance ...")`.
 /// - Complex multi-param type class constraints (e.g., `MonadReader Env m`) are not
 ///   directly modeled. Use `TypeName::primitive("(MonadIO m, MonadReader Env m) => m String")`
 ///   for complex constrained return types.
@@ -339,6 +339,17 @@ impl CodeLang for Haskell {
             uses_semicolons: false,
             field_terminator: ",",
             ..Default::default()
+        }
+    }
+
+    fn block_open_for(&self, condition: &str) -> Option<&str> {
+        let t = condition.trim();
+        if t.starts_with("class ") || t.starts_with("instance ") {
+            Some(" where")
+        } else if t.starts_with("do") {
+            Some("")
+        } else {
+            None
         }
     }
 

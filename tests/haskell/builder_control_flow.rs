@@ -24,7 +24,7 @@ fn test_where_block() {
 #[test]
 fn test_type_class_where() {
     let mut b = CodeBlock::builder();
-    b.begin_control_flow_with_open("class Functor f", (), " where");
+    b.begin_control_flow("class Functor f", ());
     b.add_statement("fmap :: (a -> b) -> f a -> f b", ());
     b.end_control_flow();
     let block = b.build().unwrap();

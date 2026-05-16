@@ -17,7 +17,7 @@ fn render(block: &CodeBlock) -> String {
 #[test]
 fn test_open_struct() {
     let block = sigil_quote!(OCaml {
-        module Foo $open(" = struct") {
+        module Foo {
             let x = 42;
             let name = $S("Alice");
         }
