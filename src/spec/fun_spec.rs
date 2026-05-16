@@ -521,12 +521,15 @@ impl FunSpec {
     }
 
     fn emit_where_and_open(&self, sig: &mut String, sig_args: &mut Vec<Arg>, lang: &dyn CodeLang) {
-        if !self.where_constraints.is_empty()
-            && lang.function_syntax().where_clause_style == WhereClauseStyle::WhereBlock
-        {
+        let has_where = !self.where_constraints.is_empty()
+            && lang.function_syntax().where_clause_style == WhereClauseStyle::WhereBlock;
+        if has_where {
             emit_where_block(sig, sig_args, &self.where_constraints, lang);
+            // After a where clause, put the block-open brace on its own line.
+            sig.push_str("\n{");
+        } else {
+            sig.push_str(lang.fun_block_open());
         }
-        sig.push_str(lang.fun_block_open());
     }
 
     /// Emit a function with separate type signature and definition (Haskell style).

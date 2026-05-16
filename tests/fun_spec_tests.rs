@@ -136,7 +136,10 @@ fn test_where_clause_rust_function() {
         output.contains("where\n    T: Clone + Send,\n    U: Debug,"),
         "where: {output}"
     );
-    assert!(output.contains(" {"), "block_open: {output}");
+    assert!(
+        output.contains("U: Debug,\n{"),
+        "block_open on new line after where: {output}"
+    );
 }
 
 #[test]
