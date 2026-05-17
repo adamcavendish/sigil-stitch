@@ -1,3 +1,4 @@
+use super::golden;
 use super::helpers::*;
 
 #[test]
@@ -86,4 +87,18 @@ fn test_comment_with_backslash_escape() {
 
     let output = render_ts(&block);
     assert!(output.contains("path\\to\\file"), "got: {output}");
+}
+
+#[test]
+fn test_comment_golden() {
+    let block = sigil_quote!(TypeScript {
+        $comment("Initialize values");
+        const x = 0;
+        $comment("Process result");
+        const y = x + 1;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    golden::assert_golden("macro/quote_comment.txt", &output);
 }

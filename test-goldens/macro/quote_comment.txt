@@ -1,0 +1,4 @@
+// Initialize values
+const x = 0;
+// Process result
+const y = x + 1;

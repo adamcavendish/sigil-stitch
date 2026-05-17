@@ -1,3 +1,4 @@
+use super::golden;
 use super::helpers::*;
 
 #[test]
@@ -99,4 +100,29 @@ fn test_continuation_mid_line_is_noop() {
     let output = render_kt(&block);
     assert!(output.contains("val x = 1"), "got: {output}");
     assert!(!output.contains('+'), "got: {output}");
+}
+
+#[test]
+fn test_continuation_golden() {
+    let block = sigil_quote!(Haskell {
+        mapM_ $+
+            putStrLn $+
+            items
+    })
+    .unwrap();
+
+    let output = render_hs(&block);
+    golden::assert_golden("macro/quote_continuation.txt", &output);
+}
+
+#[test]
+fn test_continuation_kotlin_golden() {
+    let block = sigil_quote!(Kotlin {
+        val result = someFunction( $+
+            arg1, arg2);
+    })
+    .unwrap();
+
+    let output = render_kt(&block);
+    golden::assert_golden("macro/quote_continuation_kotlin.txt", &output);
 }

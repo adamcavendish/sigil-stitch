@@ -1,3 +1,4 @@
+use super::golden;
 use super::helpers::*;
 
 // --- Basic meta-conditionals ---
@@ -236,4 +237,21 @@ fn test_meta_if_only_else_if_true() {
     assert!(!output.contains("\"a\""), "got: {output}");
     assert!(output.contains("\"b\""), "got: {output}");
     assert!(!output.contains("\"none\""), "got: {output}");
+}
+
+#[test]
+fn test_meta_if_else_golden() {
+    let use_async = true;
+
+    let block = sigil_quote!(TypeScript {
+        $if(use_async) {
+            const result = await fetch(url);
+        } $else {
+            const result = fetchSync(url);
+        }
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    golden::assert_golden("macro/quote_meta_if_else.txt", &output);
 }

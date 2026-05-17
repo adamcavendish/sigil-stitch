@@ -1,3 +1,4 @@
+use super::golden;
 use super::helpers::*;
 
 // --- Basic $for loop ---
@@ -189,4 +190,19 @@ fn test_meta_for_enum_variants() {
     assert!(output.contains("Red = 0,"), "got: {output}");
     assert!(output.contains("Green = 1,"), "got: {output}");
     assert!(output.contains("Blue = 2,"), "got: {output}");
+}
+
+#[test]
+fn test_meta_for_golden() {
+    let fields = vec!["name", "age", "email"];
+
+    let block = sigil_quote!(TypeScript {
+        $for(field in &fields) {
+            console.log($L(*field));
+        }
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    golden::assert_golden("macro/quote_meta_for.txt", &output);
 }

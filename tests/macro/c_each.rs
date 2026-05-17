@@ -1,3 +1,4 @@
+use super::golden;
 use super::helpers::*;
 
 // --- Basic $C_each ---
@@ -378,4 +379,22 @@ fn test_c_each_no_trailing_blank_line_in_fun_spec_body() {
         output.contains("this.statusCode = statusCode;"),
         "got:\n{output}"
     );
+}
+
+#[test]
+fn test_c_each_golden() {
+    let items = vec![
+        CodeBlock::of("x = 1", ()).unwrap(),
+        CodeBlock::of("y = 2", ()).unwrap(),
+    ];
+
+    let block = sigil_quote!(TypeScript {
+        const start = true;
+        $C_each(items);
+        const end = true;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    golden::assert_golden("macro/quote_c_each.txt", &output);
 }

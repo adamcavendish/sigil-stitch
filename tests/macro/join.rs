@@ -1,3 +1,4 @@
+use super::golden;
 use super::helpers::*;
 
 // --- Basic $join ---
@@ -181,4 +182,17 @@ fn test_join_combined_with_c_each() {
     assert!(output.contains("handle(a, b, c)"), "got: {output}");
     assert!(output.contains("validate(input)"), "got: {output}");
     assert!(output.contains("process(input)"), "got: {output}");
+}
+
+#[test]
+fn test_join_golden() {
+    let args = vec!["x", "y", "z"];
+
+    let block = sigil_quote!(TypeScript {
+        doSomething($join(", ", args));
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    golden::assert_golden("macro/quote_join.txt", &output);
 }
