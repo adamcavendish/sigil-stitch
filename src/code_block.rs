@@ -147,6 +147,11 @@ impl CodeBlock {
         CodeBlockBuilder::new()
     }
 
+    /// Access the node tree for rewriting. Used by language rewrite passes.
+    pub fn nodes_mut(&mut self) -> &mut Vec<CodeNode> {
+        &mut self.nodes
+    }
+
     /// Create a CodeBlock from a single format string and arguments.
     pub fn of(format: &str, args: impl IntoArgs) -> Result<Self, crate::error::SigilStitchError> {
         let mut builder = CodeBlockBuilder::new();
