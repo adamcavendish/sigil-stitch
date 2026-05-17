@@ -1,5 +1,6 @@
 //! Go language implementation.
 
+use crate::code_node::CodeNode;
 use crate::import::{ImportEntry, ImportGroup};
 use crate::lang::CodeLang;
 use crate::lang::config::{
@@ -104,6 +105,71 @@ fn package_name(module: &str) -> &str {
 fn is_stdlib(module: &str) -> bool {
     let first_segment = module.split('/').next().unwrap_or(module);
     !first_segment.contains('.')
+}
+
+impl GoLang {
+    /// Rewrite IIFE continuation: fuse `}` + `()` onto the same line.
+    ///
+    /// The pattern `go func() { ... }();` produces nodes:
+    ///   BlockClose("go func()"), StatementBegin, Literal("(...)"), StatementEnd, Newline
+    ///
+    /// We fuse these into:
+    ///   Literal("}"), Literal("(...)"), Newline
+    fn rewrite_iife(nodes: &mut Vec<CodeNode>) {
+        let mut i = 0;
+        while i < nodes.len() {
+            let is_func_block_close =
+                matches!(&nodes[i], CodeNode::BlockClose(cond) if cond.contains("func"));
+            if !is_func_block_close {
+                i += 1;
+                continue;
+            }
+
+            // Check if next nodes are: StatementBegin, Literal(...), StatementEnd, Newline
+            // The call arguments might span multiple literal nodes.
+            let remaining = nodes.len() - i - 1;
+            if remaining >= 3 && matches!(&nodes[i + 1], CodeNode::StatementBegin) {
+                // Find StatementEnd
+                let end_idx = nodes[(i + 2)..]
+                    .iter()
+                    .position(|n| matches!(n, CodeNode::StatementEnd))
+                    .map(|pos| pos + i + 2);
+
+                if let Some(stmt_end) = end_idx {
+                    // Collect the call literal nodes between StatementBegin and StatementEnd
+                    let call_nodes: Vec<CodeNode> = nodes[(i + 2)..stmt_end].to_vec();
+
+                    // Check that this looks like a call (starts with "(")
+                    let looks_like_call = call_nodes
+                        .iter()
+                        .any(|n| matches!(n, CodeNode::Literal(s) if s.starts_with('(')));
+
+                    if looks_like_call {
+                        // Determine how many nodes to remove after BlockClose
+                        // Remove: StatementBegin, ...call_nodes..., StatementEnd
+                        // Optionally also remove the following Newline (BlockClose already emitted one)
+                        let mut remove_end = stmt_end + 1; // exclusive
+                        if remove_end < nodes.len()
+                            && matches!(&nodes[remove_end], CodeNode::Newline)
+                        {
+                            remove_end += 1;
+                        }
+
+                        // Replace BlockClose with Literal("}") + call_nodes + Newline
+                        let mut replacement = Vec::with_capacity(2 + call_nodes.len());
+                        replacement.push(CodeNode::Literal("}".to_string()));
+                        replacement.extend(call_nodes);
+                        replacement.push(CodeNode::Newline);
+
+                        nodes.splice(i..remove_end, replacement);
+                        continue;
+                    }
+                }
+            }
+
+            i += 1;
+        }
+    }
 }
 
 impl CodeLang for GoLang {
@@ -341,6 +407,10 @@ impl CodeLang for GoLang {
             variant_separator: "",
             ..Default::default()
         }
+    }
+
+    fn rewrite_nodes(&self, nodes: &mut Vec<CodeNode>) {
+        crate::lang::rewrite::walk_nodes_mut(nodes, &Self::rewrite_iife);
     }
 }
 

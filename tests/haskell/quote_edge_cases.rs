@@ -82,3 +82,12 @@ fn test_typeclass_instance() {
     .unwrap();
     golden::assert_golden("haskell/quote_typeclass_instance.hs", &render(&block));
 }
+
+#[test]
+fn test_dollar_operator() {
+    let block = sigil_quote!(Haskell {
+        main = putStrLn $$ show 42;
+    })
+    .unwrap();
+    golden::assert_golden("haskell/quote_dollar_operator.hs", &render(&block));
+}

@@ -37,6 +37,9 @@ pub mod typescript;
 /// Zsh shell language support.
 pub mod zsh;
 
+/// Helpers for implementing language-specific node rewrite passes.
+pub mod rewrite;
+
 use crate::import::ImportGroup;
 
 /// Trait defining language-specific behavior for code generation.
@@ -396,6 +399,13 @@ pub trait CodeLang: std::fmt::Debug + 'static {
     fn enum_and_annotation(&self) -> config::EnumAndAnnotationConfig<'_> {
         config::EnumAndAnnotationConfig::default()
     }
+
+    // ── Node rewriting — language-specific structural transforms ───
+
+    /// Rewrite the node tree before rendering. Called automatically by the
+    /// renderer. Default is no-op. Languages override this to handle constructs
+    /// that require language-specific structural knowledge (e.g. Go IIFE `}()`).
+    fn rewrite_nodes(&self, _nodes: &mut Vec<crate::code_node::CodeNode>) {}
 }
 
 /// Derive a PascalCase namespace alias from a module path.

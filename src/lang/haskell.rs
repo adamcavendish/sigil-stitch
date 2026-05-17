@@ -1,5 +1,6 @@
 //! Haskell language implementation.
 
+use crate::code_node::CodeNode;
 use crate::import::{ImportEntry, ImportGroup};
 use crate::lang::CodeLang;
 use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
@@ -78,6 +79,40 @@ impl Haskell {
     pub fn with_extension(mut self, s: &str) -> Self {
         self.extension = s.to_string();
         self
+    }
+
+    /// Fix `$` operator spacing: `$word` → `$ word`.
+    ///
+    /// The `$$` escape in `sigil_quote!` emits a literal `$` with space suppression
+    /// (designed for `$1` in shell). In Haskell, `$` is an infix operator needing
+    /// a space after it. This pass inserts the missing space when `$` is directly
+    /// followed by a word character.
+    #[allow(clippy::ptr_arg)]
+    fn rewrite_dollar_spacing(nodes: &mut Vec<CodeNode>) {
+        for node in nodes.iter_mut() {
+            let text = match node {
+                CodeNode::Literal(s) => s,
+                CodeNode::InlineLiteral(s) => s,
+                _ => continue,
+            };
+            if !text.contains('$') {
+                continue;
+            }
+            let mut result = String::with_capacity(text.len() + 4);
+            let chars: Vec<char> = text.chars().collect();
+            for (i, &ch) in chars.iter().enumerate() {
+                result.push(ch);
+                if ch == '$' && i + 1 < chars.len() {
+                    let after = chars[i + 1];
+                    if after.is_alphanumeric() || after == '_' || after == '(' {
+                        result.push(' ');
+                    }
+                }
+            }
+            if result != *text {
+                *text = result;
+            }
+        }
     }
 }
 
@@ -375,6 +410,10 @@ impl CodeLang for Haskell {
             variant_separator: "",
             ..Default::default()
         }
+    }
+
+    fn rewrite_nodes(&self, nodes: &mut Vec<CodeNode>) {
+        crate::lang::rewrite::walk_nodes_mut(nodes, &Self::rewrite_dollar_spacing);
     }
 }
 

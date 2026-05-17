@@ -39,7 +39,9 @@ impl<'a> CodeRenderer<'a> {
 
     /// Render a CodeBlock to string.
     pub fn render(&mut self, block: &CodeBlock) -> Result<String, SigilStitchError> {
-        self.render_nodes(&block.nodes)?;
+        let mut nodes = block.nodes.clone();
+        self.lang.rewrite_nodes(&mut nodes);
+        self.render_nodes(&nodes)?;
         Ok(std::mem::take(&mut self.output))
     }
 
