@@ -276,6 +276,7 @@ impl CodeLang for JavaLang {
         crate::lang::config::FunctionSyntaxConfig {
             return_type_separator: " ",
             async_keyword: "",
+            type_params_before_return_type: true,
             ..Default::default()
         }
     }

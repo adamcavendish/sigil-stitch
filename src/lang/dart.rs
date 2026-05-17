@@ -19,7 +19,7 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// - `///` dartdoc comments
 /// - `<T extends Bound>` generics (same as Java/TS)
 /// - `@override`, `@required` annotations via `annotation()`
-/// - No `async` prefix — Dart's `async` is a body modifier, not a signature modifier
+/// - `async` as a body modifier suffix (`Future<int> foo() async { ... }`)
 ///
 /// # Import conventions
 ///
@@ -44,9 +44,11 @@ use crate::spec::modifiers::{DeclarationContext, TypeKind, Visibility};
 /// # Async functions
 ///
 /// Dart's `async` is a body modifier (`Future<int> foo() async { ... }`),
-/// not a signature prefix. Use `Future<T>` as the return type:
+/// not a signature prefix. Set `is_async()` on the builder and use
+/// `Future<T>` as the return type:
 /// ```text
-/// fb.returns(TypeName::primitive("Future<User>"));
+/// fb.returns(TypeName::primitive("Future<User>"))
+///   .is_async();
 /// ```
 #[derive(Debug, Clone)]
 pub struct DartLang {
@@ -271,6 +273,7 @@ impl CodeLang for DartLang {
         crate::lang::config::FunctionSyntaxConfig {
             return_type_separator: " ",
             async_keyword: "",
+            async_suffix: " async",
             ..Default::default()
         }
     }
@@ -508,6 +511,12 @@ mod tests {
     fn test_no_async_keyword() {
         let d = DartLang::new();
         assert_eq!(d.function_syntax().async_keyword, "");
+    }
+
+    #[test]
+    fn test_async_suffix() {
+        let d = DartLang::new();
+        assert_eq!(d.function_syntax().async_suffix, " async");
     }
 
     #[test]

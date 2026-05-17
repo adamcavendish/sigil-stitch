@@ -246,8 +246,12 @@ impl Default for BlockSyntaxConfig<'_> {
 pub struct FunctionSyntaxConfig<'a> {
     /// Separator between parameters and return type (e.g. `" -> "`, `": "`).
     pub return_type_separator: &'a str,
-    /// Keyword for async functions (e.g. `"async "`).
+    /// Keyword for async functions as a prefix (e.g. `"async "`).
     pub async_keyword: &'a str,
+    /// Keyword for async functions as a suffix after the parameter list
+    /// (e.g. Dart: `" async"`). Emitted when `is_async` is set, placed
+    /// after the closing `)` and before the block-open brace.
+    pub async_suffix: &'a str,
     /// Keyword for abstract methods (e.g. `"abstract "`, `"virtual "`).
     pub abstract_keyword: &'a str,
     /// How parameter lists are formatted (tupled vs curried).
@@ -262,6 +266,13 @@ pub struct FunctionSyntaxConfig<'a> {
     pub where_clause_style: WhereClauseStyle,
     /// Content emitted for abstract methods with no body (e.g. `""`, `"..."`).
     pub empty_body: &'a str,
+    /// Whether type parameters appear before the return type instead of after the name.
+    ///
+    /// Java places generic type parameters between modifiers and return type:
+    /// `public static <T extends Comparable> List<T> sortList(...)`.
+    /// Most other languages place them after the function name:
+    /// `fun <T> sortList(...)` or `fn sort_list<T>(...)`.
+    pub type_params_before_return_type: bool,
 }
 
 impl Default for FunctionSyntaxConfig<'_> {
@@ -269,6 +280,7 @@ impl Default for FunctionSyntaxConfig<'_> {
         Self {
             return_type_separator: ": ",
             async_keyword: "async ",
+            async_suffix: "",
             abstract_keyword: "abstract ",
             param_list_style: ParamListStyle::Tupled,
             function_signature_style: FunctionSignatureStyle::Merged,
@@ -276,6 +288,7 @@ impl Default for FunctionSyntaxConfig<'_> {
             constructor_delegation_style: ConstructorDelegationStyle::Body,
             where_clause_style: WhereClauseStyle::Inline,
             empty_body: "",
+            type_params_before_return_type: false,
         }
     }
 }

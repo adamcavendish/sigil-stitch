@@ -298,6 +298,8 @@ impl CodeLang for CSharp {
 
     fn enum_and_annotation(&self) -> crate::lang::config::EnumAndAnnotationConfig<'_> {
         crate::lang::config::EnumAndAnnotationConfig {
+            annotation_prefix: "[",
+            annotation_suffix: "]",
             readonly_keyword: "readonly ",
             ..Default::default()
         }
