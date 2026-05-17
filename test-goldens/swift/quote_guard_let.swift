@@ -1,4 +1,4 @@
-func process(value: Int ?) {
+func process(value: Int?) {
     guard let unwrapped = value else {
         return
     }
