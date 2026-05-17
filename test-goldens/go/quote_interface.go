@@ -1,3 +1,3 @@
 type Reader interface {
-	Read(p[] byte)(int, error)
+	Read(p []byte) (int, error)
 }

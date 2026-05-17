@@ -1,3 +1,3 @@
-foreach(var item in items) {
+foreach (var item in items) {
     Process(item);
 }
