@@ -31,6 +31,9 @@ pub(super) enum TokenAnnotation {
     ArrowOp,
     /// First `:` of `::` used as operator (not path separator) — space before it.
     DoubleColonOp,
+    /// Group open (paren/bracket) that is span-adjacent to preceding token —
+    /// suppress space (function call, array index).
+    CallOpen,
 }
 
 /// What kind of token was just emitted (for spacing decisions).
@@ -405,11 +408,29 @@ fn annotate_tokens(tokens: &[TokenTree]) -> Vec<TokenAnnotation> {
                     _ => {}
                 }
             }
-            TokenTree::Group(_) => {
-                // Groups are handled recursively in the main pass —
-                // they get their own annotation vector.
-                // Don't clear generic_stack: generics can contain groups
-                // (e.g., `Vec<(A, B)>`).
+            TokenTree::Group(g)
+                if i > 0
+                    && matches!(g.delimiter(), Delimiter::Parenthesis | Delimiter::Bracket) =>
+            {
+                // Mark groups that are span-adjacent to the preceding ident/literal/>
+                // as CallOpen (function call / array index). Non-adjacent groups
+                // or groups after operators/keywords get default spacing.
+                let prev_is_callable = match &tokens[i - 1] {
+                    TokenTree::Ident(id) => {
+                        let s = id.to_string();
+                        !CONTROL_FLOW_KEYWORDS.contains(&s.as_str())
+                            && !DECLARATION_KEYWORDS.contains(&s.as_str())
+                    }
+                    TokenTree::Literal(_) | TokenTree::Group(_) => true,
+                    TokenTree::Punct(p) => p.as_char() == '>',
+                };
+                if prev_is_callable {
+                    let prev_end = tokens[i - 1].span().end();
+                    let group_start = g.span().start();
+                    if prev_end.line == group_start.line && prev_end.column == group_start.column {
+                        annotations[i] = TokenAnnotation::CallOpen;
+                    }
+                }
             }
             _ => {}
         }
@@ -781,7 +802,22 @@ fn tokens_to_format_inner(
 
                 state.colon_ctx = saved_ctx;
                 format.push_str(close);
-                state.prev = PrevTokenKind::Literal;
+
+                // After a bracket group, check if the next token is span-adjacent.
+                // If so, suppress space (e.g., `[]byte` in Go — the ident is directly
+                // after `]`). Also handles `)(` when non-adjacent getting a space.
+                let group_end = g.span().end();
+                let next_adjacent = if pos + 1 < tokens.len() {
+                    let next_start = tokens[pos + 1].span().start();
+                    group_end.line == next_start.line && group_end.column == next_start.column
+                } else {
+                    false
+                };
+                if next_adjacent {
+                    state.prev = PrevTokenKind::GroupOpen;
+                } else {
+                    state.prev = PrevTokenKind::Literal;
+                }
             }
         }
         pos += 1;
@@ -901,17 +937,16 @@ pub(super) fn maybe_space(
         return;
     }
 
-    // No space before `(` when preceded by ident/type-ident (function call),
-    // specifier, literal, or `>` (generic close then call, e.g. `size_of::<u32>()`).
+    // No space before `(` or `[` when span-adjacent to preceding token
+    // (function call, array index). Non-adjacent groups get default spacing.
+    if annotation == TokenAnnotation::CallOpen {
+        return;
+    }
+
+    // No space before a group when preceded by a specifier ($T, $N, etc.)
+    // — handles `$T(x){}` struct literals and `$T(x)()` calls.
     if let PrevTokenKind::GroupOpen = current
-        && matches!(
-            prev,
-            PrevTokenKind::Ident
-                | PrevTokenKind::TypeIdent
-                | PrevTokenKind::Specifier
-                | PrevTokenKind::Literal
-                | PrevTokenKind::Punct('>', _)
-        )
+        && prev == PrevTokenKind::Specifier
     {
         return;
     }
