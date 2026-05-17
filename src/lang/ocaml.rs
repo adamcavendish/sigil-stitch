@@ -251,9 +251,9 @@ impl CodeLang for OCaml {
 
     fn type_presentation(&self) -> TypePresentationConfig<'_> {
         TypePresentationConfig {
-            array: TypePresentation::GenericWrap { name: "list" },
-            readonly_array: Some(TypePresentation::GenericWrap { name: "list" }),
-            optional: TypePresentation::GenericWrap { name: "option" },
+            array: TypePresentation::Postfix { suffix: " list" },
+            readonly_array: Some(TypePresentation::Postfix { suffix: " list" }),
+            optional: TypePresentation::Postfix { suffix: " option" },
             map: TypePresentation::Delimited {
                 open: "(",
                 sep: ", ",

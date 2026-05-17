@@ -345,6 +345,15 @@ impl FunSpec {
             sig.push_str(lang.function_syntax().async_keyword);
         }
 
+        // Type parameters before return type (Java-style: `public static <T> List<T> sort(...)`).
+        if lang.function_syntax().type_params_before_return_type {
+            let tp_str = render_type_params(&self.type_params, lang, &mut sig_args);
+            if !tp_str.is_empty() {
+                sig.push_str(&tp_str);
+                sig.push(' ');
+            }
+        }
+
         // Return type as prefix (C-style: `int add(...)`).
         if lang.type_decl_syntax().return_type_is_prefix
             && let Some(ret) = &self.return_type
@@ -371,9 +380,11 @@ impl FunSpec {
 
         sig.push_str(&self.name);
 
-        // Type parameters.
-        let tp_str = render_type_params(&self.type_params, lang, &mut sig_args);
-        sig.push_str(&tp_str);
+        // Type parameters after name (most languages: `fn sort<T>(...)`).
+        if !lang.function_syntax().type_params_before_return_type {
+            let tp_str = render_type_params(&self.type_params, lang, &mut sig_args);
+            sig.push_str(&tp_str);
+        }
 
         // Parameters — build as a sub-block for %W support.
         if lang.function_syntax().param_list_style == ParamListStyle::Curried {
@@ -424,6 +435,11 @@ impl FunSpec {
         } else {
             false
         };
+
+        // Async suffix (Dart: `Future<T> foo() async { ... }`).
+        if self.modifiers.is_async {
+            sig.push_str(lang.function_syntax().async_suffix);
+        }
 
         // Body or abstract.
         if let Some(body) = &self.body {

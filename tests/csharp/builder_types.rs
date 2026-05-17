@@ -221,3 +221,32 @@ fn test_enum() {
 
     golden::assert_golden("csharp/enum.cs", &output);
 }
+
+#[test]
+fn test_annotation_bracket_syntax() {
+    use sigil_stitch::spec::annotation_spec::AnnotationSpec;
+
+    let ts = TypeSpec::builder("Entity", TypeKind::Class)
+        .visibility(Visibility::Public)
+        .annotate(AnnotationSpec::new("Serializable"))
+        .add_field(
+            FieldSpec::builder("id", TypeName::primitive("int"))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+    let file = FileSpec::builder_with("Entity.cs", CSharp::new())
+        .add_type(ts)
+        .build()
+        .unwrap();
+    let output = file.render(80).unwrap();
+    assert!(
+        output.contains("[Serializable]"),
+        "C# annotations should use bracket syntax, got:\n{output}"
+    );
+    assert!(
+        !output.contains("@Serializable"),
+        "should NOT use @-prefix annotation style, got:\n{output}"
+    );
+}

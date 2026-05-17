@@ -28,3 +28,34 @@ fn test_function_with_doc() {
 
     golden::assert_golden("java/function_with_doc.java", &output);
 }
+
+#[test]
+fn test_generic_type_params_before_return_type() {
+    use sigil_stitch::spec::fun_spec::TypeParamSpec;
+
+    let tp = TypeParamSpec::new("T").with_bound(TypeName::primitive("Comparable"));
+    let body = CodeBlock::of("return Collections.sort(list);", ()).unwrap();
+    let fun = FunSpec::builder("sortList")
+        .visibility(Visibility::Public)
+        .is_static()
+        .add_type_param(tp)
+        .add_param(ParameterSpec::new("list", TypeName::primitive("List<T>")).unwrap())
+        .returns(TypeName::primitive("List<T>"))
+        .body(body)
+        .build()
+        .unwrap();
+
+    let file = FileSpec::builder_with("Sort.java", JavaLang::new())
+        .add_function(fun)
+        .build()
+        .unwrap();
+    let output = file.render(80).unwrap();
+    assert!(
+        output.contains("<T extends Comparable> List<T> sortList"),
+        "Java type params should appear before return type, got:\n{output}"
+    );
+    assert!(
+        !output.contains("sortList<T"),
+        "should NOT put type params after function name, got:\n{output}"
+    );
+}

@@ -17,6 +17,7 @@ fn test_async_function() {
     let fun = FunSpec::builder("fetchUser")
         .returns(TypeName::primitive("Future<User>"))
         .add_param(ParameterSpec::new("id", TypeName::primitive("String")).unwrap())
+        .is_async()
         .body(body)
         .build()
         .unwrap();

@@ -117,3 +117,34 @@ fn test_module_sig_block() {
 
     golden::assert_golden("ocaml/module_sig.ml", &output);
 }
+
+#[test]
+fn test_optional_type_postfix() {
+    let ml = OCaml::new();
+    let ts = TypeSpec::builder("person", TypeKind::Struct)
+        .add_field(
+            FieldSpec::builder("name", TypeName::primitive("string"))
+                .build()
+                .unwrap(),
+        )
+        .add_field(
+            FieldSpec::builder("email", TypeName::optional(TypeName::primitive("string")))
+                .build()
+                .unwrap(),
+        )
+        .build()
+        .unwrap();
+    let file = FileSpec::builder_with("person.ml", ml)
+        .add_type(ts)
+        .build()
+        .unwrap();
+    let output = file.render(80).unwrap();
+    assert!(
+        output.contains("string option"),
+        "OCaml optional should render postfix: `string option`, got:\n{output}"
+    );
+    assert!(
+        !output.contains("option(string)"),
+        "should NOT render prefix-style option(string), got:\n{output}"
+    );
+}
