@@ -1,6 +1,6 @@
 # Adding a Language
 
-sigil-stitch supports new languages by implementing the `CodeLang` trait. The trait has 33 methods: 10 required (no default) plus 6 config struct accessors and 17 override methods — all with sensible defaults. You only need to override the defaults when your language diverges from the common patterns.
+sigil-stitch supports new languages by implementing the `CodeLang` trait. The trait has 36 methods: 10 required (no default) plus 6 config struct accessors and 20 override methods — all with sensible defaults. You only need to override the defaults when your language diverges from the common patterns.
 
 This guide walks through the process using a hypothetical language, with references to real implementations you can study.
 
@@ -78,12 +78,14 @@ Returns `FunctionSyntaxConfig` controlling function declarations:
 |-------|---------|---------|
 | `return_type_separator` | `": "` | Between params and return type. Rust overrides to `" -> "`. |
 | `async_keyword` | `"async "` | Async function prefix. |
+| `async_suffix` | `""` | Async suffix after params. Dart: `" async"`. |
+| `async_suffix_before_return` | `false` | When `true`, suffix goes before return type. Swift: `func f() async -> T`. |
 | `abstract_keyword` | `"abstract "` | Abstract method prefix. C++ overrides to `"virtual "`. |
 | `param_list_style` | (default) | How parameter lists are formatted. |
 | `function_signature_style` | (default) | Controls overall signature layout. |
 | `constructor_keyword` | `""` | Constructor keyword. Python: `"def"`. Rust: `"fn"`. |
 | `constructor_delegation_style` | (default `Body`) | Super/this call placement. Kotlin: `Signature`. |
-| `where_clause_style` | (default) | How `where` clauses are rendered. |
+| `where_clause_style` | `Inline` | `Inline`: bounds in `<T: Bound>`. `WhereBlock`: Rust `where\n    T: Bound,`. `SeparateWhere`: C# `where T : Bound` per constraint. |
 | `empty_body` | `""` | Empty method body. Python overrides to `"..."`. |
 
 #### `type_decl_syntax()`

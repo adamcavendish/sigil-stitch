@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.5.2
+
+### Added
+
+- **`ParameterSpec::is_property()` / `is_mutable_property()`** — Kotlin `val`/`var`
+  on primary constructor params without embedding keywords in the name string (#86).
+  Emits the language's `readonly_keyword` or `mutable_field_keyword` before the
+  parameter name.
+- **`WhereClauseStyle::SeparateWhere`** — C#-style per-constraint `where` clauses
+  after the signature (`where T : IComparable`). Enabled for C# by default (#88).
+- **`InvalidEnum` validation** — `TypeSpec::build()` rejects enums with primary
+  constructor parameters when any variant lacks a value (#87).
+- **`EnumVariantSpec::has_value()`** public accessor.
+- **Language-aware `rewrite_nodes()` post-build pass** — 8 languages (Bash, Zsh,
+  Haskell, OCaml, Lua, Python, Ruby, Elixir) transform nodes after macro expansion
+  for language-specific fixups (e.g., `=` → assignment spacing in Bash).
+- **`ForRange` colon context** for C++ range-for loops
+  (`for (auto& x : items)`).
+- **Context-aware block delimiters** for Bash (`if`/`then`/`fi`, `do`/`done`)
+  and Lua (`if`/`then`/`end`) via `block_open_for()` / `block_close_for()`.
+- **Haskell `block_open_for()` expanded**: `if` → `then`, `else` → `""`,
+  `case` → `of`.
+- **Swift `async_suffix_before_return`** for correct `func f() async -> T`
+  placement.
+
+### Fixed
+
+- `sigil_quote!` tokenizer: generics vs operators, prefix/postfix markers,
+  span-aware group spacing, method calls on declaration keywords (`.read()`).
+- Statement parser: brace blocks, destructuring, method chaining.
+- Rust where clause brace on new line (#61).
+- Haskell optional types with space separator (#62).
+- Lua double space before function name (#52).
+- C typedef function pointers, Haskell newtype deriving.
+- Interface visibility, Python static, Java `@Override`.
+- OCaml optional, C# bracket annotations, Dart async, Java generic params.
+- 12 test input semantic fixes (C, Java, Kotlin, Rust, Go, C++, Scala).
+
+### Tests
+
+- Comprehensive golden test suite for all 18 languages (18 new test modules,
+  ~500 new tests).
+- Golden tests for macro meta-features and language edge cases.
+
 ## 0.5.1
 
 ### Added

@@ -370,6 +370,18 @@ sigil_quote!(OCaml {
 # }
 ```
 
+Bash maps control-flow keywords to their shell delimiters:
+
+| Condition | Open | Close |
+|-----------|------|-------|
+| `if ...` | `; then` | `fi` |
+| `for ...` | `; do` | `done` |
+| `while ...` | `; do` | `done` |
+| `else` | `""` | `""` |
+| `elif ...` | `; then` | `""` |
+
+Lua similarly maps `if` → `then`/`end` and `for`/`while` → `do`/`end`.
+
 ## Manual Indent / Dedent (`$>` / `$<`)
 
 Use `$>` and `$<` as standalone directives to control indent level without
@@ -829,13 +841,10 @@ as Rust tokens, not as the target language's tokens. This creates some edge case
    `if (x)` gets the expected space. This covers the common case but isn't
    configurable per-language.
 
-5. **Negative number literals.** `-1` tokenizes as `-` then `1`, so it renders as
-   `- 1` with a space. Functionally identical in all target languages.
-
-6. **Template literals.** Backtick strings (`` `${expr}` ``) aren't representable.
+5. **Template literals.** Backtick strings (`` `${expr}` ``) aren't representable.
    Use `$L(expr)` for dynamic content.
 
-7. **Percent signs.** Literal `%` in your code is auto-escaped to `%%` in the
+6. **Percent signs.** Literal `%` in your code is auto-escaped to `%%` in the
    format string, so it renders correctly.
 
 ### Comments

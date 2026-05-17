@@ -28,7 +28,7 @@ Every spec type (including `CodeBlock`, `TypeName`, `FileSpec`, and `ProjectSpec
 
 ## ParameterSpec
 
-A single function parameter: name, type, optional default value, and variadic flag.
+A single function parameter: name, type, optional default value, variadic flag, and property mode.
 
 ```rust
 # extern crate sigil_stitch;
@@ -51,10 +51,22 @@ let p = ParameterSpec::builder("args", TypeName::primitive("string"))
     .build()
     .unwrap();
 // Output: ...args: string
+
+// Readonly property parameter (Kotlin: val name: String)
+let p = ParameterSpec::builder("name", TypeName::primitive("String"))
+    .is_property()
+    .build()
+    .unwrap();
+
+// Mutable property parameter (Kotlin: var name: String)
+let p = ParameterSpec::builder("name", TypeName::primitive("String"))
+    .is_mutable_property()
+    .build()
+    .unwrap();
 # }
 ```
 
-`ParameterSpec` adapts to the target language. TypeScript emits `name: type`, C emits `type name`, and Python omits the type annotation when the type is empty.
+`ParameterSpec` adapts to the target language. TypeScript emits `name: type`, C emits `type name`, and Python omits the type annotation when the type is empty. The `is_property()` and `is_mutable_property()` methods prepend the language's readonly/mutable keyword — `val`/`var` in Kotlin, `readonly` in C# — so you don't need to embed language-specific keywords in the parameter name.
 
 ## FieldSpec
 

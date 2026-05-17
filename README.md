@@ -97,7 +97,7 @@ Build structured declarations with the spec builders:
 
 | Spec | Purpose |
 |------|---------|
-| **ParameterSpec** | Function parameter (name + type + default + variadic) |
+| **ParameterSpec** | Function parameter (name + type + default + variadic + property) |
 | **FieldSpec** | Struct field / class property (visibility, static, readonly) |
 | **FunSpec** | Function or method (params, return type, body, async, abstract) |
 | **TypeSpec** | Class, struct, interface, trait, enum, type alias, newtype, embedded types |
