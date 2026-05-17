@@ -34,3 +34,51 @@ fn test_type_annotation() {
     .unwrap();
     golden::assert_golden("haskell/quote_type_annotation.hs", &render(&block));
 }
+
+#[test]
+fn test_do_notation() {
+    let block = sigil_quote!(Haskell {
+        main :: IO ();
+        main = do {
+            putStrLn $S("Enter name:");
+            name <- getLine;
+            putStrLn ($S("Hello, ") ++ name);
+        }
+    })
+    .unwrap();
+    golden::assert_golden("haskell/quote_do_notation.hs", &render(&block));
+}
+
+#[test]
+fn test_guards() {
+    let block = sigil_quote!(Haskell {
+        classify :: Int -> String;
+        classify n
+            | n < 0 = $S("negative")
+            | n == 0 = $S("zero")
+            | otherwise = $S("positive");
+    })
+    .unwrap();
+    golden::assert_golden("haskell/quote_guards.hs", &render(&block));
+}
+
+#[test]
+fn test_list_comprehension() {
+    let block = sigil_quote!(Haskell {
+        evens :: [Int] -> [Int];
+        evens xs = [x | x <- xs, even x];
+    })
+    .unwrap();
+    golden::assert_golden("haskell/quote_list_comprehension.hs", &render(&block));
+}
+
+#[test]
+fn test_typeclass_instance() {
+    let block = sigil_quote!(Haskell {
+        instance Show Point {
+            show (Point x y) = $S("(") ++ show x ++ $S(", ") ++ show y ++ $S(")");
+        }
+    })
+    .unwrap();
+    golden::assert_golden("haskell/quote_typeclass_instance.hs", &render(&block));
+}
