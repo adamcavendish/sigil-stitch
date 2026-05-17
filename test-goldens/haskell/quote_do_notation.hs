@@ -1,5 +1,5 @@
 main :: IO()
-main = do =
+main = do
   putStrLn "Enter name:"
-  name <-getLine
-  putStrLn("Hello, "++ name)
+  name <- getLine
+  putStrLn("Hello, " ++ name)

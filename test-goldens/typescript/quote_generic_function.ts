@@ -1,4 +1,4 @@
-function identity < T >(arg: T): T {
+function identity<T>(arg: T): T {
   return arg;
 }
-const result = identity < string >('hello');
+const result = identity<string>('hello');

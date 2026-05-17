@@ -25,6 +25,8 @@ pub(super) enum TokenAnnotation {
     PostfixIncDec,
     /// `*` used as postfix pointer marker (e.g. `Config*`) — suppress space before.
     PostfixStar,
+    /// `?` used as postfix type marker (e.g. `Int?`, `String?`) — suppress space before.
+    PostfixQuestion,
     /// `-` starting `->` when adjacent to preceding token (member access, not type arrow).
     ArrowOp,
     /// First `:` of `::` used as operator (not path separator) — space before it.
@@ -211,7 +213,23 @@ fn annotate_tokens(tokens: &[TokenTree]) -> Vec<TokenAnnotation> {
                             }
                         };
                         if is_postfix {
-                            annotations[i] = TokenAnnotation::PostfixIncDec;
+                            // Look-ahead: if the token after `++`/`--` is an operand
+                            // (ident, literal, group, or `$` interpolation), this is a
+                            // binary operator (e.g. Haskell `++`), not postfix inc/dec.
+                            let after_second = i + 2;
+                            let followed_by_operand = if after_second < tokens.len() {
+                                match &tokens[after_second] {
+                                    TokenTree::Ident(_)
+                                    | TokenTree::Literal(_)
+                                    | TokenTree::Group(_) => true,
+                                    TokenTree::Punct(p2) => p2.as_char() == '$',
+                                }
+                            } else {
+                                false
+                            };
+                            if !followed_by_operand {
+                                annotations[i] = TokenAnnotation::PostfixIncDec;
+                            }
                         }
                     }
                     '&' | '*' | '-' => {
@@ -233,6 +251,20 @@ fn annotate_tokens(tokens: &[TokenTree]) -> Vec<TokenAnnotation> {
                                 i += 2;
                                 continue;
                             }
+                        }
+
+                        // `<-` compound operator: when `-` follows Joint `<` that
+                        // isn't GenericOpen, the pair forms a binary operator (Haskell
+                        // bind, Go channel). Don't mark as PrefixOp.
+                        if ch == '-'
+                            && i > 0
+                            && let TokenTree::Punct(prev_p) = &tokens[i - 1]
+                            && prev_p.as_char() == '<'
+                            && prev_p.spacing() == Spacing::Joint
+                            && annotations[i - 1] != TokenAnnotation::GenericOpen
+                        {
+                            i += 1;
+                            continue;
                         }
 
                         // PostfixStar: `*` span-adjacent to preceding ident (pointer type like `Config*`).
@@ -288,6 +320,27 @@ fn annotate_tokens(tokens: &[TokenTree]) -> Vec<TokenAnnotation> {
                         {
                             annotations[i] = TokenAnnotation::SafeCallQ;
                         }
+                        // PostfixQuestion: `?` span-adjacent to preceding ident or group-close
+                        // (e.g. `Int?`, `String?`, `(Int)?`)
+                        else if i > 0 {
+                            let prev_end = tokens[i - 1].span().end();
+                            let q_start = p.span().start();
+                            let is_adjacent =
+                                prev_end.line == q_start.line && prev_end.column == q_start.column;
+                            if is_adjacent {
+                                let is_type_context = match &tokens[i - 1] {
+                                    TokenTree::Ident(_) => true,
+                                    TokenTree::Group(g) => matches!(
+                                        g.delimiter(),
+                                        Delimiter::Parenthesis | Delimiter::Bracket
+                                    ),
+                                    _ => false,
+                                };
+                                if is_type_context {
+                                    annotations[i] = TokenAnnotation::PostfixQuestion;
+                                }
+                            }
+                        }
                     }
                     '<' => {
                         // GenericOpen: preceded by uppercase Ident, PathSepComplete,
@@ -305,11 +358,18 @@ fn annotate_tokens(tokens: &[TokenTree]) -> Vec<TokenAnnotation> {
                                     let s = id.to_string();
                                     // Uppercase ident (type name heuristic), OR
                                     // any ident preceded by PathSepComplete
-                                    // (e.g., `std::map<` — lowercase but qualified)
+                                    // (e.g., `std::map<` — lowercase but qualified), OR
+                                    // span-adjacent lowercase ident (`identity<T>`)
                                     s.starts_with(|c: char| c.is_uppercase())
                                         || (i >= 2
                                             && annotations[i - 2]
                                                 == TokenAnnotation::PathSepComplete)
+                                        || {
+                                            let prev_end = id.span().end();
+                                            let lt_start = p.span().start();
+                                            prev_end.line == lt_start.line
+                                                && prev_end.column == lt_start.column
+                                        }
                                 }
                                 TokenTree::Punct(pp) => {
                                     // After PathSepComplete or Joint `:` (turbofish)
@@ -790,6 +850,7 @@ pub(super) fn maybe_space(
         | TokenAnnotation::SafeCallQ
         | TokenAnnotation::PostfixIncDec
         | TokenAnnotation::PostfixStar
+        | TokenAnnotation::PostfixQuestion
         | TokenAnnotation::ArrowOp => return,
         _ => {}
     }

@@ -346,7 +346,7 @@ impl CodeLang for Haskell {
         let t = condition.trim();
         if t.starts_with("class ") || t.starts_with("instance ") {
             Some(" where")
-        } else if t.starts_with("do") {
+        } else if t == "do" || t.ends_with(" do") {
             Some("")
         } else {
             None

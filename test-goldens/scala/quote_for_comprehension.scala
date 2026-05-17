@@ -1,5 +1,5 @@
 val result = for {
-  x <-fetchX()
-  y <-fetchY(x)
+  x <- fetchX()
+  y <- fetchY(x)
 }
 yield (x, y)
