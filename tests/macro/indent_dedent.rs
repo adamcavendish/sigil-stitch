@@ -1,3 +1,4 @@
+use super::golden;
 use super::helpers::*;
 
 #[test]
@@ -21,4 +22,18 @@ fn test_manual_indent_dedent() {
         "expected indented y, got: {output}"
     );
     assert!(output.contains("}"), "got: {output}");
+}
+
+#[test]
+fn test_indent_dedent_golden() {
+    let block = sigil_quote!(TypeScript {
+        namespace Foo {$>
+        const x = 1;
+        const y = 2;
+        $<}
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    golden::assert_golden("macro/quote_indent_dedent.txt", &output);
 }
