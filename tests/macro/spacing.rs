@@ -718,3 +718,62 @@ fn test_binary_star_still_spaced() {
         "binary * should keep spaces. got: {output}"
     );
 }
+
+// ── Dash flag spacing (#93) ──────────────────────────────
+
+#[test]
+fn test_dash_flag_no_space() {
+    let block = sigil_quote!(TypeScript {
+        console.log(-q, -f, -avz);
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("-q"), "got: {output}");
+    assert!(output.contains("-f"), "got: {output}");
+    assert!(output.contains("-avz"), "got: {output}");
+}
+
+#[test]
+fn test_dash_binary_with_space() {
+    let block = sigil_quote!(TypeScript {
+        const x = a - b;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(
+        output.contains("a - b"),
+        "binary minus should keep spaces, got: {output}"
+    );
+}
+
+// ── Slash path spacing (#93) ─────────────────────────────
+
+#[test]
+fn test_slash_path_no_space() {
+    let block = sigil_quote!(TypeScript {
+        const path = linux/amd64;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(
+        output.contains("linux/amd64"),
+        "path separator should be tight, got: {output}"
+    );
+}
+
+#[test]
+fn test_slash_division_with_space() {
+    let block = sigil_quote!(TypeScript {
+        const x = a / b;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(
+        output.contains("a / b"),
+        "division should keep spaces, got: {output}"
+    );
+}

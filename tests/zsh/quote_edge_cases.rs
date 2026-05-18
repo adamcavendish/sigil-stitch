@@ -80,8 +80,10 @@ fn test_flags_and_shell_vars() {
     .unwrap();
 
     let output = render(&block);
-    // Known limitation: `-q` and `linux/amd64` get spaces around `-` and `/`
-    // because the tokenizer treats them as operators.
-    // TODO(#93): shell-aware tokenizer mode for `-flags` and `/paths`
+    assert!(output.contains("-q"), "flag should be tight, got: {output}");
+    assert!(
+        output.contains("linux/amd64"),
+        "path should be tight, got: {output}"
+    );
     assert!(output.contains("myapp"), "got: {output}");
 }
