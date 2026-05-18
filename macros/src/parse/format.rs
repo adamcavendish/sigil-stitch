@@ -38,6 +38,10 @@ pub(super) enum TokenAnnotation {
     AssignAdjacent,
     /// `:` span-adjacent to both neighbors (Lua method call `obj:method()`).
     MethodCallColon,
+    /// `-` span-adjacent to following ident/literal (shell flag like `-q`, `-f`).
+    DashFlag,
+    /// `/` span-adjacent to both neighbors (path separator like `linux/amd64`).
+    SlashSep,
 }
 
 /// What kind of token was just emitted (for spacing decisions).
@@ -301,6 +305,24 @@ fn annotate_tokens(tokens: &[TokenTree]) -> Vec<TokenAnnotation> {
                             continue;
                         }
 
+                        // DashFlag: standalone `-` span-adjacent to following ident/literal
+                        // (shell flag like `-q`, `-f`, `-avz`).
+                        if ch == '-'
+                            && p.spacing() == Spacing::Alone
+                            && i + 1 < tokens.len()
+                            && matches!(&tokens[i + 1], TokenTree::Ident(_) | TokenTree::Literal(_))
+                        {
+                            let dash_end = p.span().end();
+                            let next_start = tokens[i + 1].span().start();
+                            if dash_end.line == next_start.line
+                                && dash_end.column == next_start.column
+                            {
+                                annotations[i] = TokenAnnotation::DashFlag;
+                                i += 1;
+                                continue;
+                            }
+                        }
+
                         // PostfixStar: `*` span-adjacent to preceding ident (pointer type like `Config*`).
                         if ch == '*' && i > 0 && matches!(&tokens[i - 1], TokenTree::Ident(_)) {
                             let prev_end = tokens[i - 1].span().end();
@@ -358,6 +380,20 @@ fn annotate_tokens(tokens: &[TokenTree]) -> Vec<TokenAnnotation> {
                         };
                         if is_prefix {
                             annotations[i] = TokenAnnotation::PrefixOp;
+                        }
+                    }
+                    '/' if p.spacing() == Spacing::Alone && i > 0 && i + 1 < tokens.len() => {
+                        // SlashSep: `/` span-adjacent to both neighbors (path like `linux/amd64`).
+                        let prev_end = tokens[i - 1].span().end();
+                        let slash_start = p.span().start();
+                        let slash_end = p.span().end();
+                        let next_start = tokens[i + 1].span().start();
+                        if prev_end.line == slash_start.line
+                            && prev_end.column == slash_start.column
+                            && slash_end.line == next_start.line
+                            && slash_end.column == next_start.column
+                        {
+                            annotations[i] = TokenAnnotation::SlashSep;
                         }
                     }
                     '?' => {
@@ -838,7 +874,9 @@ fn tokens_to_format_inner(
                     TokenAnnotation::PrefixOp => PrevTokenKind::PrefixOp(ch),
                     TokenAnnotation::ArrowOp
                     | TokenAnnotation::AssignAdjacent
-                    | TokenAnnotation::MethodCallColon => PrevTokenKind::PathSep,
+                    | TokenAnnotation::MethodCallColon
+                    | TokenAnnotation::SlashSep => PrevTokenKind::PathSep,
+                    TokenAnnotation::DashFlag => PrevTokenKind::PrefixOp(ch),
                     _ => new_kind,
                 };
             }
@@ -974,7 +1012,8 @@ pub(super) fn maybe_space(
         | TokenAnnotation::PostfixQuestion
         | TokenAnnotation::ArrowOp
         | TokenAnnotation::AssignAdjacent
-        | TokenAnnotation::MethodCallColon => return,
+        | TokenAnnotation::MethodCallColon
+        | TokenAnnotation::SlashSep => return,
         TokenAnnotation::GenericOpen if prev != PrevTokenKind::Keyword => return,
         _ => {}
     }
