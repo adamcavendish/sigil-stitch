@@ -72,3 +72,15 @@ fn test_trait_mixin() {
     .unwrap();
     golden::assert_golden("scala/quote_trait_mixin.scala", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "class";
+    let block = sigil_quote!(Scala {
+        val $N(name) = 1
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("val `class` = 1"), "got: {output}");
+}

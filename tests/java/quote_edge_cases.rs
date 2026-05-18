@@ -70,3 +70,15 @@ fn test_try_with_resources() {
     .unwrap();
     golden::assert_golden("java/quote_try_resources.java", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "class";
+    let block = sigil_quote!(JavaLang {
+        $N(name) = 1;
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("class_ = 1;"), "got: {output}");
+}

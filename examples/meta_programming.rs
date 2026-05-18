@@ -76,7 +76,7 @@ fn meta_for_loop() {
     let fields = vec!["name", "email", "age"];
     let block = sigil_quote!(TypeScript {
         $for(field in &fields) {
-            this.$L(*field) = data.$L(*field);
+            this.$N(*field) = data.$N(*field);
         }
     })
     .unwrap();
@@ -121,7 +121,7 @@ fn splice_each() {
         .iter()
         .map(|f| {
             sigil_quote!(TypeScript {
-                this.$L(*f) = config.$L(*f);
+                this.$N(*f) = config.$N(*f);
             })
             .unwrap()
         })
@@ -149,7 +149,7 @@ fn nested_meta() {
     let block = sigil_quote!(TypeScript {
         $for((name, ty, required) in &fields) {
             $if(*required) {
-                $L(*name): $L(*ty);
+                $N(*name): $L(*ty);
             } $else {
                 $L(format!("{}?: {}", name, ty));
             }
@@ -217,7 +217,7 @@ fn schema_driven_codegen() {
     for field in &schema {
         if !field.optional {
             let body = sigil_quote!(TypeScript {
-                return this.$L(field.name);
+                return this.$N(field.name);
             })
             .unwrap();
             let getter = FunSpec::builder(&format!("get{}", capitalize(field.name)))

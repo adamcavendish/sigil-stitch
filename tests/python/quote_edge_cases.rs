@@ -71,3 +71,15 @@ fn test_with_statement() {
     .unwrap();
     golden::assert_golden("python/quote_with.py", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "class";
+    let block = sigil_quote!(Python {
+        $N(name) = 1
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("class_ = 1"), "got: {output}");
+}

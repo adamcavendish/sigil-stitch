@@ -86,3 +86,15 @@ fn test_impl_block() {
     .unwrap();
     golden::assert_golden("rust/quote_impl_block.rs", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "type";
+    let block = sigil_quote!(RustLang {
+        let $N(name) = 1;
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("let r#type = 1;"), "got: {output}");
+}

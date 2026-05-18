@@ -77,3 +77,15 @@ fn test_enum_with_associated_values() {
     .unwrap();
     golden::assert_golden("swift/quote_enum_associated.swift", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "class";
+    let block = sigil_quote!(Swift {
+        let $N(name) = 1
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("let `class` = 1"), "got: {output}");
+}

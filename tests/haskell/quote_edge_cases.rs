@@ -91,3 +91,15 @@ fn test_dollar_operator() {
     .unwrap();
     golden::assert_golden("haskell/quote_dollar_operator.hs", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "data";
+    let block = sigil_quote!(Haskell {
+        $N(name) = 1
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("data' = 1"), "got: {output}");
+}

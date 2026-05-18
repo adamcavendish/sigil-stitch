@@ -66,3 +66,15 @@ fn test_for_loop_with_pointer() {
     .unwrap();
     golden::assert_golden("c/quote_for_loop.c", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "auto";
+    let block = sigil_quote!(CLang {
+        $N(name) = 1;
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("auto_ = 1;"), "got: {output}");
+}

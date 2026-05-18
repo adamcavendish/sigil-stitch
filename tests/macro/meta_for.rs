@@ -9,7 +9,7 @@ fn test_meta_for_simple() {
 
     let block = sigil_quote!(TypeScript {
         $for(field in &fields) {
-            console.log($L(*field));
+            console.log($N(*field));
         }
     })
     .unwrap();
@@ -114,9 +114,9 @@ fn test_meta_if_nested_in_meta_for() {
     let block = sigil_quote!(TypeScript {
         $for((field, required) in &fields) {
             $if(*required) {
-                this.$N(*field) = validate($L(*field));
+                this.$N(*field) = validate($N(*field));
             } $else {
-                this.$N(*field) = $L(*field);
+                this.$N(*field) = $N(*field);
             }
         }
     })
@@ -181,7 +181,7 @@ fn test_meta_for_enum_variants() {
 
     let block = sigil_quote!(TypeScript {
         $for((name, value) in &variants) {
-            $L(*name) = $L(*value),
+            $N(*name) = $L(*value),
         }
     })
     .unwrap();
@@ -198,7 +198,7 @@ fn test_meta_for_golden() {
 
     let block = sigil_quote!(TypeScript {
         $for(field in &fields) {
-            console.log($L(*field));
+            console.log($N(*field));
         }
     })
     .unwrap();

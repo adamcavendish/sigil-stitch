@@ -85,3 +85,15 @@ fn test_for_loop() {
     .unwrap();
     golden::assert_golden("lua/quote_for_loop.lua", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "local";
+    let block = sigil_quote!(Lua {
+        $N(name) = 1
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("local_ = 1"), "got: {output}");
+}

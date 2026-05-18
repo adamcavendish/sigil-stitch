@@ -348,7 +348,7 @@ fn test_c_each_no_trailing_blank_line_in_fun_spec_body() {
         .iter()
         .map(|f| {
             sigil_quote!(JavaLang {
-                this.$L(*f) = $L(*f);
+                this.$N(*f) = $N(*f);
             })
             .unwrap()
         })

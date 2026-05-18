@@ -57,3 +57,31 @@ fn test_function_definition() {
     .unwrap();
     golden::assert_golden("zsh/quote_function.zsh", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "autoload";
+    let block = sigil_quote!(Zsh {
+        $$name=$N(name)
+        echo $$name
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("autoload_"), "got: {output}");
+}
+
+#[test]
+fn test_flags_and_shell_vars() {
+    let image = "myapp";
+    let block = sigil_quote!(Zsh {
+        docker pull -q --platform linux/amd64 $L("${REGISTRY}")/$N(image):$L("${TAG}")
+    })
+    .unwrap();
+
+    let output = render(&block);
+    // Known limitation: `-q` and `linux/amd64` get spaces around `-` and `/`
+    // because the tokenizer treats them as operators.
+    // TODO(#93): shell-aware tokenizer mode for `-flags` and `/paths`
+    assert!(output.contains("myapp"), "got: {output}");
+}

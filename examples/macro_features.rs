@@ -45,11 +45,36 @@ fn type_reference() {
 /// `$N(expr)` — identifier name with keyword escaping.
 fn name_identifier() {
     println!("--- $N: Name Identifier ---\n");
+
+    // Reserved word escaping: "type" → "type_" in TypeScript
     let field_name = "type";
     let block = sigil_quote!(TypeScript {
         const $N(field_name) = getValue();
     })
     .unwrap();
+    println!("Keyword escaping ({field_name}):");
+    println!("{}", render_ts(&block));
+
+    // Dynamic name construction: build getter names from field names
+    let field = "userName";
+    let getter = format!(
+        "get{}",
+        field.chars().next().unwrap().to_uppercase().to_string() + &field[1..]
+    );
+    let block = sigil_quote!(TypeScript {
+        $N(getter)(): string;
+    })
+    .unwrap();
+    println!("Dynamic name ({getter}):");
+    println!("{}", render_ts(&block));
+
+    // Member access: this.$N(name) for dynamic property access
+    let prop = "email";
+    let block = sigil_quote!(TypeScript {
+        this.$N(prop) = value;
+    })
+    .unwrap();
+    println!("Member access (this.{prop}):");
     println!("{}", render_ts(&block));
 }
 

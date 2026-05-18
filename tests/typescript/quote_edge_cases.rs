@@ -81,3 +81,15 @@ fn test_mapped_type() {
     .unwrap();
     golden::assert_golden("typescript/quote_mapped_type.ts", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "class";
+    let block = sigil_quote!(TypeScript {
+        const $N(name) = 1;
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("const class_ = 1;"), "got: {output}");
+}
