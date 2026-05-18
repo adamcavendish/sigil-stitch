@@ -66,6 +66,22 @@ impl<'a> CodeRenderer<'a> {
         tn.to_doc_with_lang(&resolve, self.lang)
     }
 
+    fn resolve_block_open<'b>(lang: &'b dyn CodeLang, cond: &str) -> &'b str {
+        lang.block_open_for(cond)
+            .unwrap_or(lang.block_syntax().block_open)
+    }
+
+    fn resolve_block_close<'b>(lang: &'b dyn CodeLang, cond: &str) -> &'b str {
+        lang.block_close_for(cond)
+            .unwrap_or(lang.block_syntax().block_close)
+    }
+
+    fn resolve_comment(lang: &dyn CodeLang, text: &str) -> String {
+        let prefix = lang.line_comment_prefix();
+        let suffix = lang.line_comment_suffix();
+        format!("{prefix} {text}{suffix}")
+    }
+
     /// Direct string rendering (no SoftBreak in this segment).
     fn render_nodes_direct(&mut self, nodes: &[CodeNode]) -> Result<(), SigilStitchError> {
         for node in nodes {
@@ -118,9 +134,8 @@ impl<'a> CodeRenderer<'a> {
                 }
                 CodeNode::Comment(text) => {
                     self.ensure_indent();
-                    let prefix = self.lang.line_comment_prefix();
-                    let suffix = self.lang.line_comment_suffix();
-                    self.emit(&format!("{prefix} {text}{suffix}"));
+                    let comment = Self::resolve_comment(self.lang, text);
+                    self.emit(&comment);
                 }
                 CodeNode::SoftBreak => {
                     self.emit(" ");
@@ -143,19 +158,13 @@ impl<'a> CodeRenderer<'a> {
                     self.emit_newline();
                 }
                 CodeNode::BlockOpen(cond) => {
-                    let open = self
-                        .lang
-                        .block_open_for(cond)
-                        .unwrap_or(self.lang.block_syntax().block_open);
+                    let open = Self::resolve_block_open(self.lang, cond);
                     if !open.is_empty() {
                         self.emit(open);
                     }
                 }
                 CodeNode::BlockClose(cond) => {
-                    let close = self
-                        .lang
-                        .block_close_for(cond)
-                        .unwrap_or(self.lang.block_syntax().block_close);
+                    let close = Self::resolve_block_close(self.lang, cond);
                     if !close.is_empty() {
                         self.ensure_indent();
                         self.emit(close);
@@ -163,9 +172,8 @@ impl<'a> CodeRenderer<'a> {
                     }
                 }
                 CodeNode::BranchClose(cond) => {
-                    let cfg = self.lang.block_syntax();
-                    if cfg.close_on_transition {
-                        let close = self.lang.block_close_for(cond).unwrap_or(cfg.block_close);
+                    if self.lang.block_syntax().close_on_transition {
+                        let close = Self::resolve_block_close(self.lang, cond);
                         if !close.is_empty() {
                             self.ensure_indent();
                             self.emit(close);
@@ -218,11 +226,7 @@ impl<'a> CodeRenderer<'a> {
                 CodeNode::StringLit(s) => BoxDoc::text(self.lang.render_string_literal(s)),
                 CodeNode::InlineLiteral(s) => BoxDoc::text(s.clone()),
                 CodeNode::Nested(block) => self.nodes_to_doc(&block.nodes),
-                CodeNode::Comment(text) => {
-                    let prefix = self.lang.line_comment_prefix();
-                    let suffix = self.lang.line_comment_suffix();
-                    BoxDoc::text(format!("{prefix} {text}{suffix}"))
-                }
+                CodeNode::Comment(text) => BoxDoc::text(Self::resolve_comment(self.lang, text)),
                 CodeNode::SoftBreak => BoxDoc::softline(),
                 CodeNode::Indent | CodeNode::Dedent => BoxDoc::nil(),
                 CodeNode::StatementBegin => BoxDoc::nil(),
@@ -235,10 +239,7 @@ impl<'a> CodeRenderer<'a> {
                 }
                 CodeNode::Newline => BoxDoc::hardline(),
                 CodeNode::BlockOpen(cond) => {
-                    let open = self
-                        .lang
-                        .block_open_for(cond)
-                        .unwrap_or(self.lang.block_syntax().block_open);
+                    let open = Self::resolve_block_open(self.lang, cond);
                     if open.is_empty() {
                         BoxDoc::nil()
                     } else {
@@ -246,10 +247,7 @@ impl<'a> CodeRenderer<'a> {
                     }
                 }
                 CodeNode::BlockClose(cond) => {
-                    let close = self
-                        .lang
-                        .block_close_for(cond)
-                        .unwrap_or(self.lang.block_syntax().block_close);
+                    let close = Self::resolve_block_close(self.lang, cond);
                     if close.is_empty() {
                         BoxDoc::nil()
                     } else {
@@ -257,11 +255,10 @@ impl<'a> CodeRenderer<'a> {
                     }
                 }
                 CodeNode::BranchClose(cond) => {
-                    let cfg = self.lang.block_syntax();
-                    if !cfg.close_on_transition {
+                    if !self.lang.block_syntax().close_on_transition {
                         BoxDoc::nil()
                     } else {
-                        let close = self.lang.block_close_for(cond).unwrap_or(cfg.block_close);
+                        let close = Self::resolve_block_close(self.lang, cond);
                         if close.is_empty() {
                             BoxDoc::nil()
                         } else {
