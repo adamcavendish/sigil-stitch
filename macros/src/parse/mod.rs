@@ -5,6 +5,7 @@
 
 mod format;
 mod statements;
+mod stmt_rewrite;
 mod types;
 mod util;
 
@@ -22,6 +23,7 @@ fn parse_macro_lang(ts: &TokenStream) -> MacroLang {
             "Zsh" => MacroLang::Zsh,
             "GoLang" => MacroLang::GoLang,
             "Haskell" => MacroLang::Haskell,
+            "OCaml" => MacroLang::OCaml,
             _ => MacroLang::Unaware,
         }
     } else {
@@ -102,5 +104,5 @@ pub(super) fn parse_body(
         pos = next_pos;
     }
 
-    Ok(statements)
+    Ok(stmt_rewrite::rewrite_statements(statements, lang))
 }
