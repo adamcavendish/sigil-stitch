@@ -148,3 +148,28 @@ fn test_bind_arrow_has_spaces() {
         "bind arrow needs spaces on both sides, got: {output}"
     );
 }
+
+#[test]
+fn test_guards_multi_equation() {
+    let block = sigil_quote!(Haskell {
+        abs :: Int -> Int;
+        abs n
+            | n < 0 = negate n
+            | otherwise = n;
+    })
+    .unwrap();
+    golden::assert_golden("haskell/quote_guards_multi.hs", &render(&block));
+}
+
+#[test]
+fn test_list_comprehension_no_indent() {
+    let block = sigil_quote!(Haskell {
+        evens xs = [x | x <- xs, even x];
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        !output.contains("  ["),
+        "list comprehension pipe on same line should not indent, got: {output}"
+    );
+}

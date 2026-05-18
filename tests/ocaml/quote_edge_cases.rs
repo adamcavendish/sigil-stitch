@@ -82,3 +82,28 @@ fn test_name_keyword_escape_in_macro() {
     let output = render(&block);
     assert!(output.contains("let_ = 1"), "got: {output}");
 }
+
+#[test]
+fn test_module_struct_has_end() {
+    let block = sigil_quote!(OCaml {
+        module Bar {
+            let x = 1;
+        }
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        output.contains("end"),
+        "module struct should have end terminator, got: {output}"
+    );
+}
+
+#[test]
+fn test_simple_let_body_indent() {
+    let block = sigil_quote!(OCaml {
+        let add x y =
+            x + y
+    })
+    .unwrap();
+    golden::assert_golden("ocaml/quote_let_body.ml", &render(&block));
+}

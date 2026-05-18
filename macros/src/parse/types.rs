@@ -11,6 +11,7 @@ pub(crate) enum MacroLang {
     Zsh,
     GoLang,
     Haskell,
+    OCaml,
 }
 
 impl MacroLang {

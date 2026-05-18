@@ -96,7 +96,6 @@ impl OCaml {
         cb.begin_control_flow(&format!("module {name}"), ());
         cb.add_code(body);
         cb.end_control_flow();
-        cb.add("end", ());
         cb.build()
     }
 
@@ -109,7 +108,6 @@ impl OCaml {
         cb.begin_control_flow(&format!("module type {name}"), ());
         cb.add_code(body);
         cb.end_control_flow();
-        cb.add("end", ());
         cb.build()
     }
 }
@@ -305,7 +303,7 @@ impl CodeLang for OCaml {
             Some(" = sig")
         } else if t.starts_with("module ") {
             Some(" = struct")
-        } else if t.starts_with("match ") || t.starts_with("try ") {
+        } else if t.starts_with("match ") || t.starts_with("try ") || t.ends_with(" with") {
             Some("")
         } else if t.starts_with("if ") || t.starts_with("else if ") {
             Some(" then")
@@ -320,7 +318,9 @@ impl CodeLang for OCaml {
 
     fn block_close_for(&self, condition: &str) -> Option<&str> {
         let t = condition.trim();
-        if t.starts_with("for ") || t.starts_with("while ") {
+        if t.starts_with("module type ") || t.starts_with("module ") {
+            Some("end")
+        } else if t.starts_with("for ") || t.starts_with("while ") {
             Some("done")
         } else {
             None
