@@ -58,3 +58,15 @@ fn test_async_await() {
     .unwrap();
     golden::assert_golden("dart/quote_async_await.dart", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "class";
+    let block = sigil_quote!(Dart {
+        $N(name) = 1;
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("class_ = 1;"), "got: {output}");
+}

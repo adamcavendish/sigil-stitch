@@ -81,3 +81,15 @@ fn test_extension_function() {
     .unwrap();
     golden::assert_golden("kotlin/quote_extension_fun.kt", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "class";
+    let block = sigil_quote!(Kotlin {
+        val $N(name) = 1
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("val `class` = 1"), "got: {output}");
+}

@@ -70,3 +70,15 @@ fn test_record_update() {
     .unwrap();
     golden::assert_golden("ocaml/quote_record_update.ml", &render(&block));
 }
+
+#[test]
+fn test_name_keyword_escape_in_macro() {
+    let name = "let";
+    let block = sigil_quote!(OCaml {
+        $N(name) = 1
+    })
+    .unwrap();
+
+    let output = render(&block);
+    assert!(output.contains("let_ = 1"), "got: {output}");
+}

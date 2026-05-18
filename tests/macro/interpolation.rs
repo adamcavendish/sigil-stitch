@@ -83,7 +83,7 @@ fn test_multiple_interpolations_in_one_statement() {
     let t1 = TypeName::primitive("string");
     let t2 = TypeName::primitive("number");
     let block = sigil_quote!(TypeScript {
-        const x: $T(t1) = $L("getVal") as $T(t2);
+        const x: $T(t1) = $N("getVal") as $T(t2);
     })
     .unwrap();
 
@@ -121,4 +121,61 @@ fn test_consecutive_specifiers_no_space() {
         "consecutive $L should have no space between them, got: {output}"
     );
     golden::assert_golden("macro/quote_consecutive_specifiers.txt", &output);
+}
+
+#[test]
+fn test_name_dynamic_getter() {
+    let fields = vec!["name", "age"];
+
+    let block = sigil_quote!(TypeScript {
+        $for(field in &fields) {
+            $let(getter = format!("get{}", field
+                .chars()
+                .next()
+                .map(|c| c.to_uppercase().to_string())
+                .unwrap_or_default()
+                + &field[1..]));
+            $N(getter)(): string;
+        }
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("getName(): string;"), "got: {output}");
+    assert!(output.contains("getAge(): string;"), "got: {output}");
+}
+
+#[test]
+fn test_name_keyword_escape_in_sigil_quote() {
+    let reserved = "type";
+    let safe = "myVar";
+
+    let block = sigil_quote!(TypeScript {
+        const $N(reserved) = 1;
+        const $N(safe) = 2;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(
+        output.contains("const type_ = 1;"),
+        "reserved word should be escaped, got: {output}"
+    );
+    assert!(
+        output.contains("const myVar = 2;"),
+        "non-reserved should pass through, got: {output}"
+    );
+}
+
+#[test]
+fn test_name_member_access() {
+    let field_name = "email";
+
+    let block = sigil_quote!(TypeScript {
+        this.$N(field_name) = value;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("this.email = value;"), "got: {output}");
 }
