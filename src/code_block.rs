@@ -22,6 +22,9 @@ pub enum Specifier {
     Name,
     /// `%S` / `$S` — string literal (consumes `Arg::StringLit`).
     StringLit,
+    /// `%V` / `$V` — verbatim string literal (consumes `Arg::VerbatimStr`).
+    /// Escapes only structural delimiters, preserving interpolation sigils.
+    VerbatimStr,
     /// `%L` / `$L` / `$C` — literal value or nested code block (consumes `Arg::Literal` or `Arg::Code`).
     Literal,
 }
@@ -36,6 +39,7 @@ impl Specifier {
             'T' => Some(Self::Type),
             'N' => Some(Self::Name),
             'S' => Some(Self::StringLit),
+            'V' => Some(Self::VerbatimStr),
             'L' => Some(Self::Literal),
             _ => None,
         }
@@ -47,13 +51,20 @@ impl Specifier {
             Self::Type => 'T',
             Self::Name => 'N',
             Self::StringLit => 'S',
+            Self::VerbatimStr => 'V',
             Self::Literal => 'L',
         }
     }
 
     /// All defined specifier variants.
     pub fn all() -> &'static [Self] {
-        &[Self::Type, Self::Name, Self::StringLit, Self::Literal]
+        &[
+            Self::Type,
+            Self::Name,
+            Self::StringLit,
+            Self::VerbatimStr,
+            Self::Literal,
+        ]
     }
 }
 
@@ -102,6 +113,8 @@ pub enum Arg {
     Name(String),
     /// A string literal value (used by `%S`).
     StringLit(String),
+    /// A verbatim string literal value (used by `%V`).
+    VerbatimStr(String),
     /// A literal string value or nested code block (used by `%L`).
     Literal(String),
     /// A nested code block (used by `%L`).
@@ -266,6 +279,7 @@ impl CodeBlockBuilder {
                     Arg::TypeName(_) => "TypeName".to_string(),
                     Arg::Name(_) => "Name".to_string(),
                     Arg::StringLit(_) => "StringLit".to_string(),
+                    Arg::VerbatimStr(_) => "VerbatimStr".to_string(),
                     Arg::Literal(_) => "Literal".to_string(),
                     Arg::Code(_) => "Code".to_string(),
                 })
@@ -546,6 +560,26 @@ impl IntoArgs for StringLitArg {
     }
 }
 
+/// Wrapper for verbatim string literal arguments — preserves interpolation sigils.
+///
+/// Use `VerbatimStrArg` when your format string uses `%V` to emit a string with
+/// minimal escaping (only structural delimiters escaped, interpolation preserved).
+///
+/// ```ignore
+/// use sigil_stitch::code_block::{CodeBlock, VerbatimStrArg};
+///
+/// let mut cb = CodeBlock::builder();
+/// cb.add_statement("echo %V", (VerbatimStrArg("$HOME/.config".to_string()),));
+/// let block = cb.build().unwrap();
+/// ```
+pub struct VerbatimStrArg(pub String);
+
+impl IntoArgs for VerbatimStrArg {
+    fn into_args(self) -> Vec<Arg> {
+        vec![Arg::VerbatimStr(self.0)]
+    }
+}
+
 // Individual Arg conversions.
 impl From<TypeName> for Arg {
     fn from(tn: TypeName) -> Self {
@@ -580,6 +614,12 @@ impl From<NameArg> for Arg {
 impl From<StringLitArg> for Arg {
     fn from(s: StringLitArg) -> Self {
         Arg::StringLit(s.0)
+    }
+}
+
+impl From<VerbatimStrArg> for Arg {
+    fn from(s: VerbatimStrArg) -> Self {
+        Arg::VerbatimStr(s.0)
     }
 }
 

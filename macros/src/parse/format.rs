@@ -214,13 +214,14 @@ fn tokens_to_format_inner(
                 continue;
             }
 
-            // `$T(expr)`, `$N(expr)`, `$S(expr)`, `$L(expr)`, `$C(expr)`
+            // `$T(expr)`, `$N(expr)`, `$S(expr)`, `$V(expr)`, `$L(expr)`, `$C(expr)`
             if let TokenTree::Ident(id) = next {
                 let kind_str = id.to_string();
                 let kind = match kind_str.as_str() {
                     "T" => InterpolationKind::Type,
                     "N" => InterpolationKind::Name,
                     "S" => InterpolationKind::StringLit,
+                    "V" => InterpolationKind::VerbatimStr,
                     "L" => InterpolationKind::Literal,
                     "C" => InterpolationKind::Code,
                     _ => {
@@ -228,7 +229,7 @@ fn tokens_to_format_inner(
                             id.span(),
                             format!(
                                 "unknown interpolation kind `${kind_str}`. \
-                                     Expected $T, $N, $S, $L, $C, $W, $join, or $C_each"
+                                     Expected $T, $N, $S, $V, $L, $C, $W, $join, or $C_each"
                             ),
                         ));
                     }
@@ -260,6 +261,7 @@ fn tokens_to_format_inner(
                     InterpolationKind::Type => "%T",
                     InterpolationKind::Name => "%N",
                     InterpolationKind::StringLit => "%S",
+                    InterpolationKind::VerbatimStr => "%V",
                     InterpolationKind::Literal | InterpolationKind::Code => "%L",
                 };
 

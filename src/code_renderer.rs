@@ -126,6 +126,11 @@ impl<'a> CodeRenderer<'a> {
                     let rendered = self.lang.render_string_literal(s);
                     self.emit(&rendered);
                 }
+                CodeNode::VerbatimStr(s) => {
+                    self.ensure_indent();
+                    let rendered = self.lang.render_verbatim_string(s);
+                    self.emit(&rendered);
+                }
                 CodeNode::InlineLiteral(s) => {
                     self.emit_possibly_multiline(s);
                 }
@@ -224,6 +229,7 @@ impl<'a> CodeRenderer<'a> {
                 CodeNode::TypeRef(tn) => self.resolve_type_doc(tn),
                 CodeNode::NameRef(name) => BoxDoc::text(self.lang.escape_reserved(name)),
                 CodeNode::StringLit(s) => BoxDoc::text(self.lang.render_string_literal(s)),
+                CodeNode::VerbatimStr(s) => BoxDoc::text(self.lang.render_verbatim_string(s)),
                 CodeNode::InlineLiteral(s) => BoxDoc::text(s.clone()),
                 CodeNode::Nested(block) => self.nodes_to_doc(&block.nodes),
                 CodeNode::Comment(text) => BoxDoc::text(Self::resolve_comment(self.lang, text)),

@@ -10,3 +10,4 @@ mod quote_bracket_spacing;
 mod quote_control_flow;
 mod quote_edge_cases;
 mod quote_imports;
+mod quote_verbatim_string;

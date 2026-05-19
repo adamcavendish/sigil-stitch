@@ -94,7 +94,9 @@ pub(crate) mod type_name_render;
 
 /// Common re-exports for convenient usage.
 pub mod prelude {
-    pub use crate::code_block::{CodeBlock, CodeBlockBuilder, NameArg, Specifier, StringLitArg};
+    pub use crate::code_block::{
+        CodeBlock, CodeBlockBuilder, NameArg, Specifier, StringLitArg, VerbatimStrArg,
+    };
     pub use crate::code_template::{CodeTemplate, ParamKind};
     pub use crate::error::SigilStitchError;
     pub use crate::lang::{CodeLang, RendererLang};

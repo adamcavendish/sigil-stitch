@@ -24,6 +24,9 @@ pub enum CodeNode {
     /// A string literal value, rendered with language-specific quoting
     /// (was `%S` + `Arg::StringLit`).
     StringLit(String),
+    /// A verbatim string literal, rendered with minimal escaping that preserves
+    /// interpolation sigils (was `%V` + `Arg::VerbatimStr`).
+    VerbatimStr(String),
     /// An inline literal string (was `%L` + `Arg::Literal`).
     InlineLiteral(String),
     /// A nested code block (was `%L` + `Arg::Code`).
@@ -84,6 +87,9 @@ pub(crate) fn parts_args_to_nodes(parts: &[FormatPart], args: &[Arg]) -> Vec<Cod
                     (Specifier::Type, Arg::TypeName(tn)) => CodeNode::TypeRef(tn.clone()),
                     (Specifier::Name, Arg::Name(n)) => CodeNode::NameRef(n.clone()),
                     (Specifier::StringLit, Arg::StringLit(s)) => CodeNode::StringLit(s.clone()),
+                    (Specifier::VerbatimStr, Arg::VerbatimStr(s)) => {
+                        CodeNode::VerbatimStr(s.clone())
+                    }
                     (Specifier::Literal, Arg::Literal(s)) => CodeNode::InlineLiteral(s.clone()),
                     (Specifier::Literal, Arg::Code(block)) => CodeNode::Nested(block.clone()),
                     _ => CodeNode::Literal(String::new()),

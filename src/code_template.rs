@@ -221,6 +221,7 @@ fn arg_kind_label(arg: &Arg) -> &'static str {
         Arg::TypeName(_) => "TypeName",
         Arg::Name(_) => "Name",
         Arg::StringLit(_) => "StringLit",
+        Arg::VerbatimStr(_) => "VerbatimStr",
         Arg::Literal(_) => "Literal",
         Arg::Code(_) => "Code",
     }
