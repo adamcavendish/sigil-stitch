@@ -1,6 +1,8 @@
 # Adding a Language
 
-sigil-stitch supports new languages by implementing the `CodeLang` trait. The trait has 36 methods: 10 required (no default) plus 6 config struct accessors and 20 override methods — all with sensible defaults. You only need to override the defaults when your language diverges from the common patterns.
+sigil-stitch supports new languages by implementing two traits: `RendererLang` (renderer-only methods) and `CodeLang` (spec-layer methods). `CodeLang` extends `RendererLang`, so implementing `CodeLang` requires both. If you only need `CodeBlock`-level rendering without specs, `RendererLang` alone is sufficient.
+
+The `RendererLang` trait has 14 methods covering rendering essentials. `CodeLang` adds the spec-layer methods: 4 required plus 6 config struct accessors and override methods — all with sensible defaults. You only need to override the defaults when your language diverges from the common patterns.
 
 This guide walks through the process using a hypothetical language, with references to real implementations you can study.
 
@@ -17,9 +19,9 @@ If your language has tokenizer conflicts in `sigil_quote!` that the universal he
 can't handle (e.g., shell flags, Go channel operators), you may also need to add a
 `MacroLang` variant. See [Language-Aware Tokenizer](macrolang.md) for details.
 
-## The CodeLang Trait
+## The RendererLang Trait
 
-The trait methods fall into natural groups.
+These methods are used by the renderer (`code_renderer.rs`) and type rendering:
 
 ### Core Methods (6 required)
 
@@ -34,7 +36,19 @@ These are enough for CodeBlock-level code generation:
 | `render_doc_comment()` | `/** ... */` | Doc comment block |
 | `line_comment_prefix()` | `"//"` | Single-line comment prefix |
 
+### Override Methods (with defaults)
+
+| Method | Default | Purpose |
+|--------|---------|---------|
+| `render_verbatim_string()` | Delegates to `render_string_literal()` | Minimal escaping for interpolated strings |
+
+Override `render_verbatim_string()` if your language has string interpolation (e.g., Bash `"$x"`, TypeScript `` `${x}` ``, Python `f"{x}"`).
+
 `render_imports()` is the most complex. It receives an `ImportGroup` (deduplicated, with aliases resolved) and must emit the full import header string. Study `src/lang/typescript.rs` for ES module imports or `src/lang/rust_lang.rs` for `use` paths.
+
+## The CodeLang Trait
+
+Extends `RendererLang` with the additional methods needed by the spec layer.
 
 ### Spec Support Methods (4 required)
 

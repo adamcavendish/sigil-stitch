@@ -297,6 +297,7 @@ The critical rule: **bare strings map to `Arg::Literal`** (consumed by `%L`), no
 | `CodeBlock` | `Arg::Code` | `%L` |
 | `NameArg(String)` | `Arg::Name` | `%N` |
 | `StringLitArg(String)` | `Arg::StringLit` | `%S` |
+| `VerbatimStrArg(String)` | `Arg::VerbatimStr` | `%V` |
 | `Vec<Arg>` | passthrough | any |
 
 ### Single Argument
@@ -351,7 +352,7 @@ let block = cb.build().unwrap();
 
 ### Argument Count Validation
 
-The builder checks that the number of argument-consuming specifiers (`%T`, `%N`, `%S`, `%L`) matches the number of arguments provided. A mismatch records a `FormatArgCount` error, surfaced when `build()` is called. The error carries the expected specifier list and the actual argument kinds so you can see exactly which slot is wrong.
+The builder checks that the number of argument-consuming specifiers (`%T`, `%N`, `%S`, `%V`, `%L`) matches the number of arguments provided. A mismatch records a `FormatArgCount` error, surfaced when `build()` is called. The error carries the expected specifier list and the actual argument kinds so you can see exactly which slot is wrong.
 
 ```rust
 # extern crate sigil_stitch;
@@ -369,4 +370,4 @@ let result = cb.build();
 # }
 ```
 
-An unrecognised specifier character (anything after `%` that isn't `T`, `N`, `S`, `L`, `W`, `>`, `<`, `[`, `]`, or `%`) produces `Err(SigilStitchError::InvalidFormatSpecifier { format, specifier })` instead.
+An unrecognised specifier character (anything after `%` that isn't `T`, `N`, `S`, `V`, `L`, `W`, `>`, `<`, `[`, `]`, or `%`) produces `Err(SigilStitchError::InvalidFormatSpecifier { format, specifier })` instead.

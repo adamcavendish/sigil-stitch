@@ -18,13 +18,18 @@ The library is organized in four layers, each building on the one below:
 └─────────────────────────────────────┘
 ```
 
-### Layer 1: CodeLang
+### Layer 1: RendererLang + CodeLang
 
-`src/lang/mod.rs` defines the `CodeLang` trait with 36 methods, including 6 config struct accessors (`type_presentation()`, `generic_syntax()`, `block_syntax()`, `function_syntax()`, `type_decl_syntax()`, `enum_and_annotation()`) that return data structs with sensible defaults. Each supported language implements this trait in its own module (`src/lang/typescript.rs`, etc.). Languages can also implement `rewrite_nodes()` to transform the CodeNode tree after macro expansion for language-specific fixups (e.g., Go IIFE `}()` fusion, C++ lambda `};` semicolons).
+`src/lang/mod.rs` defines two traits:
+
+- **`RendererLang`** (14 methods) — the renderer-only surface used by `code_renderer.rs` and `TypeName::to_doc_with_lang`. Covers file extension, string literals, verbatim strings, block syntax, type presentation, generic syntax, imports, and a few rendering helpers. If you only need `CodeBlock`-level rendering (no specs), implementing `RendererLang` is sufficient.
+- **`CodeLang: RendererLang`** — extends `RendererLang` with the additional methods needed by the spec layer (TypeSpec, FunSpec, FieldSpec). Covers visibility, keywords, function syntax, type-decl syntax, enum/annotation config, and structural decisions like `methods_inside_type_body`.
+
+Each supported language implements both traits in its own module (`src/lang/typescript.rs`, etc.). The 6 config struct accessors (`type_presentation()`, `generic_syntax()`, `block_syntax()`, `function_syntax()`, `type_decl_syntax()`, `enum_and_annotation()`) return data structs with sensible defaults. Languages can also implement `rewrite_nodes()` to transform the CodeNode tree after macro expansion for language-specific fixups (e.g., Go IIFE `}()` fusion, C++ lambda `};` semicolons).
 
 At the macro level, the `MacroLang` enum (`macros/src/parse/types.rs`) provides compile-time language-aware tokenizer annotations. Languages like Bash, Zsh, Go, and Haskell get specialized spacing rules in `sigil_quote!` without runtime overhead. See [Language-Aware Tokenizer](macrolang.md).
 
-Public types are language-agnostic — no generic parameter. The language enters as `&dyn CodeLang` at render time. `FileSpec` stores a `Box<dyn CodeLang>` internally; all other types (`CodeBlock`, `TypeName`, specs) are language-independent.
+Public types are language-agnostic — no generic parameter. The language enters as `&dyn RendererLang` (for rendering) or `&dyn CodeLang` (for spec emission) at render time. `FileSpec` stores a `Box<dyn CodeLang>` internally; all other types (`CodeBlock`, `TypeName`, specs) are language-independent.
 
 ### Layer 2: TypeName
 
@@ -115,6 +120,7 @@ Go's `qualify_import_name()` adds another layer: instead of importing `Server` d
 | `TypeRef(tn)` | Resolve import name via ImportGroup, emit |
 | `NameRef(s)` | Emit identifier |
 | `StringLit(s)` | Call `lang.render_string_literal()` |
+| `VerbatimStr(s)` | Call `lang.render_verbatim_string()` |
 | `InlineLiteral(s)` | Emit raw literal |
 | `Nested(block)` | Recursively render the inner CodeBlock |
 | `Comment(s)` | Emit with `lang.line_comment_prefix()` |
