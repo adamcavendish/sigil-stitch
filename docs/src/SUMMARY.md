@@ -26,6 +26,7 @@
   - [Scala](cookbook_scala.md)
   - [Haskell](cookbook_haskell.md)
   - [OCaml](cookbook_ocaml.md)
+  - [Shell (Bash/Zsh)](cookbook_shell.md)
 
 ---
 

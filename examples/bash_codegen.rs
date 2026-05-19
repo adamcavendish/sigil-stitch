@@ -1,7 +1,8 @@
 //! Generate a Bash script — builder API vs `sigil_quote!` comparison.
 //!
 //! Demonstrates: functions with control flow (`if/then/fi`, `for/do/done`),
-//! shebang header, `set -euo pipefail`, `source` imports, and string escaping.
+//! shebang header, `set -euo pipefail`, `source` imports, string escaping,
+//! and `$V` verbatim strings (preserving shell interpolation).
 //! The macro approach uses `{ }` blocks that the Bash backend automatically
 //! converts to the correct delimiters (`then`/`fi`, `do`/`done`).
 //!
@@ -90,10 +91,11 @@ fn builder_approach() -> String {
 fn macro_approach() -> String {
     let utils = TypeName::importable("./utils.sh", "");
 
+    // $V preserves shell interpolation — $S would escape these.
     let log_body = sigil_quote!(Bash {
         local level=$$1
         local message=$$2
-        echo $S("[$level] $(date): $message")
+        echo $V("[$level] $(date +%Y-%m-%dT%H:%M:%S): $message")
     })
     .unwrap();
 
@@ -102,31 +104,31 @@ fn macro_approach() -> String {
         .build()
         .unwrap();
 
-    // With context-aware block delimiters, Bash control flow works with
-    // begin_control_flow/end_control_flow — the backend emits then/fi,
-    // do/done automatically based on the condition text.
-    let mut deploy_body = CodeBlock::builder();
-    deploy_body.add("local env=$1", ());
-    deploy_body.add_line();
-    deploy_body.add_line();
-    deploy_body.begin_control_flow("if [ -z \"$env\" ];", ());
-    deploy_body.add("log_message \"ERROR\" \"No environment specified\"", ());
-    deploy_body.add_line();
-    deploy_body.add("return 1", ());
-    deploy_body.add_line();
-    deploy_body.end_control_flow();
-    deploy_body.add_line();
-    deploy_body.add("log_message \"INFO\" \"Deploying to $env\"", ());
-    deploy_body.add_line();
-    deploy_body.add_line();
-    deploy_body.begin_control_flow("for service in api worker scheduler;", ());
-    deploy_body.add("log_message \"INFO\" \"Starting $service\"", ());
-    deploy_body.add_line();
-    deploy_body.end_control_flow();
+    // sigil_quote! with { } — Bash backend emits then/fi, do/done.
+    // $V is used for strings that need shell expansion at runtime.
+    let deploy_body = sigil_quote!(Bash {
+        local env=$$1
+        local app_name=$V("${APP_NAME:-myapp}")
+        local version=$V("$(cat VERSION 2>/dev/null || echo unknown)")
+
+        if [ -z $$env ]; {
+            log_message $S("ERROR") $V("No environment specified for ${app_name}")
+            return 1
+        }
+
+        log_message $S("INFO") $V("Deploying ${app_name} v${version} to ${env}")
+
+        for service in api worker scheduler; {
+            log_message $S("INFO") $V("Starting $service on $env")
+        }
+
+        log_message $S("INFO") $V("Deploy complete. PID=$$, exit=$?")
+    })
+    .unwrap();
 
     let deploy_fn = FunSpec::builder("deploy")
         .doc("Deploy services to the given environment.")
-        .body(deploy_body.build().unwrap())
+        .body(deploy_body)
         .build()
         .unwrap();
 
