@@ -110,6 +110,12 @@ pub(crate) struct CompileError {
     message: String,
 }
 
+impl std::fmt::Debug for CompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CompileError({:?})", self.message)
+    }
+}
+
 impl CompileError {
     pub fn new(span: Span, message: impl Into<String>) -> Self {
         CompileError {

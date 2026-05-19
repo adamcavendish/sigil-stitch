@@ -470,3 +470,7 @@ pub(super) fn split_join_args(
 
     Ok((sep_tokens, iter_tokens))
 }
+
+#[cfg(test)]
+#[path = "format_tests.rs"]
+mod tests;
