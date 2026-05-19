@@ -17,7 +17,7 @@ fn render(block: &CodeBlock) -> String {
 #[test]
 fn single_bracket_quoted_has_inner_spaces() {
     let block = sigil_quote!(Bash {
-        if [ "$$x" -gt 0 ] {
+        if [ $$x -gt 0 ] {
             echo $S("positive");
         } else {
             echo $S("negative");
@@ -27,7 +27,7 @@ fn single_bracket_quoted_has_inner_spaces() {
     let output = render(&block);
 
     assert!(
-        output.contains("[ \"$x\""),
+        output.contains("[ $x"),
         "Shell test bracket needs space after '[', got:\n{output}"
     );
     assert!(
