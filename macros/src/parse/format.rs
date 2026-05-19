@@ -380,6 +380,19 @@ fn tokens_to_format_inner(
                     Delimiter::Brace => ("{", "}"),
                     Delimiter::None => ("", ""),
                 };
+                let shell_bracket = lang.is_shell()
+                    && g.delimiter() == Delimiter::Bracket
+                    && annotation != TokenAnnotation::CallOpen;
+                // For `[[ ... ]]`, proc_macro2 nests as Bracket(Bracket(...)).
+                // The outer bracket should NOT add inner spaces — only the
+                // innermost bracket (which contains the actual tokens) should.
+                let is_double_bracket_outer = shell_bracket
+                    && {
+                        let inner_tokens: Vec<TokenTree> = g.stream().into_iter().collect();
+                        inner_tokens.len() == 1
+                            && matches!(&inner_tokens[0], TokenTree::Group(ig) if ig.delimiter() == Delimiter::Bracket)
+                    };
+                let add_bracket_spaces = shell_bracket && !is_double_bracket_outer;
                 let new_kind = PrevTokenKind::GroupOpen;
                 maybe_space(format, state, new_kind, annotation);
                 format.push_str(open);
@@ -394,13 +407,20 @@ fn tokens_to_format_inner(
                 {
                     state.colon_ctx = ColonContext::ForRange;
                 }
-                state.prev = PrevTokenKind::GroupOpen;
+                if add_bracket_spaces {
+                    state.prev = PrevTokenKind::Literal;
+                } else {
+                    state.prev = PrevTokenKind::GroupOpen;
+                }
 
                 let inner: Vec<TokenTree> = g.stream().into_iter().collect();
                 let inner_annotations = annotate_tokens(&inner, lang);
                 tokens_to_format_inner(&inner, &inner_annotations, format, args, state, lang)?;
 
                 state.colon_ctx = saved_ctx;
+                if add_bracket_spaces {
+                    format.push(' ');
+                }
                 format.push_str(close);
 
                 // After a bracket group, check if the next token is span-adjacent.

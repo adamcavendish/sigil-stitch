@@ -120,8 +120,17 @@ impl RendererLang for Zsh {
             indent_unit: &self.indent,
             uses_semicolons: false,
             field_terminator: "",
+            close_on_transition: false,
             ..Default::default()
         }
+    }
+
+    fn block_open_for(&self, condition: &str) -> Option<&str> {
+        super::shell_syntax::shell_block_open_for(condition)
+    }
+
+    fn block_close_for(&self, condition: &str) -> Option<&str> {
+        super::shell_syntax::shell_block_close_for(condition)
     }
 }
 
