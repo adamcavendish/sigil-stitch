@@ -17,7 +17,7 @@ fn render(block: &CodeBlock) -> String {
 #[test]
 fn bracket_test_has_inner_spaces() {
     let block = sigil_quote!(Zsh {
-        if [ $L("$x") -gt 0 ] {
+        if [ $$x -gt 0 ] {
             echo $S("positive");
         } else {
             echo $S("negative");
