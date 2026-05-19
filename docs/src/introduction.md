@@ -39,7 +39,7 @@ produces a newline with proper indentation. This is the Wadler-Lindig algorithm 
 work, via the `pretty` crate. You pass the target width to `FileSpec::render(width)`,
 and the same code blocks produce different layouts for different widths.
 
-**Multi-language.** The `CodeLang` trait abstracts everything that varies between
+**Multi-language.** The `RendererLang` and `CodeLang` traits abstract everything that varies between
 languages: string delimiters, statement terminators, import syntax, visibility keywords,
 type formatting, annotation style, and more. sigil-stitch ships with implementations
 for TypeScript, JavaScript, Rust, Go, Python, Java, Kotlin, Swift, Dart, Scala,
