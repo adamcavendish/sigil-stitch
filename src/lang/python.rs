@@ -209,6 +209,11 @@ impl RendererLang for Python {
         }
     }
 
+    fn render_verbatim_string(&self, s: &str) -> String {
+        let escaped = s.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("f\"{escaped}\"")
+    }
+
     fn line_comment_prefix(&self) -> &str {
         "#"
     }

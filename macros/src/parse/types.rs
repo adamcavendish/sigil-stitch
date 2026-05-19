@@ -98,6 +98,8 @@ pub(crate) enum InterpolationKind {
     Name,
     /// `$S(expr)` — string literal.
     StringLit,
+    /// `$V(expr)` — verbatim string literal (minimal escaping).
+    VerbatimStr,
     /// `$L(expr)` — literal value.
     Literal,
     /// `$C(expr)` — nested code block.

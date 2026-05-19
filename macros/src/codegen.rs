@@ -126,6 +126,7 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
 /// - `$T(expr)` -> bare expr (must be `TypeName`)
 /// - `$N(expr)` -> `NameArg((expr).to_string())`
 /// - `$S(expr)` -> `StringLitArg((expr).to_string())`
+/// - `$V(expr)` -> `VerbatimStrArg((expr).to_string())`
 /// - `$L(expr)` -> bare expr (via `Into<Arg>`)
 /// - `$C(expr)` -> bare expr (must be `CodeBlock`)
 fn build_args_tuple(args: &[TypedArg]) -> TokenStream {
@@ -147,6 +148,9 @@ fn build_args_tuple(args: &[TypedArg]) -> TokenStream {
                     }
                     InterpolationKind::StringLit => {
                         quote! { ::sigil_stitch::code_block::StringLitArg((#expr).to_string()) }
+                    }
+                    InterpolationKind::VerbatimStr => {
+                        quote! { ::sigil_stitch::code_block::VerbatimStrArg((#expr).to_string()) }
                     }
                 }
             })

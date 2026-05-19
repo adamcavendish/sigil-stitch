@@ -56,6 +56,17 @@ pub trait RendererLang: std::fmt::Debug + 'static {
     /// Render a string literal with language-appropriate quoting and escaping.
     fn render_string_literal(&self, s: &str) -> String;
 
+    /// Render a verbatim string literal with minimal escaping.
+    ///
+    /// Only escapes characters that would structurally break the string delimiter,
+    /// preserving interpolation sigils (`$`, `` ` ``, `{`, etc.) as-is.
+    /// For languages without string interpolation, falls back to full escaping.
+    ///
+    /// Default: delegates to [`render_string_literal`](Self::render_string_literal).
+    fn render_verbatim_string(&self, s: &str) -> String {
+        self.render_string_literal(s)
+    }
+
     /// Single-line comment prefix (e.g., "//", "#").
     fn line_comment_prefix(&self) -> &str;
 
