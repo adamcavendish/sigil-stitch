@@ -141,45 +141,11 @@ impl RendererLang for Bash {
     }
 
     fn block_open_for(&self, condition: &str) -> Option<&str> {
-        let raw = condition.trim();
-        let t = raw.trim_end_matches(';').trim();
-        if t.ends_with("; then")
-            || t.ends_with("; do")
-            || t.ends_with(" in")
-            || t == "else"
-            || t == "elif"
-        {
-            Some("")
-        } else if t.starts_with("if ") || t.starts_with("elif ") {
-            if raw.ends_with(';') {
-                Some(" then")
-            } else {
-                Some("; then")
-            }
-        } else if t.starts_with("for ") || t.starts_with("while ") || t.starts_with("until ") {
-            if raw.ends_with(';') {
-                Some(" do")
-            } else {
-                Some("; do")
-            }
-        } else if t.starts_with("case ") {
-            Some(" in")
-        } else {
-            None
-        }
+        super::shell_syntax::shell_block_open_for(condition)
     }
 
     fn block_close_for(&self, condition: &str) -> Option<&str> {
-        let t = condition.trim().trim_end_matches(';').trim();
-        if t.starts_with("if ") || t.starts_with("elif ") || t == "else" {
-            Some("fi")
-        } else if t.starts_with("for ") || t.starts_with("while ") || t.starts_with("until ") {
-            Some("done")
-        } else if t.starts_with("case ") {
-            Some("esac")
-        } else {
-            None
-        }
+        super::shell_syntax::shell_block_close_for(condition)
     }
 }
 

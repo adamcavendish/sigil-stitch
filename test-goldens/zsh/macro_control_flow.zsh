@@ -1,5 +1,5 @@
-if [$x -gt 0] {
+if [ $x -gt 0 ]; then
     echo "positive"
-} else {
+else
     echo "negative"
-}
+fi

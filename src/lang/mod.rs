@@ -39,6 +39,7 @@ pub mod zsh;
 
 /// Helpers for implementing language-specific node rewrite passes.
 pub mod rewrite;
+pub(crate) mod shell_syntax;
 
 use crate::import::ImportGroup;
 
