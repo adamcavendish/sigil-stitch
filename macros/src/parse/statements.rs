@@ -800,3 +800,7 @@ fn try_parse_comment(
 
     Ok(Some((text, next)))
 }
+
+#[cfg(test)]
+#[path = "statements_tests.rs"]
+mod tests;
