@@ -37,6 +37,7 @@ It returns `Result<CodeBlock, SigilStitchError>`.
 | `$T(expr)` | `%T` | `TypeName` | Type reference, tracks imports |
 | `$N(expr)` | `%N` | `impl ToString` | Name identifier |
 | `$S(expr)` | `%S` | `impl ToString` | String literal (quoted in output) |
+| `$V(expr)` | `%V` | `impl ToString` | Verbatim string (interpolation preserved) |
 | `$L(expr)` | `%L` | `impl Into<Arg>` | Literal value or nested code |
 | `$C(expr)` | `%L` | `CodeBlock` | Nested code block |
 | `$W` | `%W` | (none) | Soft line-break point |
@@ -89,6 +90,53 @@ let block = sigil_quote!(TypeScript {
     console.log($S("hello world"));
 }).unwrap();
 // Output: console.log('hello world');  (TypeScript uses single quotes)
+# }
+```
+
+### Verbatim Strings (`$V`)
+
+Emits a string with minimal escaping — interpolation sigils are preserved. Use this when generating code that uses the target language's string interpolation.
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
+let block = sigil_quote!(Bash {
+    echo $V("$HOME/.config")
+}).unwrap();
+// Output: echo "$HOME/.config"
+// (Compare with $S which would produce: echo "\$HOME/.config")
+# }
+```
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
+let block = sigil_quote!(TypeScript {
+    const greeting = $V("Hello, ${name}!");
+}).unwrap();
+// Output: const greeting = `Hello, ${name}!`;
+# }
+```
+
+Complex shell patterns — braced defaults, command substitution, arithmetic:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
+let block = sigil_quote!(Bash {
+    local config_dir = $V("${XDG_CONFIG_HOME:-$HOME/.config}")
+    local version = $V("$(cat ${PROJECT_ROOT}/VERSION)")
+    local next_port = $V("$((BASE_PORT + ${#services[@]}))")
+    echo $V("Deploying ${APP_NAME} v${version} (PID=$$)")
+}).unwrap();
+// Output:
+//   local config_dir = "${XDG_CONFIG_HOME:-$HOME/.config}"
+//   local version = "$(cat ${PROJECT_ROOT}/VERSION)"
+//   local next_port = "$((BASE_PORT + ${#services[@]}))"
+//   echo "Deploying ${APP_NAME} v${version} (PID=$$)"
 # }
 ```
 

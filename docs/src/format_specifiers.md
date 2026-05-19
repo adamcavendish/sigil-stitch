@@ -9,6 +9,7 @@
 | `%T` | Type | `TypeName` | Emit type reference, track import |
 | `%N` | Name | `NameArg` | Emit identifier name |
 | `%S` | String | `StringLitArg` | Emit escaped string literal |
+| `%V` | Verbatim | `VerbatimStrArg` | Emit string with interpolation preserved |
 | `%L` | Literal | `&str`, `String`, `CodeBlock` | Emit raw value or nested block |
 | `%W` | Wrap | (none) | Soft line break point |
 | `%>` | Indent | (none) | Increase indent level |
@@ -117,6 +118,56 @@ let block = cb.build().unwrap();
 ```
 
 Special characters are escaped according to each language's rules. For example, Kotlin and Dart escape `$` to prevent string interpolation.
+
+## `%V` -- Verbatim String Literal
+
+Emits a string with minimal escaping — only characters that would structurally break the string delimiter are escaped, while interpolation sigils (`$`, `` ` ``, `{`, etc.) are preserved as-is. This is useful for generating code that uses the target language's string interpolation.
+
+Requires the `VerbatimStrArg` wrapper.
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::code_block::{CodeBlock, VerbatimStrArg};
+# use sigil_stitch::lang::bash::Bash;
+# use sigil_stitch::spec::file_spec::FileSpec;
+# use sigil_stitch::prelude::*;
+# fn main() {
+let mut cb = CodeBlock::builder();
+cb.add("local config=%V", (VerbatimStrArg("${XDG_CONFIG_HOME:-$HOME/.config}".to_string()),));
+cb.add_line();
+cb.add("local version=%V", (VerbatimStrArg("$(git describe --tags 2>/dev/null || echo dev)".to_string()),));
+cb.add_line();
+cb.add("echo %V", (VerbatimStrArg("Deploying ${APP_NAME} v${version} (PID=$$)".to_string()),));
+let block = cb.build().unwrap();
+let file = FileSpec::builder_with("test.bash", Bash::new())
+    .add_code(block)
+    .build()
+    .unwrap();
+let output = file.render(80).unwrap();
+assert!(output.contains(r#""${XDG_CONFIG_HOME:-$HOME/.config}""#));
+assert!(output.contains(r#""$(git describe --tags 2>/dev/null || echo dev)""#));
+assert!(output.contains(r#""Deploying ${APP_NAME} v${version} (PID=$$)""#));
+// Output:
+//   local config="${XDG_CONFIG_HOME:-$HOME/.config}"
+//   local version="$(git describe --tags 2>/dev/null || echo dev)"
+//   echo "Deploying ${APP_NAME} v${version} (PID=$$)"
+# }
+```
+
+Per-language behavior:
+
+| Language | `%V` output for `"$x"` | Delimiter | Escapes only |
+|----------|------------------------|-----------|--------------|
+| Bash/Zsh | `"$x"` | `"..."` | `\` `"` |
+| JavaScript/TS | `` `$x` `` | `` `...` `` | `\` `` ` `` |
+| Python | `f"$x"` | `f"..."` | `\` `"` |
+| Kotlin/Swift | `"$x"` | `"..."` | `\` `"` |
+| Dart | `'$x'` | `'...'` | `\` `'` |
+| C# | `$"$x"` | `$"..."` | `\` `"` |
+| Scala | `s"$x"` | `s"..."` | `\` `"` |
+| Others | Same as `%S` | (full escaping) | All |
+
+For languages without string interpolation (C, C++, Go, Rust, Java, Haskell, OCaml, Lua), `%V` falls back to `%S` behavior (full escaping).
 
 ## `%L` -- Literal
 

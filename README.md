@@ -81,6 +81,7 @@ continuation in multi-line expressions.
 | `%T` | Type | `TypeName` | Emit type reference, track import |
 | `%N` | Name | `NameArg` | Emit identifier name, escape reserved words |
 | `%S` | String | `StringLitArg` | Emit escaped string literal |
+| `%V` | Verbatim | `VerbatimStrArg` | Emit string with interpolation preserved |
 | `%L` | Literal | `&str`, number, `CodeBlock` | Emit raw value or nested block |
 | `%W` | Wrap | (none) | Soft line break point |
 | `%>` | Indent | (none) | Increase indent level |
@@ -88,7 +89,7 @@ continuation in multi-line expressions.
 | `%[` | Statement begin | (none) | Start of statement |
 | `%]` | Statement end | (none) | End of statement (appends `;` if needed) |
 
-Bare `&str` maps to `%L`. Use `NameArg` for `%N` and `StringLitArg` for `%S`.
+Bare `&str` maps to `%L`. Use `NameArg` for `%N`, `StringLitArg` for `%S`, and `VerbatimStrArg` for `%V`.
 See the [Format Specifiers](docs/src/format_specifiers.md) chapter for the full deep dive.
 
 ## The Spec Layer
@@ -143,7 +144,7 @@ The [sigil-stitch book](docs/src/SUMMARY.md) covers everything in depth:
 
 - [Introduction](docs/src/introduction.md) -- what it is and how the pieces fit together
 - [Getting Started](docs/src/getting_started.md) -- first CodeBlock, first FileSpec, first output
-- [Format Specifiers](docs/src/format_specifiers.md) -- deep dive on `%T`, `%N`, `%S`, `%L`, `%W`, and friends
+- [Format Specifiers](docs/src/format_specifiers.md) -- deep dive on `%T`, `%N`, `%S`, `%V`, `%L`, `%W`, and friends
 - [TypeName](docs/src/type_name.md) -- type references, import tracking, cross-language rendering
 - [Building Functions & Fields](docs/src/functions_and_fields.md) -- ParameterSpec, FieldSpec, FunSpec
 - [Building Types & Enums](docs/src/types_and_enums.md) -- TypeSpec, PropertySpec, AnnotationSpec, EnumVariantSpec
