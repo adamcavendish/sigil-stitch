@@ -11,7 +11,7 @@ Practical, copy-paste-ready recipes for Bash and Zsh script generation. Covers `
 # fn main() {
 let body = sigil_quote!(Bash {
     local name=$$1
-    echo $V("Hello, ${name}!")
+    echo $V("\"Hello, ${name}!\"")
 }).unwrap();
 
 let fun = FunSpec::builder("greet")
@@ -51,7 +51,7 @@ let body = sigil_quote!(Bash {
     }
 
     for file in $$@; {
-        echo $V("Processing: ${file}")
+        echo $V("\"Processing: ${file}\"")
     }
 }).unwrap();
 
@@ -84,7 +84,7 @@ function process_files() {
 
 ## `$V` vs `$S` — when to use which
 
-`$S` escapes everything (safe for static strings). `$V` preserves shell interpolation sigils.
+`$S` escapes everything and wraps in quotes (safe for static strings). `$V` is pure passthrough — no quoting, no escaping. Use `$V` when you want shell to expand variables, command substitutions, or arithmetic at runtime. Include your own quotes in the `$V` content when shell quoting is needed.
 
 ```rust
 # extern crate sigil_stitch;
@@ -94,6 +94,7 @@ function process_files() {
 let block = sigil_quote!(Bash {
     echo $S("$HOME")
     echo $V("$HOME")
+    echo $V("\"$HOME\"")
 }).unwrap();
 
 let output = FileSpec::builder("test.bash")
@@ -102,14 +103,15 @@ let output = FileSpec::builder("test.bash")
     .unwrap()
     .render(80)
     .unwrap();
-// Line 1: echo "\$HOME"    ← $S escapes the dollar sign
-// Line 2: echo "$HOME"     ← $V preserves it for shell expansion
+// Line 1: echo "\$HOME"       ← $S escapes the dollar sign, wraps in quotes
+// Line 2: echo $HOME           ← $V passthrough, no quotes (word-splitting possible)
+// Line 3: echo "$HOME"         ← $V passthrough with user-provided quotes (safe)
 # }
 ```
 
 ## Complex shell interpolation with `$V`
 
-`$V` handles all shell expansion patterns — braced defaults, command substitution, arithmetic, arrays, special variables:
+`$V` handles all shell expansion patterns — braced defaults, command substitution, arithmetic, arrays, special variables. Since `$V` is passthrough, include quotes in the content when the generated shell code should have them:
 
 ```rust
 # extern crate sigil_stitch;
@@ -117,15 +119,15 @@ let output = FileSpec::builder("test.bash")
 # use sigil_stitch::lang::bash::Bash;
 # fn main() {
 let body = sigil_quote!(Bash {
-    local config_dir=$V("${XDG_CONFIG_HOME:-$HOME/.config}")
-    local version=$V("$(git describe --tags 2>/dev/null || echo dev)")
-    local port=$V("$((BASE_PORT + WORKER_ID))")
+    local config_dir=$V("\"${XDG_CONFIG_HOME:-$HOME/.config}\"")
+    local version=$V("\"$(git describe --tags 2>/dev/null || echo dev)\"")
+    local port=$V("\"$((BASE_PORT + WORKER_ID))\"")
 
-    echo $V("Deploying ${APP_NAME} v${version}")
-    echo $V("Config: ${config_dir}/${APP_NAME}.conf")
-    echo $V("Status: exit=$? pid=$$")
-    echo $V("Args: count=$# all=$@")
-    echo $V("Array: ${services[@]}")
+    echo $V("\"Deploying ${APP_NAME} v${version}\"")
+    echo $V("\"Config: ${config_dir}/${APP_NAME}.conf\"")
+    echo $V("\"Status: exit=$? pid=$$\"")
+    echo $V("\"Args: count=$# all=$@\"")
+    echo $V("\"Array: ${services[@]}\"")
 }).unwrap();
 
 let fun = FunSpec::builder("setup")
@@ -229,10 +231,10 @@ Zsh works identically to Bash for control flow. Use `$V` for Zsh-specific parame
 # use sigil_stitch::lang::zsh::Zsh;
 # fn main() {
 let body = sigil_quote!(Zsh {
-    local lower=$V("${(L)USERNAME}")
-    local joined=$V("${(j:,:)array}")
-    local sliced=$V("${array[2,-1]}")
-    local replaced=$V("${input//old/new}")
+    local lower=$V("\"${(L)USERNAME}\"")
+    local joined=$V("\"${(j:,:)array}\"")
+    local sliced=$V("\"${array[2,-1]}\"")
+    local replaced=$V("\"${input//old/new}\"")
 }).unwrap();
 
 let fun = FunSpec::builder("zsh_features")
@@ -305,15 +307,11 @@ Mix `$V` (shell-expanded at runtime) with `$L`/`$S` (Rust values baked in at gen
 let app_name = "myapp";
 let log_dir = "/var/log";
 
+// Build the whole string in Rust and pass via $V (most ergonomic):
+let log_pattern = format!("\"${{LOG_DIR:-{log_dir}}}/{app_name}.log\"");
 let body = sigil_quote!(Bash {
-    local log_file=$V("${LOG_DIR:-") $+ $L(log_dir) $+ $V("}/") $+ $L(app_name) $+ $V(".log")
-    echo $V("Writing to ${log_file}")
-}).unwrap();
-
-// Alternative — build the whole string in Rust and pass via $V:
-let log_pattern = format!("${{LOG_DIR:-{log_dir}}}/{app_name}.log");
-let body2 = sigil_quote!(Bash {
     local log_file=$V(log_pattern)
+    echo $V("\"Writing to ${log_file}\"")
 }).unwrap();
 # }
 ```

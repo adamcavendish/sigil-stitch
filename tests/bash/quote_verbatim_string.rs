@@ -1,4 +1,7 @@
 //! Tests for `$V` verbatim string literal in shell.
+//!
+//! $V for Bash/Zsh is pure passthrough — no quoting, no escaping.
+//! Users include their own quotes in the $V content when shell quoting is needed.
 
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::prelude::*;
@@ -20,9 +23,14 @@ fn verbatim_preserves_dollar() {
     })
     .unwrap();
     let output = render(&block);
+    // Passthrough: no wrapping quotes — output is `echo $HOME/.config`
     assert!(
-        output.contains("\"$HOME/.config\""),
-        "Expected verbatim string with preserved $, got:\n{output}"
+        output.contains("echo $HOME/.config"),
+        "Expected passthrough (no quotes), got:\n{output}"
+    );
+    assert!(
+        !output.contains("echo \"$HOME/.config\""),
+        "Should NOT wrap in quotes, got:\n{output}"
     );
 }
 
@@ -34,8 +42,12 @@ fn verbatim_preserves_command_substitution() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"$(date +%Y-%m-%d)\""),
-        "Expected verbatim string with command sub, got:\n{output}"
+        output.contains("= $(date +%Y-%m-%d)"),
+        "Expected passthrough command sub, got:\n{output}"
+    );
+    assert!(
+        !output.contains("\"$(date +%Y-%m-%d)\""),
+        "Should NOT wrap in quotes, got:\n{output}"
     );
 }
 
@@ -47,8 +59,8 @@ fn verbatim_preserves_braced_expansion() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"${CONFIG_DIR:-$HOME/.config}\""),
-        "Expected braced default expansion, got:\n{output}"
+        output.contains("= ${CONFIG_DIR:-$HOME/.config}"),
+        "Expected passthrough braced expansion, got:\n{output}"
     );
 }
 
@@ -60,8 +72,8 @@ fn verbatim_preserves_arithmetic() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"Result: $((count + 1)) items processed\""),
-        "Expected arithmetic expansion, got:\n{output}"
+        output.contains("echo Result: $((count + 1)) items processed"),
+        "Expected passthrough arithmetic, got:\n{output}"
     );
 }
 
@@ -73,8 +85,8 @@ fn verbatim_preserves_special_vars() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"PID=$$ args=$# status=$? all=$@\""),
-        "Expected special variables, got:\n{output}"
+        output.contains("echo PID=$$ args=$# status=$? all=$@"),
+        "Expected passthrough special variables, got:\n{output}"
     );
 }
 
@@ -86,8 +98,8 @@ fn verbatim_preserves_array_expansion() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"${files[@]}\""),
-        "Expected array expansion, got:\n{output}"
+        output.contains("echo ${files[@]}"),
+        "Expected passthrough array expansion, got:\n{output}"
     );
 }
 
@@ -98,22 +110,24 @@ fn verbatim_preserves_nested_substitution() {
     })
     .unwrap();
     let output = render(&block);
+    // Passthrough: the Rust string literal `'\\n'` becomes `'\n'` which is passed through as-is
     assert!(
-        output.contains("\"$(cat ${PROJECT_ROOT}/VERSION | tr -d '\\\\n')\""),
-        "Expected nested command + braced sub, got:\n{output}"
+        output.contains("$(cat ${PROJECT_ROOT}/VERSION | tr -d"),
+        "Expected passthrough nested sub, got:\n{output}"
     );
 }
 
 #[test]
-fn verbatim_escapes_backslash_and_quote() {
+fn verbatim_passthrough_no_escaping() {
+    // Backslashes and quotes pass through unchanged
     let block = sigil_quote!(Bash {
         echo $V("path\\to\"file")
     })
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"path\\\\to\\\"file\""),
-        "Expected escaped backslash and quote, got:\n{output}"
+        output.contains("echo path\\to\"file"),
+        "Expected raw passthrough (no escaping), got:\n{output}"
     );
 }
 
@@ -125,14 +139,25 @@ fn verbatim_vs_string_lit_comparison() {
     })
     .unwrap();
     let output = render(&block);
+    // $S escapes dollar: echo "\$HOME"
     assert!(
-        output.contains("\"\\$HOME\""),
+        output.contains("echo \"\\$HOME\""),
         "Expected $S to escape dollar, got:\n{output}"
     );
+    // $V passthrough: echo $HOME (no quotes)
     assert!(
-        output.contains("\"$HOME\""),
-        "Expected $V to preserve dollar, got:\n{output}"
+        output.contains("echo $HOME"),
+        "Expected $V passthrough (no quotes), got:\n{output}"
     );
+    // Verify the $V line doesn't have wrapping quotes
+    for line in output.lines() {
+        if line.contains("$HOME") && !line.contains("\\$HOME") {
+            assert!(
+                !line.contains("\"$HOME\""),
+                "$V should not wrap in quotes, got line: {line}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -145,15 +170,34 @@ fn verbatim_complex_script_snippet() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"Deploying ${APP_NAME} v${VERSION} to ${ENVIRONMENT}\""),
-        "Expected complex braced vars, got:\n{output}"
+        output.contains("echo Deploying ${APP_NAME} v${VERSION} to ${ENVIRONMENT}"),
+        "Expected passthrough complex vars, got:\n{output}"
     );
     assert!(
-        output.contains("\"Commit: $(git rev-parse --short HEAD)\""),
-        "Expected git command sub, got:\n{output}"
+        output.contains("echo Commit: $(git rev-parse --short HEAD)"),
+        "Expected passthrough git sub, got:\n{output}"
     );
     assert!(
-        output.contains("\"Build time: $(date -u +%Y-%m-%dT%H:%M:%SZ)\""),
-        "Expected date command sub, got:\n{output}"
+        output.contains("echo Build time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"),
+        "Expected passthrough date sub, got:\n{output}"
+    );
+}
+
+#[test]
+fn verbatim_with_explicit_quotes() {
+    // When the user wants shell quoting, they include the quotes in the $V content
+    let block = sigil_quote!(Bash {
+        echo $V("\"Hello, ${USER}!\"")
+        local config=$V("\"${XDG_CONFIG_HOME:-$HOME/.config}\"")
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        output.contains("echo \"Hello, ${USER}!\""),
+        "Expected user-provided quotes passed through, got:\n{output}"
+    );
+    assert!(
+        output.contains("config=\"${XDG_CONFIG_HOME:-$HOME/.config}\""),
+        "Expected user-provided quotes for assignment, got:\n{output}"
     );
 }

@@ -98,8 +98,9 @@ impl RendererLang for Zsh {
     }
 
     fn render_verbatim_string(&self, s: &str) -> String {
-        let escaped = s.replace('\\', "\\\\").replace('"', "\\\"");
-        format!("\"{escaped}\"")
+        // Shell interpolates by default — no wrapping quotes needed.
+        // Users control quoting in the $V content itself.
+        s.to_string()
     }
 
     fn line_comment_prefix(&self) -> &str {
