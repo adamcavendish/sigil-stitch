@@ -91,11 +91,12 @@ fn builder_approach() -> String {
 fn macro_approach() -> String {
     let utils = TypeName::importable("./utils.sh", "");
 
-    // $V preserves shell interpolation — $S would escape these.
+    // $V is passthrough — include your own quotes where shell quoting is needed.
+    // $S would escape shell sigils; $V passes them through for shell expansion.
     let log_body = sigil_quote!(Bash {
         local level=$$1
         local message=$$2
-        echo $V("[$level] $(date +%Y-%m-%dT%H:%M:%S): $message")
+        echo $V("\"[$level] $(date +%Y-%m-%dT%H:%M:%S): $message\"")
     })
     .unwrap();
 
@@ -108,21 +109,21 @@ fn macro_approach() -> String {
     // $V is used for strings that need shell expansion at runtime.
     let deploy_body = sigil_quote!(Bash {
         local env=$$1
-        local app_name=$V("${APP_NAME:-myapp}")
-        local version=$V("$(cat VERSION 2>/dev/null || echo unknown)")
+        local app_name=$V("\"${APP_NAME:-myapp}\"")
+        local version=$V("\"$(cat VERSION 2>/dev/null || echo unknown)\"")
 
         if [ -z $$env ]; {
-            log_message $S("ERROR") $V("No environment specified for ${app_name}")
+            log_message $S("ERROR") $V("\"No environment specified for ${app_name}\"")
             return 1
         }
 
-        log_message $S("INFO") $V("Deploying ${app_name} v${version} to ${env}")
+        log_message $S("INFO") $V("\"Deploying ${app_name} v${version} to ${env}\"")
 
         for service in api worker scheduler; {
-            log_message $S("INFO") $V("Starting $service on $env")
+            log_message $S("INFO") $V("\"Starting $service on $env\"")
         }
 
-        log_message $S("INFO") $V("Deploy complete. PID=$$, exit=$?")
+        log_message $S("INFO") $V("\"Deploy complete. PID=$$, exit=$?\"")
     })
     .unwrap();
 

@@ -1,4 +1,7 @@
 //! Tests for `$V` verbatim string literal in Zsh.
+//!
+//! $V for Zsh is pure passthrough — no quoting, no escaping.
+//! Users include their own quotes in the $V content when shell quoting is needed.
 
 use sigil_stitch::code_block::CodeBlock;
 use sigil_stitch::prelude::*;
@@ -21,8 +24,12 @@ fn verbatim_preserves_zsh_parameter_flags() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"${(L)USERNAME}\""),
-        "Expected zsh parameter flag expansion, got:\n{output}"
+        output.contains("= ${(L)USERNAME}"),
+        "Expected passthrough zsh parameter flag, got:\n{output}"
+    );
+    assert!(
+        !output.contains("\"${(L)USERNAME}\""),
+        "Should NOT wrap in quotes, got:\n{output}"
     );
 }
 
@@ -34,8 +41,8 @@ fn verbatim_preserves_zsh_glob_qualifier() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"${~pattern}\""),
-        "Expected zsh glob expansion, got:\n{output}"
+        output.contains("= ${~pattern}"),
+        "Expected passthrough zsh glob, got:\n{output}"
     );
 }
 
@@ -47,8 +54,8 @@ fn verbatim_preserves_zsh_array_slicing() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"${array[2,-1]}\""),
-        "Expected zsh array slice, got:\n{output}"
+        output.contains("echo ${array[2,-1]}"),
+        "Expected passthrough zsh array slice, got:\n{output}"
     );
 }
 
@@ -60,8 +67,8 @@ fn verbatim_preserves_zsh_substitution_flags() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"${input//pattern/replacement}\""),
-        "Expected zsh pattern substitution, got:\n{output}"
+        output.contains("= ${input//pattern/replacement}"),
+        "Expected passthrough zsh substitution, got:\n{output}"
     );
 }
 
@@ -73,12 +80,8 @@ fn verbatim_preserves_process_substitution() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"$(cat file1.txt)\""),
-        "Expected process sub 1, got:\n{output}"
-    );
-    assert!(
-        output.contains("\"$(cat file2.txt)\""),
-        "Expected process sub 2, got:\n{output}"
+        output.contains("diff $(cat file1.txt) $(cat file2.txt)"),
+        "Expected passthrough process subs, got:\n{output}"
     );
 }
 
@@ -92,15 +95,34 @@ fn verbatim_complex_zsh_script() {
     .unwrap();
     let output = render(&block);
     assert!(
-        output.contains("\"Building ${(U)PROJECT_NAME} from ${GIT_BRANCH:-main}\""),
-        "Expected uppercase flag + default, got:\n{output}"
+        output.contains("echo Building ${(U)PROJECT_NAME} from ${GIT_BRANCH:-main}"),
+        "Expected passthrough uppercase flag + default, got:\n{output}"
     );
     assert!(
-        output.contains("\"Artifacts: ${build_dir}/${(j:/:)path_components}\""),
-        "Expected join flag, got:\n{output}"
+        output.contains("echo Artifacts: ${build_dir}/${(j:/:)path_components}"),
+        "Expected passthrough join flag, got:\n{output}"
     );
     assert!(
-        output.contains("\"Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)\""),
-        "Expected command sub, got:\n{output}"
+        output.contains("echo Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"),
+        "Expected passthrough command sub, got:\n{output}"
+    );
+}
+
+#[test]
+fn verbatim_with_explicit_quotes() {
+    // When the user wants shell quoting, they include the quotes in the $V content
+    let block = sigil_quote!(Zsh {
+        echo $V("\"${(L)USERNAME}\"")
+        local config=$V("\"${XDG_CONFIG_HOME:-$HOME/.config}\"")
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        output.contains("echo \"${(L)USERNAME}\""),
+        "Expected user-provided quotes passed through, got:\n{output}"
+    );
+    assert!(
+        output.contains("config=\"${XDG_CONFIG_HOME:-$HOME/.config}\""),
+        "Expected user-provided quotes for assignment, got:\n{output}"
     );
 }

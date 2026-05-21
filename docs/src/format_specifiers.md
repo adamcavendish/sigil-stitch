@@ -133,9 +133,9 @@ Requires the `VerbatimStrArg` wrapper.
 # use sigil_stitch::prelude::*;
 # fn main() {
 let mut cb = CodeBlock::builder();
-cb.add("local config=%V", (VerbatimStrArg("${XDG_CONFIG_HOME:-$HOME/.config}".to_string()),));
+cb.add("local config=%V", (VerbatimStrArg("\"${XDG_CONFIG_HOME:-$HOME/.config}\"".to_string()),));
 cb.add_line();
-cb.add("local version=%V", (VerbatimStrArg("$(git describe --tags 2>/dev/null || echo dev)".to_string()),));
+cb.add("local version=%V", (VerbatimStrArg("\"$(git describe --tags 2>/dev/null || echo dev)\"".to_string()),));
 cb.add_line();
 cb.add("echo %V", (VerbatimStrArg("Deploying ${APP_NAME} v${version} (PID=$$)".to_string()),));
 let block = cb.build().unwrap();
@@ -146,11 +146,11 @@ let file = FileSpec::builder_with("test.bash", Bash::new())
 let output = file.render(80).unwrap();
 assert!(output.contains(r#""${XDG_CONFIG_HOME:-$HOME/.config}""#));
 assert!(output.contains(r#""$(git describe --tags 2>/dev/null || echo dev)""#));
-assert!(output.contains(r#""Deploying ${APP_NAME} v${version} (PID=$$)""#));
-// Output:
+assert!(output.contains("Deploying ${APP_NAME} v${version} (PID=$$)"));
+// Output (Bash $V is pure passthrough — users include their own quotes):
 //   local config="${XDG_CONFIG_HOME:-$HOME/.config}"
 //   local version="$(git describe --tags 2>/dev/null || echo dev)"
-//   echo "Deploying ${APP_NAME} v${version} (PID=$$)"
+//   echo Deploying ${APP_NAME} v${version} (PID=$$)
 # }
 ```
 
@@ -158,7 +158,7 @@ Per-language behavior:
 
 | Language | `%V` output for `"$x"` | Delimiter | Escapes only |
 |----------|------------------------|-----------|--------------|
-| Bash/Zsh | `"$x"` | `"..."` | `\` `"` |
+| Bash/Zsh | `$x` | (passthrough) | (none) |
 | JavaScript/TS | `` `$x` `` | `` `...` `` | `\` `` ` `` |
 | Python | `f"$x"` | `f"..."` | `\` `"` |
 | Kotlin/Swift | `"$x"` | `"..."` | `\` `"` |
@@ -166,6 +166,8 @@ Per-language behavior:
 | C# | `$"$x"` | `$"..."` | `\` `"` |
 | Scala | `s"$x"` | `s"..."` | `\` `"` |
 | Others | Same as `%S` | (full escaping) | All |
+
+For Bash/Zsh, `%V` is pure passthrough — the string is emitted as-is with no wrapping quotes and no escaping. Shell interpolates by default, and users control quoting in the `%V` content itself (include `"..."` in the string when quoting is desired in the output).
 
 For languages without string interpolation (C, C++, Go, Rust, Java, Haskell, OCaml, Lua), `%V` falls back to `%S` behavior (full escaping).
 
