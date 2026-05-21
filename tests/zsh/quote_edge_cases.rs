@@ -322,3 +322,31 @@ fn test_dot_standalone_vs_dotfile() {
         "dotfile must stay tight, got: {output}"
     );
 }
+
+// ── Shebang tokens ────────────────────────────────────────
+
+#[test]
+fn test_shebang_bare_tokens() {
+    let block = sigil_quote!(Zsh {
+        #!/usr/bin/env zsh
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        output.contains("#!/usr/bin/env zsh"),
+        "shebang should render as tight `#!/usr/bin/env zsh`, got:\n{output}"
+    );
+}
+
+#[test]
+fn test_shebang_bin_zsh() {
+    let block = sigil_quote!(Zsh {
+        #!/bin/zsh
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        output.contains("#!/bin/zsh"),
+        "shebang /bin/zsh, got:\n{output}"
+    );
+}
