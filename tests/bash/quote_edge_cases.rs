@@ -368,3 +368,49 @@ fn test_dot_standalone_vs_dotfile() {
         "dotfile must stay tight, got: {output}"
     );
 }
+
+// ── Shebang tokens ────────────────────────────────────────
+
+#[test]
+fn test_shebang_bare_tokens() {
+    let block = sigil_quote!(Bash {
+        #!/usr/bin/env bash
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        output.contains("#!/usr/bin/env bash"),
+        "shebang should render as tight `#!/usr/bin/env bash`, got:\n{output}"
+    );
+}
+
+#[test]
+fn test_shebang_with_set() {
+    let block = sigil_quote!(Bash {
+        #!/usr/bin/env bash
+        set -euo pipefail
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        output.contains("#!/usr/bin/env bash"),
+        "shebang line, got:\n{output}"
+    );
+    assert!(
+        output.contains("set -euo pipefail"),
+        "set line, got:\n{output}"
+    );
+}
+
+#[test]
+fn test_shebang_bin_bash() {
+    let block = sigil_quote!(Bash {
+        #!/bin/bash
+    })
+    .unwrap();
+    let output = render(&block);
+    assert!(
+        output.contains("#!/bin/bash"),
+        "shebang /bin/bash, got:\n{output}"
+    );
+}
