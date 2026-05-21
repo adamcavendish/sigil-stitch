@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.6.1
+
+### Added
+
+- `@{expr}` compile-time interpolation inside `$V` string literals — embed Rust
+  expressions that resolve at macro expansion time while preserving the target
+  language's runtime interpolation sigils (`$`, `{}`, `` ` ``).
+  - `@@` escapes to a literal `@`; bare `@` not followed by `{` passes through.
+  - Works for all languages (macro-level feature).
+
+### Changed
+
+- `$V` / `%V` in Bash and Zsh is now pure passthrough — no wrapping quotes, no
+  escaping. Shell interpolates by default; include quotes in the `$V` content
+  when quoting is desired in the output.
+
+### Tests
+
+- Shebang token tests for `sigil_quote!`.
+- `$V` verbatim string integration tests for all 12 languages (JavaScript,
+  Python, Kotlin, Swift, Scala, Dart, C#, Java, Go + existing Bash, Zsh,
+  TypeScript).
+
 ## 0.6.0
 
 ### Added

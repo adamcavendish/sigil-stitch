@@ -69,7 +69,8 @@ let body = sigil_quote!(TypeScript {
 
 The macro uses `$T`/`$S`/`$N`/`$L`/`$C`/`$W` interpolation markers that expand to
 the equivalent `%T`/`%S`/`%N`/`%L` format specifiers at compile time. It also
-supports `$C_each` for splicing iterables of code blocks, `$if`/`$else_if`/`$else`
+supports `$V("@{expr}")` for compile-time interpolation in verbatim strings,
+`$C_each` for splicing iterables of code blocks, `$if`/`$else_if`/`$else`
 for meta-conditionals, `$for` for compile-time iteration, `$let` for Rust-level
 variable bindings, `$join` for separator-joined lists, and `$+` for line
 continuation in multi-line expressions.
