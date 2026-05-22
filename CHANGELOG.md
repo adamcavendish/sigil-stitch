@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.2
+
+### Fixed
+
+- `$C_each` inside method shorthand bodies (`foo() { $C_each(params); }`) no
+  longer fails with "$C_each() must appear at the start of a line". The brace
+  classifier now detects sigil-stitch markers in brace groups to distinguish
+  method bodies from object-literal arguments.
+
+### Internal
+
+- Extract `BraceClassifier` from `parse_one_statement` — brace-detection
+  heuristics moved to a dedicated module with a single `classify()` entry point.
+- Extract `where_spec` from `fun_spec` — `TypeParamSpec`, `TypeParamKind`,
+  `WhereConstraint`, `WhereClauseStyle` and their rendering functions moved
+  to `src/spec/where_spec.rs`.
+- Delete redundant `escape_reserved` overrides in `lua.rs` and `ocaml.rs`;
+  add `render_string_literal` as a trait default, eliminating 6 identical
+  overrides.
+- Document `RendererLang` must-implement set (5 methods).
+
+### Tests
+
+- Control flow + interpolation marker tests for Bash (`$V`, `$S`, `$L` in
+  `if`/`while`/`for`/`case` conditions).
+- Parameterize `quote_control_flow` and `quote_basic` across all 18 languages
+  via a shared `LanguageTestSuite` harness. Eliminates ~600 lines of duplicated
+  test code.
+
 ## 0.6.1
 
 ### Added
