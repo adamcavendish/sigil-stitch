@@ -94,8 +94,18 @@ pub(super) fn parse_body(
         // Detect blank lines via span-location gaps.
         let current_line = tokens[pos].span().start().line;
         if let Some(pl) = prev_line {
-            for _ in 0..(current_line.saturating_sub(pl).saturating_sub(1)) {
-                statements.push(Statement::BlankLine);
+            let gap = current_line.saturating_sub(pl).saturating_sub(1);
+            if gap > 0 {
+                // Suppress blank lines after comments — doc comments must
+                // attach to the following declaration without a separator.
+                // This mirrors the spec-level behavior where FunSpec/TypeSpec
+                // render doc comments and declarations together.
+                let suppress = matches!(statements.last(), Some(Statement::Comment(_)));
+                if !suppress {
+                    for _ in 0..gap {
+                        statements.push(Statement::BlankLine);
+                    }
+                }
             }
         }
 
