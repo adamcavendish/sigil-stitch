@@ -81,6 +81,10 @@ fn build_shared_types() -> (TypeSpec, TypeSpec, TypeSpec) {
 fn builder_approach() -> String {
     let convert = TypeName::importable("dart:convert", "jsonDecode");
     let (status, base_entity, repo) = build_shared_types();
+    let comment_label = "FIXME";
+    let comment_reason = "Parse task data";
+    let comment_note = "decode JSON";
+    let v_interp = "Task";
 
     // --- Class: Task extends BaseEntity ---
     let task = TypeSpec::builder("Task", TypeKind::Class)
@@ -106,8 +110,12 @@ fn builder_approach() -> String {
         );
 
     let mut ctor_body = CodeBlock::builder();
-    ctor_body.add_statement("super(id)", ());
-    ctor_body.add_statement("this.name = name", ());
+    ctor_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    ctor_body.add_statement("super(id) %R", (CommentArg(comment_note.to_string()),));
+    ctor_body.add_statement(
+        "this.name = name; // %V",
+        (VerbatimStrArg(v_interp.to_string()),),
+    );
 
     let task = task
         .add_method(
@@ -122,7 +130,12 @@ fn builder_approach() -> String {
             FunSpec::builder("validate")
                 .is_override()
                 .returns(TypeName::primitive("bool"))
-                .body(CodeBlock::of("return id.isNotEmpty && name.isNotEmpty", ()).unwrap())
+                .body({
+                    let mut vb = CodeBlock::builder();
+                    vb.add_attribute("override");
+                    vb.add("return id.isNotEmpty && name.isNotEmpty", ());
+                    vb.build().unwrap()
+                })
                 .build()
                 .unwrap(),
         )
@@ -203,6 +216,10 @@ fn builder_approach() -> String {
 fn macro_approach() -> String {
     let convert = TypeName::importable("dart:convert", "jsonDecode");
     let (status, base_entity, repo) = build_shared_types();
+    let comment_label = "FIXME";
+    let comment_reason = "Parse task data";
+    let comment_note = "decode JSON";
+    let v_interp = "Task";
 
     // --- Class: Task extends BaseEntity ---
     let task = TypeSpec::builder("Task", TypeKind::Class)
@@ -228,12 +245,15 @@ fn macro_approach() -> String {
         );
 
     let ctor_body = sigil_quote!(DartLang {
-        super(id);
+        $comment("@{comment_label}: @{comment_reason}");
+        super(id); $comment(comment_note)
         this.name = name;
+        $V("// @{v_interp} created");
     })
     .unwrap();
 
     let validate_body = sigil_quote!(DartLang {
+        $attr("override");
         return id.isNotEmpty && name.isNotEmpty
     })
     .unwrap();

@@ -102,10 +102,21 @@ fn build_interface() -> TypeSpec {
 fn builder_approach() -> String {
     let priority_enum = build_enum();
     let repo_iface = build_interface();
+    let comment_label = "TODO";
+    let comment_reason = "Return entity name";
+    let comment_note = "access field";
+    let v_interp = "entity";
 
     // --- Abstract base class ---
     let mut get_name_body = CodeBlock::builder();
-    get_name_body.add_statement("return this.name", ());
+    get_name_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    get_name_body.add_statement(
+        "return this.name; // %V %R",
+        (
+            VerbatimStrArg(v_interp.to_string()),
+            CommentArg(comment_note.to_string()),
+        ),
+    );
 
     let base_entity = TypeSpec::builder("BaseEntity", TypeKind::Class)
         .visibility(Visibility::Public)
@@ -149,6 +160,7 @@ fn builder_approach() -> String {
 
     // --- Concrete class with override and delegation ---
     let mut validate_body = CodeBlock::builder();
+    validate_body.add_attribute("Override");
     validate_body.add_statement("return this.name != null && !this.name.isEmpty()", ());
 
     let mut to_string_body = CodeBlock::builder();
@@ -272,6 +284,10 @@ fn builder_approach() -> String {
 fn macro_approach() -> String {
     let priority_enum = build_enum();
     let repo_iface = build_interface();
+    let comment_label = "TODO";
+    let comment_reason = "Return entity name";
+    let comment_note = "access field";
+    let v_interp = "entity";
 
     // --- Abstract base class ---
     let base_entity = TypeSpec::builder("BaseEntity", TypeKind::Class)
@@ -287,7 +303,13 @@ fn macro_approach() -> String {
             FunSpec::builder("BaseEntity")
                 .visibility(Visibility::Protected)
                 .add_param(ParameterSpec::new("name", TypeName::primitive("String")).unwrap())
-                .body(sigil_quote!(JavaLang { this.name = name; }).unwrap())
+                .body(
+                    sigil_quote!(JavaLang {
+                        $comment("@{comment_label}: @{comment_reason}");
+                        this.name = name;
+                    })
+                    .unwrap(),
+                )
                 .build()
                 .unwrap(),
         )
@@ -295,7 +317,7 @@ fn macro_approach() -> String {
             FunSpec::builder("getName")
                 .visibility(Visibility::Public)
                 .returns(TypeName::primitive("String"))
-                .body(sigil_quote!(JavaLang { return this.name; }).unwrap())
+                .body(sigil_quote!(JavaLang { $V("// @{v_interp} name"); return this.name; $comment(comment_note) }).unwrap())
                 .build()
                 .unwrap(),
         )
@@ -338,6 +360,7 @@ fn macro_approach() -> String {
                 .returns(TypeName::primitive("boolean"))
                 .body(
                     sigil_quote!(JavaLang {
+                        $attr("Override");
                         return this.name != null && !this.name.isEmpty();
                     })
                     .unwrap(),

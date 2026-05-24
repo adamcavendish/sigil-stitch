@@ -23,6 +23,9 @@ fn main() {
 
 fn builder_approach() -> String {
     let utils = TypeName::importable("./utils.sh", "");
+    let comment_label = "INFO";
+    let comment_reason = "Deploy to target environment";
+    let comment_note = "check env var";
 
     // --- log function ---
     let mut log_body = CodeBlock::builder();
@@ -39,6 +42,7 @@ fn builder_approach() -> String {
 
     // --- deploy function with if/then/fi ---
     let mut deploy_body = CodeBlock::builder();
+    deploy_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
     deploy_body.add("local env=$1", ());
     deploy_body.add_line();
     deploy_body.add_line();
@@ -55,7 +59,10 @@ fn builder_approach() -> String {
     deploy_body.add_line();
     deploy_body.add("%>", ());
     deploy_body.add_line();
-    deploy_body.add("log_message \"INFO\" \"Deploying to $env\"", ());
+    deploy_body.add(
+        "log_message \"INFO\" \"Deploying to $env\" %R",
+        (CommentArg(comment_note.to_string()),),
+    );
     deploy_body.add_line();
     deploy_body.add_line();
     deploy_body.add("%<", ());
@@ -90,6 +97,9 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let utils = TypeName::importable("./utils.sh", "");
+    let comment_label = "INFO";
+    let comment_reason = "Deploy to target environment";
+    let comment_note = "check env var";
 
     // $V is passthrough — include your own quotes where shell quoting is needed.
     // $S would escape shell sigils; $V passes them through for shell expansion.
@@ -108,6 +118,7 @@ fn macro_approach() -> String {
     // sigil_quote! with { } — Bash backend emits then/fi, do/done.
     // $V is used for strings that need shell expansion at runtime.
     let deploy_body = sigil_quote!(Bash {
+        $comment("@{comment_label}: @{comment_reason}");
         local env=$$1
         local app_name=$V("\"${APP_NAME:-myapp}\"")
         local version=$V("\"$(cat VERSION 2>/dev/null || echo unknown)\"")
@@ -117,7 +128,7 @@ fn macro_approach() -> String {
             return 1
         }
 
-        log_message $S("INFO") $V("\"Deploying ${app_name} v${version} to ${env}\"")
+        log_message $S("INFO") $V("\"Deploying ${app_name} v${version} to ${env}\"") $comment(comment_note)
 
         for service in api worker scheduler; {
             log_message $S("INFO") $V("\"Starting $service on $env\"")

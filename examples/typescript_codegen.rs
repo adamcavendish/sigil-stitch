@@ -20,6 +20,10 @@ fn main() {
 
 fn builder_approach() -> String {
     let user_type = TypeName::importable_type("./models", "User");
+    let comment_reason = "Initialize service state";
+    let comment_label = "TODO";
+    let v_interp = "User";
+    let comment_note = "validate user input";
     let not_found = TypeName::importable_type("./errors", "NotFoundError");
     let event_emitter = TypeName::importable("events", "EventEmitter");
 
@@ -130,9 +134,16 @@ fn builder_approach() -> String {
         .unwrap();
 
     let mut body = CodeBlock::builder();
+    body.add_attribute("override");
+    body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    body.add("const _user = %V", (VerbatimStrArg(v_interp.to_string()),));
+    body.add_line();
     body.add_statement(
-        "const user = await this.userRepo.findById(%S)",
-        (StringLitArg("id".into()),),
+        "const user = await this.userRepo.findById(%S) %R",
+        (
+            StringLitArg("id".into()),
+            CommentArg(comment_note.to_string()),
+        ),
     );
     body.begin_control_flow("if (!user)", ());
     body.add_statement("throw new %T('User not found')", (not_found,));
@@ -199,6 +210,10 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let user_type = TypeName::importable_type("./models", "User");
+    let comment_reason = "Initialize service state";
+    let comment_label = "TODO";
+    let v_interp = "User";
+    let comment_note = "validate user input";
     let not_found = TypeName::importable_type("./errors", "NotFoundError");
     let event_emitter = TypeName::importable("events", "EventEmitter");
 
@@ -273,7 +288,10 @@ fn macro_approach() -> String {
 
     // --- Class with service methods ---
     let body = sigil_quote!(TypeScript {
-        const user = await this.userRepo.findById($S("id"));
+        $attr("override")
+        $comment("@{comment_label}: @{comment_reason}");
+        const _user = $V("@{v_interp}");
+        const user = await this.userRepo.findById($S("id")) $comment(comment_note);
         if(!user) {
             throw new $T(not_found)($S("User not found"));
         }

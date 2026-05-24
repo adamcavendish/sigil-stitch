@@ -41,9 +41,29 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
                     __sigil_builder.add("%<", ());
                 });
             }
-            Statement::Comment(text) => {
+            Statement::Comment(expr) => {
+                let comment_expr = match extract_at_interpolation(expr) {
+                    Some(VerbatimResult::Interpolated {
+                        format_string,
+                        expressions,
+                    }) => {
+                        let fmt_lit = Literal::string(&format_string);
+                        let exprs: Vec<TokenStream> = expressions
+                            .iter()
+                            .map(|e| e.parse::<TokenStream>().unwrap())
+                            .collect();
+                        quote! { ::std::format!(#fmt_lit, #(#exprs),*) }
+                    }
+                    Some(VerbatimResult::Literal(s)) => {
+                        let lit = Literal::string(&s);
+                        quote! { ::std::string::String::from(#lit) }
+                    }
+                    _ => {
+                        quote! { (#expr).to_string() }
+                    }
+                };
                 calls.push(quote! {
-                    __sigil_builder.add_comment(#text);
+                    __sigil_builder.add_comment(&#comment_expr);
                 });
             }
             Statement::Attr(text) => {
@@ -222,6 +242,36 @@ fn build_args_tuple(args: &[TypedArg]) -> TokenStream {
                             }
                             _ => {
                                 quote! { ::sigil_stitch::code_block::VerbatimStrArg((#expr).to_string()) }
+                            }
+                        }
+                    }
+                    InterpolationKind::Comment => {
+                        match extract_at_interpolation(expr) {
+                            Some(VerbatimResult::Interpolated {
+                                format_string,
+                                expressions,
+                            }) => {
+                                let fmt_lit = Literal::string(&format_string);
+                                let exprs: Vec<TokenStream> = expressions
+                                    .iter()
+                                    .map(|e| e.parse::<TokenStream>().unwrap())
+                                    .collect();
+                                quote! {
+                                    ::sigil_stitch::code_block::CommentArg(
+                                        ::std::format!(#fmt_lit, #(#exprs),*)
+                                    )
+                                }
+                            }
+                            Some(VerbatimResult::Literal(s)) => {
+                                let lit = Literal::string(&s);
+                                quote! {
+                                    ::sigil_stitch::code_block::CommentArg(
+                                        ::std::string::String::from(#lit)
+                                    )
+                                }
+                            }
+                            _ => {
+                                quote! { ::sigil_stitch::code_block::CommentArg((#expr).to_string()) }
                             }
                         }
                     }

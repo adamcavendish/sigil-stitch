@@ -26,11 +26,16 @@ fn emit_fun(fun: &FunSpec) -> CodeBlock {
 fn builder_approach() -> String {
     let iostream = TypeName::importable("iostream", "std::cout");
     let vector_h = TypeName::importable("vector", "std::vector");
+    let comment_label = "INFO";
+    let comment_reason = "Initialize logging components";
+    let comment_note = "log to stdout";
+    let v_interp = "stdout";
 
     let logger = {
         let mut pub_section = CodeBlock::builder();
+        pub_section.add_comment(&format!("{}: {}", comment_label, comment_reason));
         pub_section.add("%<", ());
-        pub_section.add("public:", ());
+        pub_section.add("public: %R", (CommentArg(comment_note.to_string()),));
         pub_section.add_line();
         pub_section.add("%>", ());
         pub_section.add_code(emit_fun(
@@ -74,7 +79,12 @@ fn builder_approach() -> String {
         pub_section.add_line();
         pub_section.add("%>", ());
 
-        let ctor_body = CodeBlock::of("name_ = name;", ()).unwrap();
+        let mut ctor_build = CodeBlock::builder();
+        ctor_build.add(
+            "name_ = name; // %V",
+            (VerbatimStrArg(v_interp.to_string()),),
+        );
+        let ctor_body = ctor_build.build().unwrap();
         pub_section.add_code(emit_fun(
             &FunSpec::builder("ConsoleLogger")
                 .add_param(
@@ -87,8 +97,8 @@ fn builder_approach() -> String {
         pub_section.add_line();
 
         let log_body = CodeBlock::of(
-            "%T << \"[\" << name_ << \"] \" << msg << std::endl;",
-            (iostream.clone(),),
+            "%T << \"[\" << name_ << \"] \" << msg << std::endl; %R",
+            (iostream.clone(), CommentArg(comment_note.to_string())),
         )
         .unwrap();
         pub_section.add_code(emit_fun(
@@ -103,7 +113,10 @@ fn builder_approach() -> String {
         pub_section.add_line();
 
         // Static method: defaultLevel
-        let default_level_body = CodeBlock::of("return LogLevel::Info;", ()).unwrap();
+        let mut default_level_build = CodeBlock::builder();
+        default_level_build.add_attribute("nodiscard");
+        default_level_build.add("return LogLevel::Info;", ());
+        let default_level_body = default_level_build.build().unwrap();
         pub_section.add_code(emit_fun(
             &FunSpec::builder("defaultLevel")
                 .is_static()
@@ -207,6 +220,10 @@ fn builder_approach() -> String {
 fn macro_approach() -> String {
     let iostream = TypeName::importable("iostream", "std::cout");
     let vector_h = TypeName::importable("vector", "std::vector");
+    let comment_label = "INFO";
+    let comment_reason = "Initialize logging components";
+    let comment_note = "log to stdout";
+    let v_interp = "stdout";
 
     let logger = {
         let mut pub_section = CodeBlock::builder();
@@ -256,7 +273,8 @@ fn macro_approach() -> String {
         pub_section.add("%>", ());
 
         let ctor_body = sigil_quote!(CppLang {
-            name_ = name;
+            $comment("@{comment_label}: @{comment_reason}");
+            name_ = name; $comment(comment_note)
         })
         .unwrap();
         pub_section.add_code(emit_fun(
@@ -271,7 +289,7 @@ fn macro_approach() -> String {
         pub_section.add_line();
 
         let log_body = sigil_quote!(CppLang {
-            $T(iostream) << "[" << name_ << "] " << msg << std::endl;
+            $T(iostream) << $V("@{v_interp}: ") << "[" << name_ << "] " << msg << std::endl;
         })
         .unwrap();
         pub_section.add_code(emit_fun(
@@ -287,6 +305,7 @@ fn macro_approach() -> String {
 
         // Static method: defaultLevel
         let default_level_body = sigil_quote!(CppLang {
+            $attr("nodiscard");
             return LogLevel::Info;
         })
         .unwrap();

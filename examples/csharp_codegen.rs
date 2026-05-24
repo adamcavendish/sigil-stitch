@@ -61,6 +61,10 @@ fn build_shared_types() -> (TypeSpec, TypeSpec) {
 fn builder_approach() -> String {
     let console = TypeName::importable("System", "Console");
     let (status, iface) = build_shared_types();
+    let comment_label = "TODO";
+    let comment_reason = "Validate entity state";
+    let comment_note = "log output";
+    let v_interp = "ToString";
 
     // --- Abstract base class ---
     let base = TypeSpec::builder("Entity", TypeKind::Class)
@@ -94,7 +98,15 @@ fn builder_approach() -> String {
                 .returns(TypeName::primitive("string"))
                 .body({
                     let mut b = CodeBlock::builder();
-                    b.add_statement("return Name", ());
+                    b.add_attribute("Obsolete(\"Use newMethod instead\")");
+                    b.add_comment(&format!("{}: {}", comment_label, comment_reason));
+                    b.add_statement(
+                        "return Name; // %V %R",
+                        (
+                            VerbatimStrArg(v_interp.to_string()),
+                            CommentArg(comment_note.to_string()),
+                        ),
+                    );
                     b.build().unwrap()
                 })
                 .build()
@@ -161,6 +173,10 @@ fn builder_approach() -> String {
 fn macro_approach() -> String {
     let console = TypeName::importable("System", "Console");
     let (status, iface) = build_shared_types();
+    let comment_label = "TODO";
+    let comment_reason = "Validate entity state";
+    let comment_note = "log output";
+    let v_interp = "ToString";
 
     let base = TypeSpec::builder("Entity", TypeKind::Class)
         .visibility(Visibility::Public)
@@ -191,7 +207,15 @@ fn macro_approach() -> String {
                 .visibility(Visibility::Public)
                 .is_override()
                 .returns(TypeName::primitive("string"))
-                .body(sigil_quote!(CSharp { return Name; }).unwrap())
+                .body(
+                    sigil_quote!(CSharp {
+                        $attr("Obsolete(\"Use newMethod instead\")");
+                        $comment("@{comment_label}: @{comment_reason}");
+                        $V("// @{v_interp} override");
+                        return Name; $comment(comment_note)
+                    })
+                    .unwrap(),
+                )
                 .build()
                 .unwrap(),
         )

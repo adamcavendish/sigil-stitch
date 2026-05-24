@@ -132,13 +132,8 @@ fn tokens_to_format_inner(
                 continue;
             }
 
-            // `$comment(...)` should have been caught earlier.
-            if is_ident(next, "comment") {
-                return Err(CompileError::new(
-                    next.span(),
-                    "$comment() must appear at the start of a line",
-                ));
-            }
+            // `$comment(...)` — inline comment. Falls through to the
+            // interpolation handler below.
 
             // `$C_each(...)` should have been caught earlier (statement-level).
             if is_ident(next, "C_each") {
@@ -280,12 +275,13 @@ fn tokens_to_format_inner(
                     "V" => InterpolationKind::VerbatimStr,
                     "L" => InterpolationKind::Literal,
                     "C" => InterpolationKind::Code,
+                    "comment" => InterpolationKind::Comment,
                     _ => {
                         return Err(CompileError::new(
                             id.span(),
                             format!(
                                 "unknown interpolation kind `${kind_str}`. \
-                                     Expected $T, $N, $S, $V, $L, $C, $W, $T_join, $join, or $C_each"
+                                     Expected $T, $N, $S, $V, $L, $C, $W, $T_join, $join, $comment, or $C_each"
                             ),
                         ));
                     }
@@ -321,6 +317,7 @@ fn tokens_to_format_inner(
                     InterpolationKind::Literal
                     | InterpolationKind::Code
                     | InterpolationKind::TypeJoin => "%L",
+                    InterpolationKind::Comment => "%R",
                 };
 
                 if !adjacent_to_prev_specifier {

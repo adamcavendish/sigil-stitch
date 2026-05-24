@@ -93,10 +93,22 @@ fn builder_approach() -> String {
     let fmt_sprintf = TypeName::importable("fmt", "Sprintf");
     let sort_slice = TypeName::importable("sort", "Slice");
     let (logger, server) = build_shared_types();
+    let comment_label = "INFO";
+    let comment_reason = "Configure server address";
+    let comment_note = "format address";
+    let v_interp = "8080";
 
     // --- Receiver method: Start ---
     let mut start_body = CodeBlock::builder();
-    start_body.add_statement("addr := %T(\"%%s:%%d\", s.host, s.port)", (fmt_sprintf,));
+    start_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    start_body.add_statement(
+        "// default port: %V",
+        (VerbatimStrArg(v_interp.to_string()),),
+    );
+    start_body.add_statement(
+        "addr := %T(\"%%s:%%d\", s.host, s.port) %R",
+        (fmt_sprintf, CommentArg(comment_note.to_string())),
+    );
     start_body.add_statement("return %T(addr, nil)", (http_listen,));
 
     let start_fn = FunSpec::builder("Start")
@@ -194,9 +206,15 @@ fn macro_approach() -> String {
     let fmt_sprintf = TypeName::importable("fmt", "Sprintf");
     let sort_slice = TypeName::importable("sort", "Slice");
     let (logger, server) = build_shared_types();
+    let comment_label = "INFO";
+    let comment_reason = "Configure server address";
+    let comment_note = "format address";
+    let v_interp = "8080";
 
     let start_body = sigil_quote!(GoLang {
-        addr := $T(fmt_sprintf)("%s:%d", s.host, s.port)
+        $comment("@{comment_label}: @{comment_reason}");
+        $V("// default port: @{v_interp}");
+        addr := $T(fmt_sprintf)("%s:%d", s.host, s.port) $comment(comment_note)
         return $T(http_listen)(addr, nil)
     })
     .unwrap();

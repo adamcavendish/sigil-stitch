@@ -90,14 +90,22 @@ fn builder_approach() -> String {
     let free = TypeName::importable("stdlib.h", "free");
     let printf = TypeName::importable("stdio.h", "printf");
     let (log_level, callback, config) = build_shared_types();
+    let comment_label = "NOTE";
+    let comment_reason = "Initialize variables";
+    let comment_note = "validate input";
+    let v_interp = "Config";
 
     let mut create_body = CodeBlock::builder();
+    create_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
     create_body.add(
-        "struct Config* cfg = (struct Config*)%T(sizeof(struct Config));",
-        (malloc,),
+        "struct Config* cfg = (struct Config*)%T(sizeof(%V));",
+        (malloc, VerbatimStrArg(v_interp.to_string())),
     );
     create_body.add_line();
-    create_body.add("cfg->host = host;", ());
+    create_body.add(
+        "cfg->host = host; %R",
+        (CommentArg(comment_note.to_string()),),
+    );
     create_body.add_line();
     create_body.add("cfg->port = port;", ());
     create_body.add_line();
@@ -157,10 +165,15 @@ fn macro_approach() -> String {
     let free = TypeName::importable("stdlib.h", "free");
     let printf = TypeName::importable("stdio.h", "printf");
     let (log_level, callback, config) = build_shared_types();
+    let comment_label = "NOTE";
+    let comment_reason = "Initialize variables";
+    let comment_note = "validate input";
+    let v_interp = "Config";
 
     let create_body = sigil_quote!(CLang {
-        struct Config* cfg = (struct Config*)$T(malloc)(sizeof(struct Config));
-        cfg->host = host;
+        $comment("@{comment_label}: @{comment_reason}");
+        struct Config* cfg = (struct Config*)$T(malloc)(sizeof($V("@{v_interp}")));
+        cfg->host = host; $comment(comment_note)
         cfg->port = port;
         cfg->level = LOG_INFO;
         cfg->on_event = NULL;

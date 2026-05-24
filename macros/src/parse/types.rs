@@ -43,8 +43,8 @@ pub(crate) enum Statement {
     Line { format: String, args: Vec<TypedArg> },
     /// `add_line()` — blank line.
     BlankLine,
-    /// `add_comment(text)` — `$comment("text")`.
-    Comment(String),
+    /// `add_comment(text)` — `$comment("text")` or `$comment(expr)`.
+    Comment(TokenStream),
     /// `add_attribute(text)` — `$attr("text")`. Language-aware attribute/annotation
     /// that renders with the target language's prefix/suffix (Rust: #[...],
     /// Java/Python: @..., C++: [[...]]).
@@ -119,6 +119,8 @@ pub(crate) enum InterpolationKind {
     /// `$T_join(sep, iter)` — join TypeName items with a separator,
     /// tracking imports for each item via `%T` slots.
     TypeJoin,
+    /// `$comment(expr)` — inline comment (when used inside a statement).
+    Comment,
 }
 
 /// A compile error with span information.

@@ -126,6 +126,112 @@ fn test_comment_attaches_to_declaration_after_blank_line() {
     );
 }
 
+// ── $comment(expr) — dynamic expressions ──────────────────
+
+#[test]
+fn test_comment_with_dynamic_expression() {
+    let msg = "dynamic comment";
+    let block = sigil_quote!(TypeScript {
+        $comment(msg);
+        const x = 0;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("// dynamic comment"), "got: {output}");
+}
+
+#[test]
+fn test_comment_with_format_expression() {
+    let name = "Foo";
+    let block = sigil_quote!(TypeScript {
+        $comment(format!("Class: {name}"));
+        const x = 0;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("// Class: Foo"), "got: {output}");
+}
+
+#[test]
+fn test_comment_with_to_string_expression() {
+    let code = 200;
+    let block = sigil_quote!(TypeScript {
+        $comment(code.to_string());
+        const x = 0;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("// 200"), "got: {output}");
+}
+
+// ── $comment(expr) — inline interpolation ──────────────────
+
+#[test]
+fn test_comment_inline_within_statement() {
+    let msg = "cleanup";
+    let block = sigil_quote!(TypeScript {
+        doStuff($S("x")) $comment(msg)
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("doStuff('x') // cleanup"), "got: {output}");
+}
+
+#[test]
+fn test_comment_inline_with_format() {
+    let name = "validate";
+    let block = sigil_quote!(TypeScript {
+        process($S("y")) $comment(format!("TODO: {name}"))
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("// TODO: validate"), "got: {output}");
+}
+
+// ── $comment(expr) — @{…} interpolation ──────────────────
+
+#[test]
+fn test_comment_with_at_interpolation() {
+    let name = "World";
+    let block = sigil_quote!(TypeScript {
+        $comment("Hello @{name}");
+        const x = 0;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("// Hello World"), "got: {output}");
+}
+
+#[test]
+fn test_comment_with_at_interpolation_inline() {
+    let count = 42;
+    let block = sigil_quote!(TypeScript {
+        doStuff() $comment("processed @{count} items")
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("// processed 42 items"), "got: {output}");
+}
+
+#[test]
+fn test_comment_with_double_at_escape() {
+    let block = sigil_quote!(TypeScript {
+        $comment("user@@host");
+        const x = 0;
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("// user@host"), "got: {output}");
+}
+
 // ── $attr() — language-aware attributes ──────────────────
 
 #[test]

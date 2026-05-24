@@ -53,12 +53,20 @@ fn build_shared_types() -> (TypeSpec,) {
 
 fn builder_approach() -> String {
     let json_dumps = TypeName::importable("json", "dumps");
+    let comment_reason = "Initialize service state";
+    let comment_label = "INFO";
+    let v_interp = "config";
+    let comment_note = "validate arguments";
     let (level_enum,) = build_shared_types();
 
     let mut to_json_body = CodeBlock::builder();
+    to_json_body.add_attribute("staticmethod");
+    to_json_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    to_json_body.add("_cfg = %V", (VerbatimStrArg(v_interp.to_string()),));
+    to_json_body.add_line();
     to_json_body.add_statement(
-        "return %T({'host': self.host, 'port': self.port})",
-        (json_dumps.clone(),),
+        "return %T({'host': self.host, 'port': self.port}) %R",
+        (json_dumps.clone(), CommentArg(comment_note.to_string())),
     );
 
     let to_json = FunSpec::builder("to_json")
@@ -177,10 +185,17 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let json_dumps = TypeName::importable("json", "dumps");
+    let comment_reason = "Initialize service state";
+    let comment_label = "INFO";
+    let v_interp = "config";
+    let comment_note = "validate arguments";
     let (level_enum,) = build_shared_types();
 
     let to_json_body = sigil_quote!(Python {
-        return $T(json_dumps)({$S("host"): self.host, $S("port"): self.port})
+        $attr("staticmethod")
+        $comment("@{comment_label}: @{comment_reason}");
+        _cfg = $V("@{v_interp}")
+        return $T(json_dumps)({$S("host"): self.host, $S("port"): self.port}) $comment(comment_note)
     })
     .unwrap();
 

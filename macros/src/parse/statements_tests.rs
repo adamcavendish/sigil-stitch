@@ -98,7 +98,25 @@ fn control_flow_if_else() {
 fn comment_directive() {
     let stmt = parse_stmt("$comment(\"hello world\")");
     match stmt {
-        Statement::Comment(text) => assert_eq!(text, "hello world"),
+        Statement::Comment(_) => {}
+        _ => panic!("expected Comment, got {:?}", stmt_kind(&stmt)),
+    }
+}
+
+#[test]
+fn comment_directive_expression() {
+    let stmt = parse_stmt("$comment(my_var)");
+    match stmt {
+        Statement::Comment(_) => {}
+        _ => panic!("expected Comment, got {:?}", stmt_kind(&stmt)),
+    }
+}
+
+#[test]
+fn comment_directive_format() {
+    let stmt = parse_stmt("$comment(format!(\"hello {}\", name))");
+    match stmt {
+        Statement::Comment(_) => {}
         _ => panic!("expected Comment, got {:?}", stmt_kind(&stmt)),
     }
 }

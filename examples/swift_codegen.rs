@@ -69,6 +69,10 @@ fn build_shared_types() -> (TypeSpec, TypeSpec) {
 
 fn builder_approach() -> String {
     let url = TypeName::importable("Foundation", "URL");
+    let comment_reason = "Initialize service state";
+    let comment_label = "NOTE";
+    let v_interp = "request";
+    let comment_note = "validate input";
     let url_session = TypeName::importable("Foundation", "URLSession");
     let (result_enum, proto) = build_shared_types();
 
@@ -111,9 +115,13 @@ fn builder_approach() -> String {
 
     // --- Static factory method ---
     let mut factory_body = CodeBlock::builder();
+    factory_body.add_attribute("available(*, iOS 15)");
+    factory_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    factory_body.add("let _req = %V", (VerbatimStrArg(v_interp.to_string()),));
+    factory_body.add_line();
     factory_body.add_statement(
-        "guard let url = %T(string: urlString) else { return nil }",
-        (url,),
+        "guard let url = %T(string: urlString) else { return nil } %R",
+        (url, CommentArg(comment_note.to_string())),
     );
     factory_body.add_statement("return url", ());
 
@@ -167,6 +175,10 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let url = TypeName::importable("Foundation", "URL");
+    let comment_reason = "Initialize service state";
+    let comment_label = "NOTE";
+    let v_interp = "request";
+    let comment_note = "validate input";
     let url_session = TypeName::importable("Foundation", "URLSession");
     let (result_enum, proto) = build_shared_types();
 
@@ -207,7 +219,10 @@ fn macro_approach() -> String {
         .unwrap();
 
     let factory_body = sigil_quote!(Swift {
-        guard let url = $T(url)(string: urlString) else {
+        $attr("available(*, iOS 15)")
+        $comment("@{comment_label}: @{comment_reason}");
+        let _req = $V("@{v_interp}")
+        guard let url = $T(url)(string: urlString) else { $comment(comment_note)
             return nil;
         }
         return url;
