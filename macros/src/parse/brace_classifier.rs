@@ -63,8 +63,13 @@ pub(super) fn classify(prefix_tokens: &[TokenTree], group: &proc_macro2::Group) 
     // Use `has_statement_marker` (not `has_meta_marker`) to avoid triggering on
     // inline specifiers like `$S("x")` inside Lua table constructors.
     let is_eq_object_with_stmt = last_is_eq && body_has_stmt_marker;
+    // Any brace body with statement-level markers needs recursive parsing
+    // so $C_each/$for/$if/$let inside are recognized. Even without `=` or
+    // a paren group, `return { $C_each(fields); }` must not be inlined.
+    let is_body_with_stmt_marker = body_has_stmt_marker;
 
-    if is_function_body || is_method_with_meta || is_eq_object_with_stmt {
+    if is_function_body || is_method_with_meta || is_eq_object_with_stmt || is_body_with_stmt_marker
+    {
         BraceKind::ControlFlow
     } else {
         BraceKind::Literal
@@ -163,7 +168,7 @@ fn is_interpolation_paren(tokens: &[TokenTree], pos: usize) -> bool {
 /// (`$C_each`, `$for`, `$if`, `$let`) that requires a control-flow context.
 /// Unlike `has_meta_marker`, this skips inline specifiers (`$S`, `$V`, `$L`,
 /// `$N`, `$T`, `$join`) which work fine inside literal brace groups.
-fn has_statement_marker(g: &proc_macro2::Group) -> bool {
+pub(super) fn has_statement_marker(g: &proc_macro2::Group) -> bool {
     let stream: Vec<TokenTree> = g.stream().into_iter().collect();
     let mut i = 0;
     while i < stream.len() {

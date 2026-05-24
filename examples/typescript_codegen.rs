@@ -2,7 +2,7 @@
 //!
 //! Demonstrates: class, interface with generics, enum, PropertySpec, union types,
 //! function types, optional fields, aliased imports, side-effect imports, default
-//! parameter values, and `next_control_flow` (else-if chaining).
+//! parameter values, `next_control_flow` (else-if chaining), and `$for` in object literals.
 //!
 //! Run: `cargo run --example typescript_codegen`
 
@@ -162,10 +162,28 @@ fn builder_approach() -> String {
         .build()
         .unwrap();
 
+    // --- toJson(): $C_each inside object literal (builder API) ---
+    let fields = ["id", "name", "email"];
+    let mut to_json_body = CodeBlock::builder();
+    to_json_body.add("return {", ());
+    to_json_body.add_line();
+    for f in &fields {
+        to_json_body.add(&format!("{f}: this.{f},"), ());
+        to_json_body.add_line();
+    }
+    to_json_body.add("};", ());
+
+    let to_json = FunSpec::builder("toJson")
+        .returns(TypeName::primitive("Record<string, unknown>"))
+        .body(to_json_body.build().unwrap())
+        .build()
+        .unwrap();
+
     let tb = tb
         .add_property(prop)
         .add_method(get_user)
-        .add_method(log_fn);
+        .add_method(log_fn)
+        .add_method(to_json);
 
     FileSpec::builder("UserService.ts")
         .add_import(ImportSpec::side_effect("reflect-metadata"))
@@ -287,6 +305,24 @@ fn macro_approach() -> String {
         .build()
         .unwrap();
 
+    // --- toJson(): $for inside object literal (sigil_quote! macro) ---
+    let fields = ["id", "name", "email"];
+
+    let to_json_body = sigil_quote!(TypeScript {
+        return {
+            $for(f in &fields) {
+                $N(*f): this.$N(*f),
+            }
+        };
+    })
+    .unwrap();
+
+    let to_json = FunSpec::builder("toJson")
+        .returns(TypeName::primitive("Record<string, unknown>"))
+        .body(to_json_body)
+        .build()
+        .unwrap();
+
     let get_body = sigil_quote!(TypeScript {
         return this.userRepo.count;
     })
@@ -327,7 +363,8 @@ fn macro_approach() -> String {
         )
         .add_property(prop)
         .add_method(get_user)
-        .add_method(log_fn);
+        .add_method(log_fn)
+        .add_method(to_json);
 
     FileSpec::builder("UserService.ts")
         .add_import(ImportSpec::side_effect("reflect-metadata"))
