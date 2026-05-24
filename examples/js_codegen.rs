@@ -26,10 +26,21 @@ fn main() {
 fn builder_approach() -> String {
     let format_msg = TypeName::importable("./utils", "formatMessage");
     let event_emitter = TypeName::importable("events", "EventEmitter");
+    let comment_label = "FIXME";
+    let comment_reason = "Format log message";
+    let comment_note = "console output";
+    let v_interp = "service";
 
     let mut ctor_body = CodeBlock::builder();
+    ctor_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
     ctor_body.add_statement("super()", ());
-    ctor_body.add_statement("this.name = name", ());
+    ctor_body.add_statement(
+        "this.name = name; // %V %R",
+        (
+            VerbatimStrArg(v_interp.to_string()),
+            CommentArg(comment_note.to_string()),
+        ),
+    );
 
     let mut log_body = CodeBlock::builder();
     log_body.add_statement("const msg = %T(this.name, message)", (format_msg,));
@@ -37,6 +48,7 @@ fn builder_approach() -> String {
 
     // Static factory method: Logger.create(name)
     let mut create_body = CodeBlock::builder();
+    create_body.add_attribute("deprecated");
     create_body.add_statement("return new Logger(name)", ());
 
     let logger = TypeSpec::builder("Logger", TypeKind::Class)
@@ -151,10 +163,16 @@ fn builder_approach() -> String {
 fn macro_approach() -> String {
     let format_msg = TypeName::importable("./utils", "formatMessage");
     let event_emitter = TypeName::importable("events", "EventEmitter");
+    let comment_label = "FIXME";
+    let comment_reason = "Format log message";
+    let comment_note = "console output";
+    let v_interp = "service";
 
     let ctor_body = sigil_quote!(JavaScript {
+        $comment("@{comment_label}: @{comment_reason}");
         super();
-        this.name = name;
+        this.name = name; $comment(comment_note)
+        $V("// @{v_interp} ready");
     })
     .unwrap();
 
@@ -166,6 +184,7 @@ fn macro_approach() -> String {
 
     // Static factory method body
     let create_body = sigil_quote!(JavaScript {
+        $attr("deprecated");
         return new Logger(name);
     })
     .unwrap();

@@ -27,6 +27,8 @@ pub enum Specifier {
     VerbatimStr,
     /// `%L` / `$L` / `$C` — literal value or nested code block (consumes `Arg::Literal` or `Arg::Code`).
     Literal,
+    /// `%R` / `$comment` — inline comment (consumes `Arg::Comment`).
+    Comment,
 }
 
 impl Specifier {
@@ -41,6 +43,7 @@ impl Specifier {
             'S' => Some(Self::StringLit),
             'V' => Some(Self::VerbatimStr),
             'L' => Some(Self::Literal),
+            'R' => Some(Self::Comment),
             _ => None,
         }
     }
@@ -53,6 +56,7 @@ impl Specifier {
             Self::StringLit => 'S',
             Self::VerbatimStr => 'V',
             Self::Literal => 'L',
+            Self::Comment => 'R',
         }
     }
 
@@ -64,6 +68,7 @@ impl Specifier {
             Self::StringLit,
             Self::VerbatimStr,
             Self::Literal,
+            Self::Comment,
         ]
     }
 }
@@ -119,6 +124,8 @@ pub enum Arg {
     Literal(String),
     /// A nested code block (used by `%L`).
     Code(CodeBlock),
+    /// An inline comment (used by `%R` / `$comment`).
+    Comment(String),
 }
 
 /// An immutable code fragment with embedded type references.
@@ -282,6 +289,7 @@ impl CodeBlockBuilder {
                     Arg::VerbatimStr(_) => "VerbatimStr".to_string(),
                     Arg::Literal(_) => "Literal".to_string(),
                     Arg::Code(_) => "Code".to_string(),
+                    Arg::Comment(_) => "Comment".to_string(),
                 })
                 .collect();
             self.errors
@@ -590,6 +598,28 @@ impl IntoArgs for VerbatimStrArg {
     }
 }
 
+/// A wrapper to mark a string as an inline comment arg (for `%R` / `$comment`).
+///
+/// Use `CommentArg` when your format string uses `%R` to emit a language-specific
+/// comment at the current position.
+///
+/// # Examples
+///
+/// ```
+/// use sigil_stitch::code_block::{CodeBlock, CommentArg};
+///
+/// let mut cb = CodeBlock::builder();
+/// cb.add_statement("const x = 42; %R", (CommentArg("TODO: validate".to_string()),));
+/// let block = cb.build().unwrap();
+/// ```
+pub struct CommentArg(pub String);
+
+impl IntoArgs for CommentArg {
+    fn into_args(self) -> Vec<Arg> {
+        vec![Arg::Comment(self.0)]
+    }
+}
+
 // Individual Arg conversions.
 impl From<TypeName> for Arg {
     fn from(tn: TypeName) -> Self {
@@ -630,6 +660,12 @@ impl From<StringLitArg> for Arg {
 impl From<VerbatimStrArg> for Arg {
     fn from(s: VerbatimStrArg) -> Self {
         Arg::VerbatimStr(s.0)
+    }
+}
+
+impl From<CommentArg> for Arg {
+    fn from(s: CommentArg) -> Self {
+        Arg::Comment(s.0)
     }
 }
 

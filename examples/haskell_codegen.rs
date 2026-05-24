@@ -61,6 +61,10 @@ fn build_shared_types() -> (TypeSpec, TypeSpec) {
 fn builder_approach() -> String {
     let map = TypeName::importable("Data.Map", "Map");
     let (person, user_id) = build_shared_types();
+    let comment_label = "NOTE";
+    let comment_reason = "Generate greeting output";
+    let comment_note = "format greeting";
+    let v_interp = "World";
 
     // --- Type alias ---
     let user_map = TypeSpec::builder("UserMap", TypeKind::TypeAlias)
@@ -73,7 +77,14 @@ fn builder_approach() -> String {
 
     // --- Function with type annotation (split signature) ---
     let mut greet_body = CodeBlock::builder();
-    greet_body.add("\"Hello, \" ++ personName p ++ \"!\"", ());
+    greet_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    greet_body.add(
+        "\"Hello, \" ++ personName p ++ \" from %V!\" %R",
+        (
+            VerbatimStrArg(v_interp.to_string()),
+            CommentArg(comment_note.to_string()),
+        ),
+    );
 
     let greet_fn = FunSpec::builder("greet")
         .add_param(ParameterSpec::new("p", TypeName::primitive("Person")).unwrap())
@@ -109,6 +120,10 @@ fn builder_approach() -> String {
 fn macro_approach() -> String {
     let map = TypeName::importable("Data.Map", "Map");
     let (person, user_id) = build_shared_types();
+    let comment_label = "NOTE";
+    let comment_reason = "Generate greeting output";
+    let comment_note = "format greeting";
+    let v_interp = "World";
 
     let user_map = TypeSpec::builder("UserMap", TypeKind::TypeAlias)
         .extends(TypeName::generic(
@@ -119,7 +134,8 @@ fn macro_approach() -> String {
         .unwrap();
 
     let greet_body = sigil_quote!(Haskell {
-        "Hello, " ++ personName p ++ "!"
+        $comment("@{comment_label}: @{comment_reason}");
+        $V("\"Hello, \" ++ personName p ++ \" from @{v_interp}!\"") $comment(comment_note)
     })
     .unwrap();
 

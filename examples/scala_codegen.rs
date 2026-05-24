@@ -59,11 +59,19 @@ fn build_shared_types() -> (TypeSpec, TypeSpec) {
 
 fn builder_approach() -> String {
     let list_buffer = TypeName::importable("scala.collection.mutable", "ListBuffer");
+    let comment_reason = "Initialize service state";
+    let comment_label = "NOTE";
+    let v_interp = "items";
+    let comment_note = "validate input";
     let (repo, user) = build_shared_types();
 
     // --- Generic function with context bound ---
     let mut sort_body = CodeBlock::builder();
-    sort_body.add_statement("items.sorted", ());
+    sort_body.add_attribute("Override");
+    sort_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    sort_body.add("val _it = %V", (VerbatimStrArg(v_interp.to_string()),));
+    sort_body.add_line();
+    sort_body.add_statement("items.sorted %R", (CommentArg(comment_note.to_string()),));
 
     let sort_fn = FunSpec::builder("sortItems")
         .add_type_param(TypeParamSpec::new("T").with_context_bound(TypeName::primitive("Ordering")))
@@ -148,10 +156,17 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let list_buffer = TypeName::importable("scala.collection.mutable", "ListBuffer");
+    let comment_reason = "Initialize service state";
+    let comment_label = "NOTE";
+    let v_interp = "items";
+    let comment_note = "validate input";
     let (repo, user) = build_shared_types();
 
     let sort_body = sigil_quote!(Scala {
-        items.sorted
+        $attr("Override")
+        $comment("@{comment_label}: @{comment_reason}");
+        val _it = $V("@{v_interp}")
+        items.sorted $comment(comment_note)
     })
     .unwrap();
 

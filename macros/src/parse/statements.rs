@@ -1,4 +1,4 @@
-use proc_macro2::{Delimiter, Spacing, TokenTree};
+use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
 
 use super::brace_classifier::{self, BraceKind};
 use super::format::tokens_to_format;
@@ -631,12 +631,12 @@ fn try_parse_indent_directive(tokens: &[TokenTree], start: usize) -> Option<(Sta
     None
 }
 
-/// Try to parse `$comment("text")` at position `start`.
+/// Try to parse `$comment(expr)` at position `start`.
 fn try_parse_comment(
     tokens: &[TokenTree],
     start: usize,
-) -> Result<Option<(String, usize)>, CompileError> {
-    // Need at least 3 tokens: `$`, `comment`, `("text")`
+) -> Result<Option<(TokenStream, usize)>, CompileError> {
+    // Need at least 3 tokens: `$`, `comment`, `(...)`.
     if start + 2 >= tokens.len() {
         return Ok(None);
     }
@@ -652,59 +652,26 @@ fn try_parse_comment(
         return Ok(None);
     }
 
-    // Check for parenthesized string literal.
+    // Check for parenthesized expression.
     let group = match &tokens[start + 2] {
         TokenTree::Group(g) if g.delimiter() == Delimiter::Parenthesis => g,
         _ => {
             return Err(CompileError::new(
                 tokens[start + 2].span(),
-                "$comment requires parenthesized string: $comment(\"text\")",
+                "$comment requires parenthesized expression: $comment(expr)",
             ));
         }
     };
 
-    let inner: Vec<TokenTree> = group.stream().into_iter().collect();
-    if inner.len() != 1 {
-        return Err(CompileError::new(
-            group.span(),
-            "$comment requires a single string literal: $comment(\"text\")",
-        ));
-    }
+    let expr = group.stream();
 
-    let text = match &inner[0] {
-        TokenTree::Literal(lit) => {
-            let s = lit.to_string();
-            // Strip surrounding quotes and unescape.
-            if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
-                let raw = &s[1..s.len() - 1];
-                match unescape_string(raw) {
-                    Ok(text) => text,
-                    Err(msg) => {
-                        return Err(CompileError::new(lit.span(), &msg));
-                    }
-                }
-            } else {
-                return Err(CompileError::new(
-                    lit.span(),
-                    "$comment requires a string literal",
-                ));
-            }
-        }
-        _ => {
-            return Err(CompileError::new(
-                inner[0].span(),
-                "$comment requires a string literal",
-            ));
-        }
-    };
-
-    // Skip optional semicolon after $comment("text");
+    // Skip optional semicolon after $comment(expr);
     let mut next = start + 3;
     if next < tokens.len() && is_semicolon(&tokens[next]) {
         next += 1;
     }
 
-    Ok(Some((text, next)))
+    Ok(Some((expr, next)))
 }
 
 /// Try to parse `$attr("text")` at position `start`.

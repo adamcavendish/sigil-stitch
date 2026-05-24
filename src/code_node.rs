@@ -95,6 +95,7 @@ pub(crate) fn parts_args_to_nodes(parts: &[FormatPart], args: &[Arg]) -> Vec<Cod
                     }
                     (Specifier::Literal, Arg::Literal(s)) => CodeNode::InlineLiteral(s.clone()),
                     (Specifier::Literal, Arg::Code(block)) => CodeNode::Nested(block.clone()),
+                    (Specifier::Comment, Arg::Comment(s)) => CodeNode::Comment(s.clone()),
                     _ => CodeNode::Literal(String::new()),
                 }
             }

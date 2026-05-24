@@ -22,10 +22,20 @@ fn main() {
 
 fn builder_approach() -> String {
     let json = TypeName::importable("cjson", "json");
+    let comment_reason = "Initialize module state";
+    let comment_label = "INFO";
+    let v_interp = "module";
+    let comment_note = "validate input";
 
     // --- Simple function ---
     let mut greet_body = CodeBlock::builder();
-    greet_body.add("return \"Hello, \" .. name .. \"!\"", ());
+    greet_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    greet_body.add("local mod = %V", (VerbatimStrArg(v_interp.to_string()),));
+    greet_body.add_line();
+    greet_body.add(
+        "return \"Hello, \" .. name .. \"!\" %R",
+        (CommentArg(comment_note.to_string()),),
+    );
 
     let greet_fn = FunSpec::builder("greet")
         .doc("Returns a greeting string.")
@@ -85,9 +95,15 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let json = TypeName::importable("cjson", "json");
+    let comment_reason = "Initialize module state";
+    let comment_label = "INFO";
+    let v_interp = "module";
+    let comment_note = "validate input";
 
     let greet_body = sigil_quote!(Lua {
-        return "Hello, " .. name .. "!"
+        $comment("@{comment_label}: @{comment_reason}");
+        local mod = $V("@{v_interp}")
+        return "Hello, " .. name .. "!" $comment(comment_note)
     })
     .unwrap();
 

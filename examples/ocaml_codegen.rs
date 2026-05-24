@@ -54,10 +54,20 @@ fn build_shared_types() -> (TypeSpec, TypeSpec) {
 
 fn builder_approach() -> String {
     let (person, string_list) = build_shared_types();
+    let comment_reason = "Initialize module state";
+    let comment_label = "NOTE";
+    let v_interp = "module";
+    let comment_note = "validate expression";
 
     // --- Function with curried params: greet ---
     let mut greet_body = CodeBlock::builder();
-    greet_body.add("\"Hello, \" ^ p.name ^ \"!\"", ());
+    greet_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    greet_body.add("let mod_name = %V", (VerbatimStrArg(v_interp.to_string()),));
+    greet_body.add_line();
+    greet_body.add(
+        "\"Hello, \" ^ p.name ^ \"!\" %R",
+        (CommentArg(comment_note.to_string()),),
+    );
 
     let greet_fn = FunSpec::builder("greet")
         .add_param(ParameterSpec::new("p", TypeName::primitive("person")).unwrap())
@@ -120,10 +130,16 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let (person, string_list) = build_shared_types();
+    let comment_reason = "Initialize module state";
+    let comment_label = "NOTE";
+    let v_interp = "module";
+    let comment_note = "validate expression";
 
     // --- Function with curried params: greet (using sigil_quote!) ---
     let greet_body = sigil_quote!(OCaml {
-        "Hello, " ^ p.name ^ "!"
+        $comment("@{comment_label}: @{comment_reason}");
+        let mod_name = $V("@{v_interp}")
+        "Hello, " ^ p.name ^ "!" $comment(comment_note)
     })
     .unwrap();
 

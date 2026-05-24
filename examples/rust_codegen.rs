@@ -119,11 +119,22 @@ fn build_shared_types() -> (TypeSpec, TypeSpec, TypeSpec) {
 
 fn builder_approach() -> String {
     let display = TypeName::importable("std::fmt", "Display");
+    let comment_reason = "Initialize event handler";
+    let comment_label = "EVENT";
+    let v_interp = "events";
+    let comment_note = "validate event";
     let (event_enum, user_id, config) = build_shared_types();
 
     // --- Generic function with where constraint ---
     let mut body = CodeBlock::builder();
-    body.add_statement("println!(\"{}\", item)", ());
+    body.add_attribute("derive(Debug)");
+    body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    body.add("let _ev = %V", (VerbatimStrArg(v_interp.to_string()),));
+    body.add_line();
+    body.add_statement(
+        "println!(\"{}\", item) %R",
+        (CommentArg(comment_note.to_string()),),
+    );
 
     let print_fn = FunSpec::builder("print_item")
         .visibility(Visibility::Public)
@@ -209,10 +220,17 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let display = TypeName::importable("std::fmt", "Display");
+    let comment_reason = "Initialize event handler";
+    let comment_label = "EVENT";
+    let v_interp = "events";
+    let comment_note = "validate event";
     let (event_enum, user_id, config) = build_shared_types();
 
     let print_body = sigil_quote!(RustLang {
-        println!("{}", item)
+        $attr("derive(Debug)")
+        $comment("@{comment_label}: @{comment_reason}");
+        let _ev = $V("@{v_interp}");
+        println!("{}", item) $comment(comment_note)
     })
     .unwrap();
 

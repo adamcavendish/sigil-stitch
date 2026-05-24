@@ -89,6 +89,10 @@ fn build_shared_types() -> (TypeSpec, TypeSpec) {
 
 fn builder_approach() -> String {
     let uuid = TypeName::importable("java.util", "UUID");
+    let comment_reason = "Create a new task entity";
+    let comment_label = "NOTE";
+    let v_interp = "task";
+    let comment_note = "ID is auto-generated via UUID";
     let (status, task) = build_shared_types();
 
     // --- Interface with variance ---
@@ -127,9 +131,16 @@ fn builder_approach() -> String {
 
     // --- Create function ---
     let mut create_body = CodeBlock::builder();
+    create_body.add_attribute("Override");
+    create_body.add_comment(&format!("{}: {}", comment_label, comment_reason));
+    create_body.add(
+        "val entity = %V",
+        (VerbatimStrArg(format!("new {}", v_interp)),),
+    );
+    create_body.add_line();
     create_body.add_statement(
-        "return Task(\n    id = %T.randomUUID().toString(),\n    name = name,\n    status = Status.PENDING\n)",
-        (uuid,),
+        "return Task(\n    id = %T.randomUUID().toString(),\n    name = name,\n    status = Status.PENDING\n) %R",
+        (uuid, CommentArg(comment_note.to_string())),
     );
 
     let create_fn = FunSpec::builder("createTask")
@@ -172,6 +183,10 @@ fn builder_approach() -> String {
 
 fn macro_approach() -> String {
     let uuid = TypeName::importable("java.util", "UUID");
+    let comment_reason = "Create a new task entity";
+    let comment_label = "NOTE";
+    let v_interp = "task";
+    let comment_note = "ID is auto-generated via UUID";
     let (status, task) = build_shared_types();
 
     let repo = TypeSpec::builder("Repository", TypeKind::Interface)
@@ -208,10 +223,13 @@ fn macro_approach() -> String {
         .unwrap();
 
     let create_body = sigil_quote!(Kotlin {
+        $attr("Override")
+        $comment("@{comment_label}: @{comment_reason}");
+        val entity = $V("new @{v_interp}")
         return Task(
             id = $T(uuid).randomUUID().toString(),
             name = name,
-            status = Status.PENDING
+            status = Status.PENDING $comment(comment_note)
         )
     })
     .unwrap();
