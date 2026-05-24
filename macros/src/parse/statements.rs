@@ -92,11 +92,18 @@ pub(super) fn parse_one_statement(
                 && (!brace_classifier::looks_like_control_flow_header(&collected)
                     || !brace_classifier::should_be_block_or_multiline(g))
             {
-                // Part of a statement: `const x = { ... };`
-                collected.push(tt.clone());
-                prev_end_line = Some(tt.span().end().line);
-                pos += 1;
-                continue;
+                // When the body contains statement-level markers, the brace
+                // must be recursively parsed so $C_each/$for/$if are recognized.
+                // Fall through to the classify() path instead of inlining.
+                if brace_classifier::has_statement_marker(g) {
+                    // fall through to classify + parse_control_flow below
+                } else {
+                    // Part of a statement: `const x = { ... };`
+                    collected.push(tt.clone());
+                    prev_end_line = Some(tt.span().end().line);
+                    pos += 1;
+                    continue;
+                }
             }
 
             // Look ahead: if next token is `=` (alone), this is a destructuring

@@ -142,15 +142,13 @@ fn test_c_each_inside_meta_if_false() {
 }
 
 #[test]
-fn test_c_each_with_expression() {
-    let raw = ["field1", "field2"];
-    let blocks: Vec<CodeBlock> = raw
-        .iter()
-        .map(|f| CodeBlock::of(&format!("this.{f} = null"), ()).unwrap())
-        .collect();
+fn test_for_with_expression() {
+    let fields = ["field1", "field2"];
 
     let block = sigil_quote!(TypeScript {
-        $C_each(blocks);
+        $for(f in &fields) {
+            this.$N(*f) = null;
+        }
     })
     .unwrap();
 
@@ -547,6 +545,46 @@ fn test_c_each_inside_object_literal_with_name_interp() {
 
     let output = render_ts(&block);
     assert!(output.contains("export const config = {"), "got:\n{output}");
+    assert!(output.contains("name: \"Alice\""), "got:\n{output}");
+    assert!(output.contains("age: 30"), "got:\n{output}");
+}
+
+// ── $for inside object literal with trailing `;` ─────────
+
+#[test]
+fn test_for_inside_object_literal_with_trailing_semicolon() {
+    let fields = vec![("name", "\"Alice\""), ("age", "30")];
+
+    let block = sigil_quote!(TypeScript {
+        return {
+            $for((name, val) in &fields) {
+                $N(*name): $L(*val),
+            }
+        };
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("return {"), "got:\n{output}");
+    assert!(output.contains("name: \"Alice\""), "got:\n{output}");
+    assert!(output.contains("age: 30"), "got:\n{output}");
+}
+
+#[test]
+fn test_for_inside_eq_object_literal_with_trailing_semicolon() {
+    let fields = vec![("name", "\"Alice\""), ("age", "30")];
+
+    let block = sigil_quote!(TypeScript {
+        const config = {
+            $for((name, val) in &fields) {
+                $N(*name): $L(*val),
+            }
+        };
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("const config = {"), "got:\n{output}");
     assert!(output.contains("name: \"Alice\""), "got:\n{output}");
     assert!(output.contains("age: 30"), "got:\n{output}");
 }
