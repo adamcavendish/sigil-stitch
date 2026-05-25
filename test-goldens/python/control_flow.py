@@ -5,3 +5,4 @@ def classify(x: int) -> str:
         return 'negative'
     else:
         return 'zero'
+

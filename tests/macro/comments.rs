@@ -62,7 +62,7 @@ fn test_comment_with_newline_escape() {
 
     let output = render_ts(&block);
     assert!(
-        output.contains("// first line\nsecond line"),
+        output.contains("// first line\n// second line"),
         "got: {output}"
     );
 }
@@ -230,6 +230,85 @@ fn test_comment_with_double_at_escape() {
 
     let output = render_ts(&block);
     assert!(output.contains("// user@host"), "got: {output}");
+}
+
+// ── $attr(expr) — dynamic expressions ───────────────────
+
+#[test]
+fn test_attr_with_dynamic_expression() {
+    let attr_name = "override";
+    let block = sigil_quote!(TypeScript {
+        $attr(attr_name);
+
+        process(): void {
+            return;
+        }
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("@override"), "got:\n{output}");
+}
+
+#[test]
+fn test_attr_with_format_expression() {
+    let name = "Debug";
+    let block = sigil_quote!(RustLang {
+        $attr(format!("derive({name}, Clone)"));
+
+        struct Foo;
+    })
+    .unwrap();
+
+    let output = render_rs(&block);
+    assert!(output.contains("#[derive(Debug, Clone)]"), "got:\n{output}");
+}
+
+#[test]
+fn test_attr_with_to_string_expression() {
+    let code = 200;
+    let block = sigil_quote!(TypeScript {
+        $attr(code.to_string());
+
+        process(): void {
+            return;
+        }
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("@200"), "got:\n{output}");
+}
+
+// ── $attr(expr) — @{…} interpolation ────────────────────
+
+#[test]
+fn test_attr_with_at_interpolation() {
+    let trait_name = "Debug";
+    let block = sigil_quote!(RustLang {
+        $attr("derive(@{trait_name}, Clone)");
+
+        struct Foo;
+    })
+    .unwrap();
+
+    let output = render_rs(&block);
+    assert!(output.contains("#[derive(Debug, Clone)]"), "got:\n{output}");
+}
+
+#[test]
+fn test_attr_with_double_at_escape() {
+    let block = sigil_quote!(TypeScript {
+        $attr("user@@host");
+
+        process(): void {
+            return;
+        }
+    })
+    .unwrap();
+
+    let output = render_ts(&block);
+    assert!(output.contains("@user@host"), "got:\n{output}");
 }
 
 // ── $attr() — language-aware attributes ──────────────────

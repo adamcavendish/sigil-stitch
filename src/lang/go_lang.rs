@@ -119,25 +119,32 @@ impl GoLang {
         let mut i = 0;
         while i < nodes.len() {
             let is_func_block_close =
-                matches!(&nodes[i], CodeNode::BlockClose(cond) if cond.contains("func"));
+                matches!(&nodes[i], CodeNode::BlockClose(s) if s.contains("func"));
             if !is_func_block_close {
                 i += 1;
                 continue;
             }
 
-            // Check if next nodes are: StatementBegin, Literal(...), StatementEnd, Newline
-            // The call arguments might span multiple literal nodes.
-            let remaining = nodes.len() - i - 1;
-            if remaining >= 3 && matches!(&nodes[i + 1], CodeNode::StatementBegin) {
+            // end_control_flow() now pushes [Dedent, BlockClose, Newline].
+            // Skip past BlockClose and the trailing Newline to find the
+            // call statement (StatementBegin).
+            let call_start = if i + 1 < nodes.len() && matches!(&nodes[i + 1], CodeNode::Newline) {
+                i + 2
+            } else {
+                i + 1
+            };
+
+            let remaining = nodes.len() - call_start;
+            if remaining >= 3 && matches!(&nodes[call_start], CodeNode::StatementBegin) {
                 // Find StatementEnd
-                let end_idx = nodes[(i + 2)..]
+                let end_idx = nodes[(call_start + 1)..]
                     .iter()
                     .position(|n| matches!(n, CodeNode::StatementEnd))
-                    .map(|pos| pos + i + 2);
+                    .map(|pos| pos + call_start + 1);
 
                 if let Some(stmt_end) = end_idx {
                     // Collect the call literal nodes between StatementBegin and StatementEnd
-                    let call_nodes: Vec<CodeNode> = nodes[(i + 2)..stmt_end].to_vec();
+                    let call_nodes: Vec<CodeNode> = nodes[(call_start + 1)..stmt_end].to_vec();
 
                     // Check that this looks like a call (starts with "(")
                     let looks_like_call = call_nodes
@@ -145,9 +152,9 @@ impl GoLang {
                         .any(|n| matches!(n, CodeNode::Literal(s) if s.starts_with('(')));
 
                     if looks_like_call {
-                        // Determine how many nodes to remove after BlockClose
-                        // Remove: StatementBegin, ...call_nodes..., StatementEnd
-                        // Optionally also remove the following Newline (BlockClose already emitted one)
+                        // Remove: BlockClose, Newline(from end_control_flow),
+                        // StatementBegin, ...call_nodes..., StatementEnd,
+                        // and optionally the trailing Newline from add_statement
                         let mut remove_end = stmt_end + 1; // exclusive
                         if remove_end < nodes.len()
                             && matches!(&nodes[remove_end], CodeNode::Newline)
@@ -155,7 +162,7 @@ impl GoLang {
                             remove_end += 1;
                         }
 
-                        // Replace BlockClose with Literal("}") + call_nodes + Newline
+                        // Replace with Literal("}") + call_nodes + Newline
                         let mut replacement = Vec::with_capacity(2 + call_nodes.len());
                         replacement.push(CodeNode::Literal("}".to_string()));
                         replacement.extend(call_nodes);

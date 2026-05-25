@@ -45,11 +45,13 @@ pub(crate) enum Statement {
     BlankLine,
     /// `add_comment(text)` — `$comment("text")` or `$comment(expr)`.
     Comment(TokenStream),
-    /// `add_attribute(text)` — `$attr("text")`. Language-aware attribute/annotation
+    /// `add_attribute(text)` — `$attr(expr)`. Language-aware attribute/annotation
     /// that renders with the target language's prefix/suffix (Rust: #[...],
     /// Java/Python: @..., C++: [[...]]).
-    Attr(String),
+    Attr(TokenStream),
     /// Control flow: `begin_control_flow` / `next_control_flow` / `end_control_flow`.
+    /// Only for actual control flow (`if`/`for`/`while`/`class`/`function`).
+    /// Expression braces are routed through `Statement::Statement` + `ParsedBlock`.
     ControlFlow { branches: Vec<Branch> },
     /// `add("%>", ())` — increase indent.
     Indent,
@@ -99,6 +101,8 @@ pub(crate) struct MetaBranch {
 pub(crate) struct TypedArg {
     pub kind: InterpolationKind,
     pub expr: TokenStream,
+    /// Pre-parsed body for `InterpolationKind::ParsedBlock`.
+    pub parsed_body: Option<Vec<Statement>>,
 }
 
 /// The kind of an interpolation marker.
@@ -121,6 +125,10 @@ pub(crate) enum InterpolationKind {
     TypeJoin,
     /// `$comment(expr)` — inline comment (when used inside a statement).
     Comment,
+    /// Parsed brace group containing statement markers
+    /// (`$C_each`, `$for`, `$if`, `$let`). Emitted as a nested
+    /// `CodeBlock` via `%L`.
+    ParsedBlock,
 }
 
 /// A compile error with span information.

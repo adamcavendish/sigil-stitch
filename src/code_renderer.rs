@@ -79,7 +79,16 @@ impl<'a> CodeRenderer<'a> {
     fn resolve_comment(lang: &dyn RendererLang, text: &str) -> String {
         let prefix = lang.line_comment_prefix();
         let suffix = lang.line_comment_suffix();
-        format!("{prefix} {text}{suffix}")
+        text.split('\n')
+            .map(|line| {
+                if line.is_empty() {
+                    format!("{prefix}{suffix}")
+                } else {
+                    format!("{prefix} {line}{suffix}")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     /// Direct string rendering (no SoftBreak in this segment).
@@ -173,12 +182,11 @@ impl<'a> CodeRenderer<'a> {
                         self.emit(open);
                     }
                 }
-                CodeNode::BlockClose(cond) => {
-                    let close = Self::resolve_block_close(self.lang, cond);
+                CodeNode::BlockClose(condition) => {
+                    let close = Self::resolve_block_close(self.lang, condition);
                     if !close.is_empty() {
                         self.ensure_indent();
                         self.emit(close);
-                        self.emit_newline();
                     }
                 }
                 CodeNode::BranchClose(cond) => {
@@ -258,12 +266,12 @@ impl<'a> CodeRenderer<'a> {
                         BoxDoc::text(open.to_string())
                     }
                 }
-                CodeNode::BlockClose(cond) => {
-                    let close = Self::resolve_block_close(self.lang, cond);
+                CodeNode::BlockClose(condition) => {
+                    let close = Self::resolve_block_close(self.lang, condition);
                     if close.is_empty() {
                         BoxDoc::nil()
                     } else {
-                        BoxDoc::text(close.to_string()).append(BoxDoc::hardline())
+                        BoxDoc::text(close.to_string())
                     }
                 }
                 CodeNode::BranchClose(cond) => {

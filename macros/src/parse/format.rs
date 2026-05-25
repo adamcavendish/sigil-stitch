@@ -206,6 +206,7 @@ fn tokens_to_format_inner(
                 args.push(TypedArg {
                     kind: InterpolationKind::TypeJoin,
                     expr: join_expr,
+                    parsed_body: None,
                 });
 
                 pos += 1;
@@ -259,6 +260,7 @@ fn tokens_to_format_inner(
                 args.push(TypedArg {
                     kind: InterpolationKind::Literal,
                     expr: join_expr,
+                    parsed_body: None,
                 });
 
                 pos += 1;
@@ -316,7 +318,8 @@ fn tokens_to_format_inner(
                     InterpolationKind::VerbatimStr => "%V",
                     InterpolationKind::Literal
                     | InterpolationKind::Code
-                    | InterpolationKind::TypeJoin => "%L",
+                    | InterpolationKind::TypeJoin
+                    | InterpolationKind::ParsedBlock => "%L",
                     InterpolationKind::Comment => "%R",
                 };
 
@@ -336,6 +339,7 @@ fn tokens_to_format_inner(
                 args.push(TypedArg {
                     kind,
                     expr: group.stream(),
+                    parsed_body: None,
                 });
 
                 pos += 1;

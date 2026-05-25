@@ -566,6 +566,7 @@ fn test_for_inside_object_literal_with_trailing_semicolon() {
 
     let output = render_ts(&block);
     assert!(output.contains("return {"), "got:\n{output}");
+    assert!(output.contains("};"), "got:\n{output}");
     assert!(output.contains("name: \"Alice\""), "got:\n{output}");
     assert!(output.contains("age: 30"), "got:\n{output}");
 }
@@ -585,6 +586,7 @@ fn test_for_inside_eq_object_literal_with_trailing_semicolon() {
 
     let output = render_ts(&block);
     assert!(output.contains("const config = {"), "got:\n{output}");
+    assert!(output.contains("};"), "got:\n{output}");
     assert!(output.contains("name: \"Alice\""), "got:\n{output}");
     assert!(output.contains("age: 30"), "got:\n{output}");
 }

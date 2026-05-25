@@ -3,8 +3,10 @@ use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
 use super::brace_classifier::{self, BraceKind};
 use super::format::tokens_to_format;
 use super::parse_body;
-use super::types::{Branch, CompileError, MacroLang, MetaBranch, Statement};
-use super::util::{is_ident, is_semicolon, unescape_string};
+use super::types::{
+    Branch, CompileError, InterpolationKind, MacroLang, MetaBranch, Statement, TypedArg,
+};
+use super::util::{is_ident, is_semicolon};
 
 /// Parse a single statement starting at `pos`.
 /// Returns the statement and the position after the consumed tokens.
@@ -96,7 +98,13 @@ pub(super) fn parse_one_statement(
                 // must be recursively parsed so $C_each/$for/$if are recognized.
                 // Fall through to the classify() path instead of inlining.
                 if brace_classifier::has_statement_marker(g) {
-                    // fall through to classify + parse_control_flow below
+                    // Expression brace with statement markers:
+                    // e.g., `return { $C_each(items); };`
+                    // Recursively parse the body and inline as %L + ParsedBlock.
+                    // The `;` at pos+1 is the statement terminator (consumed below
+                    // by the normal semicolon path — we skip it via pos+2).
+                    let (format, args) = handle_expression_brace_with_markers(&collected, g, lang)?;
+                    return Ok((Statement::Statement { format, args }, pos + 2));
                 } else {
                     // Part of a statement: `const x = { ... };`
                     collected.push(tt.clone());
@@ -136,9 +144,11 @@ pub(super) fn parse_one_statement(
                 BraceKind::ControlFlow => {}
             }
 
-            // Control flow detected.
+            // Control flow detected (if/for/while/function/class).
             let (stmt, mut next_pos) = parse_control_flow(tokens, &collected, g, pos, lang)?;
-            // Consume optional trailing `;` after the control flow block.
+            // Consume trailing `;` as DSL statement terminator only.
+            // Control flow constructs (if/for/while) don't have `;` in
+            // generated code.
             if next_pos < tokens.len() && is_semicolon(&tokens[next_pos]) {
                 next_pos += 1;
             }
@@ -674,65 +684,77 @@ fn try_parse_comment(
     Ok(Some((expr, next)))
 }
 
-/// Try to parse `$attr("text")` at position `start`.
+/// Try to parse `$attr(expr)` at position `start`.
 fn try_parse_attr(
     tokens: &[TokenTree],
     start: usize,
-) -> Result<Option<(String, usize)>, CompileError> {
+) -> Result<Option<(TokenStream, usize)>, CompileError> {
+    // Need at least 3 tokens: `$`, `attr`, `(...)`.
     if start + 2 >= tokens.len() {
         return Ok(None);
     }
+
+    // Check for `$` punct.
     let _dollar = match &tokens[start] {
         TokenTree::Punct(p) if p.as_char() == '$' => p,
         _ => return Ok(None),
     };
+
+    // Check for `attr` ident.
     if !is_ident(&tokens[start + 1], "attr") {
         return Ok(None);
     }
+
+    // Check for parenthesized expression.
     let group = match &tokens[start + 2] {
         TokenTree::Group(g) if g.delimiter() == Delimiter::Parenthesis => g,
         _ => {
             return Err(CompileError::new(
                 tokens[start + 2].span(),
-                "$attr requires parenthesized string: $attr(\"text\")",
+                "$attr requires a parenthesized expression: $attr(expr)",
             ));
         }
     };
-    let inner: Vec<TokenTree> = group.stream().into_iter().collect();
-    if inner.len() != 1 {
-        return Err(CompileError::new(
-            group.span(),
-            "$attr requires a single string literal: $attr(\"text\")",
-        ));
-    }
-    let text = match &inner[0] {
-        TokenTree::Literal(lit) => {
-            let s = lit.to_string();
-            if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
-                let raw = &s[1..s.len() - 1];
-                match unescape_string(raw) {
-                    Ok(text) => text,
-                    Err(msg) => return Err(CompileError::new(lit.span(), &msg)),
-                }
-            } else {
-                return Err(CompileError::new(
-                    lit.span(),
-                    "$attr requires a string literal",
-                ));
-            }
-        }
-        _ => {
-            return Err(CompileError::new(
-                inner[0].span(),
-                "$attr requires a string literal",
-            ));
-        }
-    };
+
+    let expr = group.stream();
+
+    // Skip optional semicolon after $attr(expr);
     let mut next = start + 3;
     if next < tokens.len() && is_semicolon(&tokens[next]) {
         next += 1;
     }
-    Ok(Some((text, next)))
+
+    Ok(Some((expr, next)))
+}
+
+/// Handle a brace group containing statement-level markers in an expression
+/// position (e.g., `return { $C_each(items); };`).
+///
+/// Recursively parses the body inside the brace group, formats the prefix
+/// tokens, and produces a `(format, args)` pair with `ParsedBlock` for the body.
+fn handle_expression_brace_with_markers(
+    prefix_tokens: &[TokenTree],
+    brace_group: &proc_macro2::Group,
+    lang: MacroLang,
+) -> Result<(String, Vec<TypedArg>), CompileError> {
+    let body_tokens: Vec<TokenTree> = brace_group.stream().into_iter().collect();
+    let body_stmts = parse_body(&body_tokens, lang)?;
+
+    let (prefix_format, mut prefix_args) = tokens_to_format(prefix_tokens, lang)?;
+
+    let format = if prefix_format.is_empty() {
+        "%L".to_string()
+    } else {
+        format!("{prefix_format}%L")
+    };
+
+    prefix_args.push(TypedArg {
+        kind: InterpolationKind::ParsedBlock,
+        expr: TokenStream::new(),
+        parsed_body: Some(body_stmts),
+    });
+
+    Ok((format, prefix_args))
 }
 
 /// Check whether the collected prefix tokens and language indicate a
