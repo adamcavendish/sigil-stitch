@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.5
+
+### Added
+
+- `$comment(expr)` now accepts any Rust expression, not just string literals.
+  `$comment(my_var)`, `$comment(format!("Class: {name}"))`, and
+  `$comment(code.to_string())` all work. The expression result is converted via
+  `.to_string()` at runtime.
+- `@{expr}` interpolation inside `$comment` string literals — `$comment("Hello @{name}")`
+  resolves Rust expressions at compile time, matching the `$V` / `$L` pattern.
+  Works in both statement-level (`$comment("...")`) and inline
+  (`doStuff() $comment("processed @{count} items")`) positions.
+- `@@` escape in `$comment` — `$comment("user@@host")` emits `// user@host`.
+- `CommentArg` wrapper and `%R` specifier for inline comments in the builder API
+  (`add_statement("return x; %R", (CommentArg("validate".to_string()),))`).
+  `CommentArg` is re-exported in the prelude.
+- `$V` `@{...}` interpolation and `$attr()` demonstrations in all 17 language
+  example files.
+
 ## 0.6.4
 
 ### Added

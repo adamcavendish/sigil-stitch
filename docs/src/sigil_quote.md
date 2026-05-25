@@ -279,10 +279,14 @@ sigil_quote!(TypeScript {
 # }
 ```
 
-### Comments: `$comment("text")`
+### Comments: `$comment(expr)`
 
 Rust's proc macro tokenizer strips `//` comments, so they're invisible to the macro.
-Use `$comment()` instead:
+Use `$comment()` instead. The argument can be any Rust expression that evaluates to
+something displayable — a string literal, a variable, `format!(...)`, or any type
+implementing `ToString`.
+
+**Statement-level comments** appear at the start of a line:
 
 ```rust
 # extern crate sigil_stitch;
@@ -298,6 +302,100 @@ sigil_quote!(TypeScript {
 # Ok(())
 # }
 ```
+
+**Dynamic expressions** work as the argument:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let msg = "Initialize the connection pool";
+sigil_quote!(TypeScript {
+    $comment(msg);
+    const pool = createPool();
+})?;
+# Ok(())
+# }
+```
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let name = "Foo";
+sigil_quote!(TypeScript {
+    $comment(format!("Class: {name}"));
+    const x = 0;
+})?;
+# Ok(())
+# }
+```
+
+**Inline comments** appear after a statement on the same line:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let msg = "cleanup";
+sigil_quote!(TypeScript {
+    doStuff($S("x")) $comment(msg)
+})?;
+// Output: doStuff('x') // cleanup
+# Ok(())
+# }
+```
+
+#### `@{expr}` interpolation
+
+Embed Rust expressions inside `$comment` string literals with `@{expr}`. These are
+resolved at compile time:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let name = "World";
+sigil_quote!(TypeScript {
+    $comment("Hello @{name}");
+    const x = 0;
+})?;
+// Output: // Hello World
+# Ok(())
+# }
+```
+
+`@{...}` interpolation also works in inline comments:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let count = 42;
+sigil_quote!(TypeScript {
+    doStuff() $comment("processed @{count} items")
+})?;
+// Output: doStuff() // processed 42 items
+# Ok(())
+# }
+```
+
+Use `@@` to emit a literal `@`:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+sigil_quote!(TypeScript {
+    $comment("user@@host");
+})?;
+// Output: // user@host
+# Ok(())
+# }
+```
+
+An optional trailing `;` after `$comment(...)` is consumed silently and does not
+affect the output.
 
 ### Annotations (`$attr`)
 
