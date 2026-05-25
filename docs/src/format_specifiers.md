@@ -10,6 +10,7 @@
 | `%N` | Name | `NameArg` | Emit identifier name |
 | `%S` | String | `StringLitArg` | Emit escaped string literal |
 | `%V` | Verbatim | `VerbatimStrArg` | Emit string with interpolation preserved |
+| `%R` | Remark | `CommentArg` | Emit inline comment |
 | `%L` | Literal | `&str`, `String`, `CodeBlock` | Emit raw value or nested block |
 | `%W` | Wrap | (none) | Soft line break point |
 | `%>` | Indent | (none) | Increase indent level |
@@ -170,6 +171,41 @@ Per-language behavior:
 For Bash/Zsh, `%V` is pure passthrough — the string is emitted as-is with no wrapping quotes and no escaping. Shell interpolates by default, and users control quoting in the `%V` content itself (include `"..."` in the string when quoting is desired in the output).
 
 For languages without string interpolation (C, C++, Go, Rust, Java, Haskell, OCaml, Lua), `%V` falls back to `%S` behavior (full escaping).
+
+## `%R` -- Inline Comment
+
+Emits a language-specific inline comment. Requires the `CommentArg` wrapper.
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::code_block::{CodeBlock, CommentArg};
+# use sigil_stitch::prelude::*;
+# fn main() {
+let mut cb = CodeBlock::builder();
+cb.add_statement("const x = 42; %R", (CommentArg("TODO: validate".to_string()),));
+let block = cb.build().unwrap();
+// TypeScript: const x = 42; // TODO: validate
+// Python:     const x = 42; # TODO: validate
+# }
+```
+
+The comment prefix (`//`, `#`, `--`, etc.) is determined by the target language's
+`comment_syntax()`. The comment text is emitted verbatim after the prefix with a
+single space separator.
+
+In `sigil_quote!`, inline `$comment(expr)` after a statement expands to `%R`:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() {
+sigil_quote!(TypeScript {
+    doStuff() $comment("cleanup")
+}).unwrap();
+// Equivalent builder call:
+//   cb.add("doStuff() %R", (CommentArg("cleanup".to_string()),));
+# }
+```
 
 ### `@{expr}` interpolation in `$V` and `$L`
 
@@ -369,6 +405,7 @@ The critical rule: **bare strings map to `Arg::Literal`** (consumed by `%L`), no
 | `NameArg(String)` | `Arg::Name` | `%N` |
 | `StringLitArg(String)` | `Arg::StringLit` | `%S` |
 | `VerbatimStrArg(String)` | `Arg::VerbatimStr` | `%V` |
+| `CommentArg(String)` | `Arg::Comment` | `%R` |
 | `Vec<Arg>` | passthrough | any |
 
 ### Single Argument
