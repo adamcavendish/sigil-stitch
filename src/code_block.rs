@@ -100,7 +100,7 @@ pub(crate) enum FormatPart {
     /// Terminal block close delimiter — resolved at render time via
     /// `lang.block_close_for(condition)` falling back to `lang.block_syntax().block_close`.
     /// Carries the condition from the matching `begin_control_flow`.
-    /// Emits: closer + newline.
+    /// Emits: closer only.
     BlockClose(String),
     /// Non-terminal block close before a branch keyword (`else`, `elif`, `catch`).
     /// Like `BlockClose` but emits closer + space (not newline) so the branch
@@ -354,8 +354,24 @@ impl CodeBlockBuilder {
         self
     }
 
-    /// End a control flow block (emits "}" or language-specific closer, and decreases indent).
+    /// End a control flow block (emits language-specific closer + newline,
+    /// decreases indent).
     pub fn end_control_flow(&mut self) -> &mut Self {
+        let condition = self.block_stack.pop().unwrap_or_default();
+        self.nodes.push(CodeNode::Dedent);
+        self.indent_depth -= 1;
+        self.nodes.push(CodeNode::BlockClose(condition));
+        self.nodes.push(CodeNode::Newline);
+        self
+    }
+
+    /// End a control flow block without a trailing newline.
+    ///
+    /// Used when the block is nested inside a `Statement::Statement` via
+    /// `%L` (e.g., expression braces in format strings). The outer
+    /// `add_statement` provides both `;` via `StatementEnd` and `\n` via
+    /// `Newline`.
+    pub fn end_control_flow_no_newline(&mut self) -> &mut Self {
         let condition = self.block_stack.pop().unwrap_or_default();
         self.nodes.push(CodeNode::Dedent);
         self.indent_depth -= 1;

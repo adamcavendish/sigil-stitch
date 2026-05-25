@@ -60,7 +60,8 @@ pub enum CodeNode {
     /// `begin_control_flow` call. At render time the renderer calls
     /// `lang.block_close_for(condition)` — if it returns `Some(s)`, emit `s`;
     /// otherwise fall back to `lang.block_syntax().block_close`.
-    /// Emits: closer + newline.
+    /// Emits: the closer only (no semicolon, no newline — those come from
+    /// `StatementEnd` and `Newline` nodes that follow).
     BlockClose(String),
     /// Non-terminal block close before a branch keyword (`else`, `elif`, `catch`).
     /// Like `BlockClose` but emits closer + space (not newline) so the branch

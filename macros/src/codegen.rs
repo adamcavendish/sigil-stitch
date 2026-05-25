@@ -42,33 +42,15 @@ fn generate_statements(statements: &[Statement]) -> Vec<TokenStream> {
                 });
             }
             Statement::Comment(expr) => {
-                let comment_expr = match extract_at_interpolation(expr) {
-                    Some(VerbatimResult::Interpolated {
-                        format_string,
-                        expressions,
-                    }) => {
-                        let fmt_lit = Literal::string(&format_string);
-                        let exprs: Vec<TokenStream> = expressions
-                            .iter()
-                            .map(|e| e.parse::<TokenStream>().unwrap())
-                            .collect();
-                        quote! { ::std::format!(#fmt_lit, #(#exprs),*) }
-                    }
-                    Some(VerbatimResult::Literal(s)) => {
-                        let lit = Literal::string(&s);
-                        quote! { ::std::string::String::from(#lit) }
-                    }
-                    _ => {
-                        quote! { (#expr).to_string() }
-                    }
-                };
+                let comment_expr = resolve_verbatim_interpolation(expr);
                 calls.push(quote! {
                     __sigil_builder.add_comment(&#comment_expr);
                 });
             }
-            Statement::Attr(text) => {
+            Statement::Attr(expr) => {
+                let attr_expr = resolve_verbatim_interpolation(expr);
                 calls.push(quote! {
-                    __sigil_builder.add_attribute(#text);
+                    __sigil_builder.add_attribute(&#attr_expr);
                 });
             }
             Statement::Statement { format, args } => {
@@ -275,6 +257,21 @@ fn build_args_tuple(args: &[TypedArg]) -> TokenStream {
                             }
                         }
                     }
+                    InterpolationKind::ParsedBlock => {
+                        let body_stmts = arg.parsed_body.as_ref()
+                            .expect("ParsedBlock must have parsed_body");
+                        let body_calls = generate_statements(body_stmts);
+                        quote! {
+                            {
+                                let mut __sigil_builder =
+                                    ::sigil_stitch::code_block::CodeBlock::builder();
+                                __sigil_builder.begin_control_flow("", ());
+                                #(#body_calls)*
+                                __sigil_builder.end_control_flow_no_newline();
+                                __sigil_builder.build().unwrap()
+                            }
+                        }
+                    }
                 }
             })
             .collect();
@@ -316,6 +313,32 @@ fn generate_meta_if(branches: &[MetaBranch]) -> TokenStream {
     }
 
     result
+}
+
+/// Resolve a string literal expression, handling `@{expr}` interpolation.
+///
+/// If the expression is a string literal containing `@{...}` patterns,
+/// emits a `format!()` call. If it's a plain string literal, emits a
+/// `String::from()` call. Otherwise, emits `(#expr).to_string()`.
+fn resolve_verbatim_interpolation(expr: &TokenStream) -> TokenStream {
+    match extract_at_interpolation(expr) {
+        Some(VerbatimResult::Interpolated {
+            format_string,
+            expressions,
+        }) => {
+            let fmt_lit = Literal::string(&format_string);
+            let exprs: Vec<TokenStream> = expressions
+                .iter()
+                .map(|e| e.parse::<TokenStream>().unwrap())
+                .collect();
+            quote! { ::std::format!(#fmt_lit, #(#exprs),*) }
+        }
+        Some(VerbatimResult::Literal(s)) => {
+            let lit = Literal::string(&s);
+            quote! { ::std::string::String::from(#lit) }
+        }
+        _ => quote! { (#expr).to_string() },
+    }
 }
 
 /// Try to extract a string literal from a token stream and parse `@{expr}` interpolation.

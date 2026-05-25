@@ -112,16 +112,18 @@ impl CppLang {
         use crate::code_node::CodeNode;
         let mut i = 0;
         while i < nodes.len() {
-            let is_lambda_close =
-                matches!(&nodes[i], CodeNode::BlockClose(cond) if cond.contains('['));
+            let is_lambda_close = matches!(&nodes[i], CodeNode::BlockClose(s) if s.contains('['));
             if is_lambda_close {
-                // Insert a Literal(";") after the BlockClose, before Newline
-                // The renderer will emit "}" then we want ";" immediately after
-                // Actually, we need to replace BlockClose with Literal("};\n")
-                // because BlockClose already emits "}" + newline.
-                // Instead: replace BlockClose with Literal("};") + Newline
+                // BlockClose is now followed by a Newline from end_control_flow().
+                // Consume both BlockClose and the trailing Newline.
+                let remove_count =
+                    if i + 1 < nodes.len() && matches!(&nodes[i + 1], CodeNode::Newline) {
+                        2
+                    } else {
+                        1
+                    };
                 let replacement = vec![CodeNode::Literal("};".to_string()), CodeNode::Newline];
-                nodes.splice(i..i + 1, replacement);
+                nodes.splice(i..i + remove_count, replacement);
                 i += 2;
                 continue;
             }
