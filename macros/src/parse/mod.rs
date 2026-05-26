@@ -29,6 +29,7 @@ fn parse_macro_lang(ts: &TokenStream) -> MacroLang {
             "Haskell" => MacroLang::Haskell,
             "OCaml" => MacroLang::OCaml,
             "Php" => MacroLang::Php,
+            "Ruby" => MacroLang::Ruby,
             _ => MacroLang::Unaware,
         }
     } else {
