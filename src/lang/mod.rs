@@ -28,6 +28,8 @@ pub mod ocaml;
 pub mod php;
 /// Python language support.
 pub mod python;
+/// Ruby language support.
+pub mod ruby;
 /// Rust language support.
 pub mod rust;
 /// Scala language support.
@@ -424,6 +426,7 @@ pub fn lang_from_extension(ext: &str) -> Option<Box<dyn CodeLang>> {
         "sh" | "bash" => Some(Box::new(bash::Bash::default())),
         "zsh" => Some(Box::new(zsh::Zsh::default())),
         "php" => Some(Box::new(php::Php::default())),
+        "rb" => Some(Box::new(ruby::Ruby::default())),
         _ => None,
     }
 }

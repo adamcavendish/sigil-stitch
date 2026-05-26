@@ -13,6 +13,7 @@ pub(crate) enum MacroLang {
     Haskell,
     OCaml,
     Php,
+    Ruby,
 }
 
 impl MacroLang {
