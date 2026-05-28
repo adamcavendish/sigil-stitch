@@ -1,6 +1,7 @@
 use proc_macro2::Spacing;
 
 use super::annotate::TokenAnnotation;
+use super::types::MacroLang;
 
 /// What kind of token was just emitted (for spacing decisions).
 #[derive(Clone, Copy, PartialEq)]
@@ -37,6 +38,9 @@ pub(super) enum ColonContext {
     WalrusAssign,
     /// `for (item : collection)` — space before `:`.
     ForRange,
+    /// Explicit space-before-colon for languages where `:` is not a type annotation
+    /// (OCaml, Shell). Behaves like `Ternary`/`ForRange` — allows space before `:`.
+    SpaceBefore,
 }
 
 /// Accumulated state threaded through the format-string builder.
@@ -49,10 +53,14 @@ pub(super) struct SpacingState {
 }
 
 impl SpacingState {
-    pub fn new() -> Self {
+    pub fn new(lang: MacroLang) -> Self {
         Self {
             prev: PrevTokenKind::None,
-            colon_ctx: ColonContext::TypeAnnotation,
+            colon_ctx: if lang.default_colon_is_space_before() {
+                ColonContext::SpaceBefore
+            } else {
+                ColonContext::TypeAnnotation
+            },
             prev_specifier_end: None,
         }
     }
@@ -114,8 +122,10 @@ pub(super) fn maybe_space(
                 && annotation != TokenAnnotation::SymbolColon =>
             {
                 match state.colon_ctx {
-                    ColonContext::Ternary | ColonContext::WalrusAssign | ColonContext::ForRange => {
-                    }
+                    ColonContext::Ternary
+                    | ColonContext::WalrusAssign
+                    | ColonContext::ForRange
+                    | ColonContext::SpaceBefore => {}
                     ColonContext::TypeAnnotation
                     | ColonContext::MapEntry
                     | ColonContext::PathSeparator => return,

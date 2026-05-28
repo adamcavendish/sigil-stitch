@@ -117,8 +117,10 @@ pub(super) fn annotate_tokens(tokens: &[TokenTree], lang: MacroLang) -> Vec<Toke
                     i += 1;
                 }
                 // $T(...) always produces a type — mark following `<` as generic
-                // but NOT if it's `<<` (shift operator)
+                // but NOT if it's `<<` (shift operator), and only for
+                // languages that actually use `<>` angle-bracket generics.
                 if is_type_interp
+                    && lang.has_angle_generics()
                     && i < tokens.len()
                     && let TokenTree::Punct(p) = &tokens[i]
                     && p.as_char() == '<'
@@ -522,7 +524,9 @@ pub(super) fn annotate_tokens(tokens: &[TokenTree], lang: MacroLang) -> Vec<Toke
                         }
                         // NullablePrefix: `?` span-adjacent to a following ident —
                         // nullable type prefix like `?User` or `?string`.
-                        if annotations[i] == TokenAnnotation::Normal
+                        // Only valid in languages that use `?` as nullable prefix.
+                        if lang.nullable_prefix_is_valid()
+                            && annotations[i] == TokenAnnotation::Normal
                             && i + 1 < tokens.len()
                             && matches!(&tokens[i + 1], TokenTree::Ident(_))
                         {

@@ -24,12 +24,13 @@ fn parse_macro_lang(ts: &TokenStream) -> MacroLang {
     if let Some(TokenTree::Ident(id)) = first {
         match id.to_string().as_str() {
             "Bash" => MacroLang::Bash,
-            "Zsh" => MacroLang::Zsh,
+            "CSharp" => MacroLang::CSharp,
             "Go" => MacroLang::Go,
             "Haskell" => MacroLang::Haskell,
             "OCaml" => MacroLang::OCaml,
             "Php" => MacroLang::Php,
             "Ruby" => MacroLang::Ruby,
+            "Zsh" => MacroLang::Zsh,
             _ => MacroLang::Unaware,
         }
     } else {
