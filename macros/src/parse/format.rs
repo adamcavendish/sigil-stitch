@@ -17,7 +17,7 @@ pub(crate) fn tokens_to_format(
 ) -> Result<(String, Vec<TypedArg>), CompileError> {
     let mut format = String::new();
     let mut args: Vec<TypedArg> = Vec::new();
-    let mut state = SpacingState::new();
+    let mut state = SpacingState::new(lang);
     let annotations = annotate_tokens(tokens, lang);
 
     tokens_to_format_inner(
@@ -403,8 +403,27 @@ fn tokens_to_format_inner(
                 // Context transitions after emitting the token.
                 match (ch, p.spacing()) {
                     ('?', Spacing::Alone) => state.colon_ctx = ColonContext::Ternary,
-                    (':', _) => state.colon_ctx = ColonContext::TypeAnnotation,
-                    (';', _) => state.colon_ctx = ColonContext::TypeAnnotation,
+                    (':', _)
+                        if !matches!(
+                            state.colon_ctx,
+                            ColonContext::MapEntry | ColonContext::ForRange
+                        ) =>
+                    {
+                        state.colon_ctx = if lang.default_colon_is_space_before() {
+                            ColonContext::SpaceBefore
+                        } else {
+                            ColonContext::TypeAnnotation
+                        };
+                    }
+                    // MapEntry (inside braces) or ForRange — preserve group-level context.
+                    (':', _) => {}
+                    (';', _) => {
+                        state.colon_ctx = if lang.default_colon_is_space_before() {
+                            ColonContext::SpaceBefore
+                        } else {
+                            ColonContext::TypeAnnotation
+                        };
+                    }
                     _ => {}
                 }
                 // Set prev based on annotation.

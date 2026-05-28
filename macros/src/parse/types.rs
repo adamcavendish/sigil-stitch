@@ -8,17 +8,47 @@ use proc_macro2::{Span, TokenStream};
 pub(crate) enum MacroLang {
     Unaware,
     Bash,
-    Zsh,
+    CSharp,
     Go,
     Haskell,
     OCaml,
     Php,
     Ruby,
+    Zsh,
 }
 
 impl MacroLang {
     pub fn is_shell(self) -> bool {
         matches!(self, Self::Bash | Self::Zsh)
+    }
+
+    /// Whether `:` defaults to space-before in type position.
+    /// C-like languages use `name: Type` (no space before `:`);
+    /// OCaml and Shell conventionally use `(x : int)` / `echo :` with space.
+    pub fn default_colon_is_space_before(self) -> bool {
+        matches!(self, Self::OCaml | Self::Bash | Self::Zsh)
+    }
+
+    /// Whether the language uses `<>` angle brackets for generics,
+    /// so that `$T(Type)<params>` should mark `<` as GenericOpen.
+    /// True for `Unaware` because most unrecognized languages (C#, Java,
+    /// TypeScript, C++, etc.) use C-style angle-bracket generics.
+    pub fn has_angle_generics(self) -> bool {
+        !matches!(
+            self,
+            Self::Ruby
+                | Self::Bash
+                | Self::Zsh
+                | Self::OCaml
+                | Self::Php
+                | Self::Go
+                | Self::Haskell
+        )
+    }
+
+    /// Whether `?Ident` (nullable prefix like `?User`, `?string`) is valid syntax.
+    pub fn nullable_prefix_is_valid(self) -> bool {
+        matches!(self, Self::Php | Self::OCaml)
     }
 }
 
