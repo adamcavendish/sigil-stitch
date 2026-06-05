@@ -37,9 +37,32 @@ Languages not in the enum get `MacroLang::Unaware`, which applies only universal
 |---------|-----------------|-------------------|
 | `Unaware` | All other languages | Universal heuristics only |
 | `Bash` | `sigil_quote!(Bash { ... })` | Shell-specific (see below) |
-| `Zsh` | `sigil_quote!(Zsh { ... })` | Shell-specific (same as Bash) |
-| `Go` | `sigil_quote!(Go { ... })` | `<-` prefix receive |
+| `C` | `sigil_quote!(C { ... })` | No angle generics, postfix `*` pointer |
+| `Cpp` | `sigil_quote!(Cpp { ... })` | Postfix `*` pointer, postfix `&` reference |
+| `CSharp` | `sigil_quote!(CSharp { ... })` | Postfix `*` pointer, postfix `?` nullable |
+| `Dart` | `sigil_quote!(Dart { ... })` | Postfix `?` nullable |
+| `Go` | `sigil_quote!(Go { ... })` | `<-` prefix receive, paren blocks |
 | `Haskell` | `sigil_quote!(Haskell { ... })` | `$$` dollar operator spacing |
+| `Kotlin` | `sigil_quote!(Kotlin { ... })` | Postfix `?` nullable |
+| `OCaml` | `sigil_quote!(OCaml { ... })` | Space before `:`, prefix `?` nullable |
+| `Php` | `sigil_quote!(Php { ... })` | Prefix `?` nullable |
+| `Ruby` | `sigil_quote!(Ruby { ... })` | Symbol colon, inheritance angle |
+| `Swift` | `sigil_quote!(Swift { ... })` | Postfix `?` nullable |
+| `TypeScript` | `sigil_quote!(TypeScript { ... })` | Postfix `?` nullable |
+| `Zsh` | `sigil_quote!(Zsh { ... })` | Shell-specific (same as Bash) |
+
+### Gated annotations (language-aware)
+
+These annotations used to fire for ALL languages but are now restricted to languages where the syntax is valid:
+
+| Annotation | Gates | Languages | Effect |
+|---|---|---|---|
+| `PostfixStar` | `has_postfix_star()` | C, Cpp, CSharp | `Config*` — no space before `*` |
+| `PostfixAmpersand` | `has_postfix_ampersand()` | Cpp only | `auto&` — no space before `&` |
+| `PostfixQuestion` | `has_postfix_question_type()` | CSharp, Dart, Kotlin, Swift, TypeScript | `int?` — no space before `?` |
+| `AssignAdjacent` | `is_shell()` | Bash, Zsh | `NAME=val` — no space around `=` |
+| `GenericOpen` (ordinary) | `has_angle_generics()` | Excludes C, Go, Haskell, OCaml, Php, Bash, Zsh, Ruby | `<` as generic opener |
+| `NullablePrefix` | `nullable_prefix_is_valid()` | Php, OCaml | `?User` — no space before `?` |
 
 ### Shell Languages (Bash, Zsh)
 
@@ -72,6 +95,39 @@ These share a common `is_shell()` check and enable:
   suppresses space after `$` (designed for shell `$VAR`). For Haskell, it sets
   `PrevTokenKind::Punct('$', Alone)` instead, allowing the normal spacing rule to insert a
   space — producing `putStrLn $ show 42`.
+
+### Ruby
+
+- **Symbol colon (`:name`)**: `:` span-adjacent to the next ident but NOT span-adjacent to the
+  previous token gets `SymbolColon` annotation — space before `:` but none after:
+  `attr_reader :name, :age`.
+- **Inheritance angle (`<`)**: `<` following an ident is marked `InheritanceAngle` instead of
+  `GenericOpen` — space before `<` is preserved: `class Dog < Animal`.
+- **No angle generics**: Ruby is excluded from `has_angle_generics()`, so `$T(...)<...>` does
+  not trigger `GenericOpen`.
+
+### PHP / OCaml
+
+- **Nullable prefix (`?User`)**: `?` span-adjacent to the following ident gets `NullablePrefix`
+  annotation — suppressing space on both sides: `?string`, `?User`.
+- **No angle generics**: Both are excluded from `has_angle_generics()`.
+
+### C / C++ / C#
+
+- **Postfix pointer (`Config*`)**: `*` span-adjacent to the preceding ident gets `PostfixStar`
+  — no space before: `Config* p`.
+- **Postfix reference (`auto&`)**: C++ only — `&` span-adjacent to the preceding ident gets
+  `PostfixAmpersand` — no space before: `auto& x`.
+- **Postfix nullable (`int?`)**: C# only — `?` span-adjacent to the preceding ident gets
+  `PostfixQuestion` — no space before: `int? count`.
+- **No angle generics** (C only): C is excluded from `has_angle_generics()`.
+
+### Inline `$for` / `$if` Meta-Directives
+
+`$for` and `$if` (with `$else_if`/`$else` chaining) now work inline — inside parenthesized
+groups, array/dict literals, function arguments, and indented blocks. They no longer require
+column-0 position. The parser produces `ParsedSplice` (no synthetic block delimiters) so inline
+output splices cleanly without stray `{}` or `:`.
 
 ## Universal Heuristics (all languages)
 
