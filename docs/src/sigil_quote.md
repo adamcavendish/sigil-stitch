@@ -865,6 +865,60 @@ sigil_quote!(TypeScript {
 # }
 ```
 
+### Inline Expressions
+
+`$for` and `$if` also work **inline** — inside parenthesized groups, array
+literals, object literals, and function arguments. They no longer need to be
+at column 0:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let items = vec!["hostname", "platform", "arch"];
+
+sigil_quote!(TypeScript {
+    const defaultKeys = [$for(item in &items) { $S(*item), }];
+})?;
+// Output: const defaultKeys = ['hostname', 'platform', 'arch'];
+# Ok(())
+# }
+```
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let is_admin = true;
+
+sigil_quote!(TypeScript {
+    setPermissions($if(is_admin) { "read-write" } $else { "read-only" });
+})?;
+// Output: setPermissions("read-write");
+# Ok(())
+# }
+```
+
+The `$if` / `$else_if` / `$else` chain also works inline:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let level: u32 = 2;
+
+sigil_quote!(TypeScript {
+    const label = $if(level == 0) { "trace" } $else_if(level == 1) { "debug" } $else { "info" };
+})?;
+// Output: const label = "info";
+# Ok(())
+# }
+```
+
+Inline meta-directives produce `ParsedSplice` output — the body is spliced
+directly into place without synthetic block delimiters. This means no stray
+`{}` in C-like languages and no stray `:` in Python.
+
 ## Meta-Bindings (`$let`)
 
 `$let` introduces a Rust-level `let` binding inside the macro body. It emits a

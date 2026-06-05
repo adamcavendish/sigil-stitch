@@ -1,6 +1,55 @@
 # Changelog
 
-## 0.6.6
+## 0.6.7
+
+### Added
+
+- **PHP language support** — `sigil_quote!(Php { ... })` for generating PHP code.
+- **Ruby language support** — `sigil_quote!(Ruby { ... })` with language-aware
+  annotations: `attr_reader :name` (space before `:`, none after) and
+  `class Dog < Animal` (space before `<` for inheritance).
+- **Inline `$for` and `$if`** — meta-directives now work anywhere in a template,
+  not just at column 0. Inside array/dict literals, function arguments, object
+  literals, and indented blocks. Uses `ParsedSplice` (no synthetic block
+  delimiters) so output splices cleanly without stray `{}` or `:`.
+- **Language-aware spacing** — the macro tokenizer now adapts spacing to the
+  target language:
+  - C/C++/C# `Config*` (postfix pointer) — tight, no space before `*`
+  - C++ `auto&` (postfix reference) — tight, no space before `&`
+  - C#/TS/Swift/Kotlin/Dart `int?` (postfix nullable) — tight, no space before `?`
+  - Bash/Zsh `NAME=val` — tight around `=`
+  - Ruby `attr_reader :name` — space before `:`, none after
+  - Ruby `class Dog < Animal` — space before `<` (inheritance, not generics)
+  - C no longer treats `<` as a generic opener
+- **New `MacroLang` variants** — C, Cpp, CSharp, Dart, Kotlin, Swift, TypeScript, Zsh
+  added to the enum for explicit language-aware behavior. No longer fall through
+  to `Unaware`.
+- **New examples** — `inline_control_flow` (inline `$for`/`$if` across 5 languages),
+  `language_spacing` (per-language spacing comparison across 9 features),
+  `zsh_codegen` (Zsh script generation).
+
+### Fixed
+
+- Compound operator `&&` / `**` second char no longer suppresses trailing space.
+  `a && b` correctly has space before `b` (infix). `&&str` / `**ptr` correctly
+  stay tight (prefix compound). `1 - -2` correctly keeps unary operator tight
+  before operand.
+- `PostfixQuestion` no longer false-positives on compact ternaries. `x?1:2`,
+  `x?y:z`, and `x?(a):b` are correctly detected as ternaries. TS optional
+  property `name?: string` is preserved as PostfixQuestion.
+- `$T(...)`-triggered `GenericOpen` marking now respects `has_angle_generics()` —
+  languages without `<>` generics no longer get spurious `GenericOpen`.
+- `?` `NullablePrefix` annotation now respects `nullable_prefix_is_valid()` —
+  only PHP and OCaml mark `?` as nullable prefix.
+- `:` post-emission reset now preserves group-level contexts (`MapEntry`,
+  `ForRange`) instead of unconditionally overwriting them.
+
+### Changed
+
+- `$for` / `$if` no longer require column-0 position in templates.
+- `has_statement_marker` now checks only `C_each` and `let` — `$for`/`$if` are
+  handled inline.
+- `MacroLang` enum expanded to 14 variants.
 
 ### Fixed
 

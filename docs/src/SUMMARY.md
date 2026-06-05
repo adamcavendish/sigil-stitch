@@ -23,6 +23,8 @@
   - [C](cookbook_c.md)
   - [C#](cookbook_csharp.md)
   - [Lua](cookbook_lua.md)
+  - [Ruby](cookbook_ruby.md)
+  - [PHP](cookbook_php.md)
   - [Scala](cookbook_scala.md)
   - [Haskell](cookbook_haskell.md)
   - [OCaml](cookbook_ocaml.md)
