@@ -87,6 +87,8 @@ pub mod import_collector;
 pub mod lang;
 /// Structural builders (TypeSpec, FunSpec, FileSpec, etc.) that emit `CodeBlock`s.
 pub mod spec;
+/// Exact rendered-code assertion helpers for tests.
+pub mod testing;
 /// Type references with recursive import tracking and pretty-printing.
 pub mod type_name;
 pub(crate) mod type_name_import;

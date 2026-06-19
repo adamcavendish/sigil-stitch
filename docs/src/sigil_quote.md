@@ -30,6 +30,46 @@ let block = sigil_quote!(TypeScript {
 The macro takes a language type followed by a braced body of target-language code.
 It returns `Result<CodeBlock, SigilStitchError>`.
 
+## Testing Quoted Fragments
+
+Use `assert_quote!` for small exact snapshots of inline quoted code:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::{assert_quote, prelude::*};
+# use sigil_stitch::lang::typescript::TypeScript;
+# fn main() {
+assert_quote!(TypeScript, {
+    const x = 1;
+}, "const x = 1;\n");
+# }
+```
+
+Use `assert_rendered!` when the block is built separately, needs imports, or uses
+a configured language instance:
+
+```rust
+# extern crate sigil_stitch;
+# use sigil_stitch::{assert_rendered, prelude::*};
+# use sigil_stitch::lang::python::Python;
+# use sigil_stitch::lang::config::QuoteStyle;
+# fn main() {
+let block = sigil_quote!(Python {
+    print($S("hi"))
+}).unwrap();
+
+assert_rendered!(
+    Python::new().with_quote_style(QuoteStyle::Double),
+    block,
+    "print(\"hi\")\n",
+);
+# }
+```
+
+Both helpers render through `FileSpec`, so import collection and language-specific
+rendering match real files. Comparisons are exact: indentation, whitespace, and
+final newlines are significant.
+
 ## Interpolation Markers
 
 | Syntax | Specifier | Argument Type | Purpose |
